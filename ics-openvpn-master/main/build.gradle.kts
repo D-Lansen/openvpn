@@ -28,8 +28,6 @@ android {
     }
 
 
-//    testOptions.unitTests.isIncludeAndroidResources = true
-
 //    externalNativeBuild {
 //        cmake {
 //            path = File("${projectDir}/src/main/cpp/CMakeLists.txt")
@@ -190,10 +188,4 @@ dependencies {
     dependencies.add("uiImplementation", "androidx.lifecycle:lifecycle-runtime-ktx:2.4.1")
     dependencies.add("uiImplementation","androidx.security:security-crypto:1.0.0")
 
-
-    testImplementation("org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.6.21")
-    testImplementation("junit:junit:4.13.2")
-    testImplementation("org.mockito:mockito-core:3.9.0")
-    testImplementation("org.robolectric:robolectric:4.5.1")
-    testImplementation("androidx.test:core:1.4.0")
 }
