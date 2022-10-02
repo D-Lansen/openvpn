@@ -97,6 +97,15 @@
             </intent-filter>
         </receiver>
 
+
+
+        <!--
+        <receiver android:name="core.GetRestrictionReceiver">
+            <intent-filter>
+                <action android:name="android.intent.action.GET_RESTRICTION_ENTRIES" />
+            </intent-filter>
+        </receiver>
+        -->
         <activity android:name=".api.RemoteAction" />
 
         <activity-alias
