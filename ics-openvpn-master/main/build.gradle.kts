@@ -27,9 +27,6 @@ android {
         }
     }
 
-
-//    testOptions.unitTests.isIncludeAndroidResources = true
-
 //    externalNativeBuild {
 //        cmake {
 //            path = File("${projectDir}/src/main/cpp/CMakeLists.txt")
