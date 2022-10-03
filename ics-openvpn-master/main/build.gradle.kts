@@ -27,11 +27,11 @@ android {
         }
     }
 
-//    externalNativeBuild {
-//        cmake {
-//            path = File("${projectDir}/src/main/cpp/CMakeLists.txt")
-//        }
-//    }
+    externalNativeBuild {
+        cmake {
+            path = File("${projectDir}/src/main/cpp/CMakeLists.txt")
+        }
+    }
 
     sourceSets {
         getByName("main") {
