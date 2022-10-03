@@ -4,4 +4,4 @@
  */
 
 include(":main")
-//include(":remoteExample")
+include(":remoteExample")
