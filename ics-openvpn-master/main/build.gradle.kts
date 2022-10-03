@@ -102,16 +102,15 @@ android {
         sourceCompatibility = JavaVersion.VERSION_1_8
     }
 
-//    splits {
-//        abi {
-//            isEnable = true
-//            reset()
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("x86_64")
 //            include("x86", "x86_64", "armeabi-v7a", "arm64-v8a")
-//            isUniversalApk = true
-//        }
-//    }
-
-
+            isUniversalApk = true
+        }
+    }
 }
 
 var swigcmd = "swig"
@@ -189,10 +188,4 @@ dependencies {
     dependencies.add("uiImplementation", "androidx.lifecycle:lifecycle-runtime-ktx:2.4.1")
     dependencies.add("uiImplementation","androidx.security:security-crypto:1.0.0")
 
-
-    testImplementation("org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.6.21")
-    testImplementation("junit:junit:4.13.2")
-    testImplementation("org.mockito:mockito-core:3.9.0")
-    testImplementation("org.robolectric:robolectric:4.5.1")
-    testImplementation("androidx.test:core:1.4.0")
 }
