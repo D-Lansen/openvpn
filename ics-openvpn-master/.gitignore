@@ -2,7 +2,7 @@ build/
 main/libs/
 main/ovpnlibs/
 main/obj/
-main/src/jniLibs
+main/src/jniLibs/
 main/.cxx/
 .DS_Store
 .navigation
