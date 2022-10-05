@@ -23,7 +23,7 @@
         android:label="@string/app"
         android:supportsRtl="true"
         android:theme="@style/blinkt"
-        tools:ignore="UnusedAttribute">
+        tools:ignore="AllowBackup">
         <meta-data
             android:name="android.content.APP_RESTRICTIONS"
             android:resource="@xml/app_restrictions" />

@@ -35,7 +35,7 @@ android {
 
     sourceSets {
         getByName("main") {
-            assets.srcDirs("src/main/assets", "build/ovpnassets")
+//            assets.srcDirs("src/main/assets", "build/ovpnassets")
         }
 
         create("skeleton") {
@@ -66,7 +66,14 @@ android {
     }
 
     lint {
-        enable += setOf("BackButton", "EasterEgg", "StopShip", "IconExpectedSize", "GradleDynamicVersion", "NewerVersionAvailable")
+        enable += setOf(
+            "BackButton",
+            "EasterEgg",
+            "StopShip",
+            "IconExpectedSize",
+            "GradleDynamicVersion",
+            "NewerVersionAvailable"
+        )
         checkOnly += setOf("ImpliedQuantity", "MissingQuantity")
         disable += setOf("MissingTranslation", "UnsafeNativeCodeLocation")
     }
@@ -129,13 +136,28 @@ fun registerGenTask(variantName: String, variantDirName: String): File {
         doFirst {
             mkdir(genDir)
         }
-        commandLine(listOf(swigcmd, "-outdir", genDir, "-outcurrentdir", "-c++", "-java", "-package", "net.openvpn.ovpn3",
-                "-Isrc/main/cpp/openvpn3/client", "-Isrc/main/cpp/openvpn3/",
+        commandLine(
+            listOf(
+                swigcmd,
+                "-outdir",
+                genDir,
+                "-outcurrentdir",
+                "-c++",
+                "-java",
+                "-package",
+                "net.openvpn.ovpn3",
+                "-Isrc/main/cpp/openvpn3/client",
+                "-Isrc/main/cpp/openvpn3/",
                 "-DOPENVPN_PLATFORM_ANDROID",
-                "-o", "${genDir}/ovpncli_wrap.cxx", "-oh", "${genDir}/ovpncli_wrap.h",
-                "src/main/cpp/openvpn3/client/ovpncli.i"))
-        inputs.files( "src/main/cpp/openvpn3/client/ovpncli.i")
-        outputs.dir( genDir)
+                "-o",
+                "${genDir}/ovpncli_wrap.cxx",
+                "-oh",
+                "${genDir}/ovpncli_wrap.h",
+                "src/main/cpp/openvpn3/client/ovpncli.i"
+            )
+        )
+        inputs.files("src/main/cpp/openvpn3/client/ovpncli.i")
+        outputs.dir(genDir)
 
     }
     return baseDir
@@ -166,7 +188,7 @@ dependencies {
 
     // Is there a nicer way to do this?
     dependencies.add("uiImplementation", "androidx.lifecycle:lifecycle-runtime-ktx:2.4.1")
-    dependencies.add("uiImplementation","androidx.security:security-crypto:1.0.0")
+    dependencies.add("uiImplementation", "androidx.security:security-crypto:1.0.0")
     dependencies.add("uiImplementation", "androidx.constraintlayout:constraintlayout:2.1.3")
     dependencies.add("uiImplementation", "org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.6.21")
     dependencies.add("uiImplementation", "androidx.cardview:cardview:1.0.0")
@@ -183,6 +205,6 @@ dependencies {
     dependencies.add("uiImplementation", "androidx.webkit:webkit:1.4.0")
     dependencies.add("uiImplementation", "androidx.lifecycle:lifecycle-viewmodel-ktx:2.4.1")
     dependencies.add("uiImplementation", "androidx.lifecycle:lifecycle-runtime-ktx:2.4.1")
-    dependencies.add("uiImplementation","androidx.security:security-crypto:1.0.0")
+    dependencies.add("uiImplementation", "androidx.security:security-crypto:1.0.0")
 
 }

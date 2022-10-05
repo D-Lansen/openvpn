@@ -510,15 +510,14 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
         if (profile == null)
             return;
         ShortcutManager shortcutManager = getSystemService(ShortcutManager.class);
-        if (shortcutManager!=null) {
+        if (shortcutManager != null) {
             /* This should never been null but I do not trust Android ROMs to do the right thing
              * anymore and neither seems Coverity */
             shortcutManager.reportShortcutUsed(profile.getUUIDString());
         }
     }
 
-    private VpnProfile fetchVPNProfile(Intent intent)
-    {
+    private VpnProfile fetchVPNProfile(Intent intent) {
         if (intent != null && intent.hasExtra(getPackageName() + ".profileUUID")) {
             String profileUUID = intent.getStringExtra(getPackageName() + ".profileUUID");
             int profileVersion = intent.getIntExtra(getPackageName() + ".profileVersion", 0);
@@ -736,8 +735,7 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
 
         VpnStatus.logInfo(R.string.last_openvpn_tun_config);
 
-        if (mProfile == null)
-        {
+        if (mProfile == null) {
             VpnStatus.logError("OpenVPN tries to open a VPN descriptor with mProfile==null, please report this bug with log!");
             return null;
         }
@@ -916,21 +914,18 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
 
     }
 
-    private void installRoutesExcluded(Builder builder, NetworkSpace routes)
-    {
-        for(IpAddress ipIncl: routes.getNetworks(true))
-        {
+    private void installRoutesExcluded(Builder builder, NetworkSpace routes) {
+        for (IpAddress ipIncl : routes.getNetworks(true)) {
             try {
                 builder.addRoute(ipIncl.getPrefix());
-            } catch (UnknownHostException|IllegalArgumentException ia) {
+            } catch (UnknownHostException | IllegalArgumentException ia) {
                 VpnStatus.logError(getString(R.string.route_rejected) + ipIncl + " " + ia.getLocalizedMessage());
             }
         }
-        for(IpAddress ipExcl: routes.getNetworks(false))
-        {
+        for (IpAddress ipExcl : routes.getNetworks(false)) {
             try {
                 builder.excludeRoute(ipExcl.getPrefix());
-            } catch (UnknownHostException|IllegalArgumentException ia) {
+            } catch (UnknownHostException | IllegalArgumentException ia) {
                 VpnStatus.logError(getString(R.string.route_rejected) + ipExcl + " " + ia.getLocalizedMessage());
             }
         }
@@ -990,7 +985,7 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
             if (ipAddr.equals(mLocalIP.mIp))
                 continue;
 
-            if(mProfile.mAllowLocalLAN)
+            if (mProfile.mAllowLocalLAN)
                 mRoutes.addIP(new CIDRIP(ipAddr, netMask), false);
         }
 
@@ -1293,13 +1288,11 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
     }
 
 
-    private Intent getWebAuthIntent(String url, boolean external, Notification.Builder nbuilder)
-    {
+    private Intent getWebAuthIntent(String url, boolean external, Notification.Builder nbuilder) {
         int reason = R.string.openurl_requested;
         nbuilder.setContentTitle(getString(reason));
-
         nbuilder.setContentText(url);
-        Intent intent = VariantConfig.getOpenUrlIntent(this, external);
+        Intent intent = new Intent(Intent.ACTION_VIEW);
         intent.setData(Uri.parse(url));
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         return intent;

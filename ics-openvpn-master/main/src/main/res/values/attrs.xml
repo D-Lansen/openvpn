@@ -6,7 +6,7 @@
   -->
 
 <resources>
-
+    <attr name="colorControlNormal" format="color" />
     <declare-styleable name="FileSelectLayout">
        <attr name="fileTitle" format="string|reference" />
       <attr name="certificate" format="boolean" />
