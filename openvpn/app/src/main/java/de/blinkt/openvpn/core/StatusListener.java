@@ -91,11 +91,9 @@ public class StatusListener implements VpnStatus.LogListener {
                     VpnStatus.initLogCache(mCacheDir);
                     /* Set up logging to Logcat with a context) */
 
-                    if (BuildConfig.DEBUG || BuildConfig.FLAVOR.equals("skeleton")) {
+                    if (BuildConfig.DEBUG) {
                         VpnStatus.addLogListener(StatusListener.this);
                     }
-
-
                 }
 
             } catch (RemoteException | IOException e) {
@@ -147,7 +145,7 @@ public class StatusListener implements VpnStatus.LogListener {
 
     private void logExitNotification(ApplicationExitInfo aei, String s) {
         if (aei != null) {
-            LogItem li = new LogItem(LogLevel.DEBUG, s + aei, aei.getTimestamp());
+            LogItem li = new LogItem(LogLevel.DEBUG, s + aei);
             VpnStatus.newLogItemIfUnique(li);
         }
     }
