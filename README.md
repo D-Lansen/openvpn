@@ -19,3 +19,5 @@ git pull
 git push
 
 git diff --cached
+
+git checkout
