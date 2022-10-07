@@ -914,6 +914,7 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
 
     }
 
+    @RequiresApi(api = 33)
     private void installRoutesExcluded(Builder builder, NetworkSpace routes) {
         for (IpAddress ipIncl : routes.getNetworks(true)) {
             try {

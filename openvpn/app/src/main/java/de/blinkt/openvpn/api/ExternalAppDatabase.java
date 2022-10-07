@@ -72,7 +72,7 @@ public class ExternalAppDatabase {
 	}
 
 
-	public String checkOpenVPNPermission(PackageManager pm) throws SecurityRemoteException {
+	public String checkOpenVPNPermission(PackageManager pm) {
 
 		for (String appPackage : getExtAppList()) {
 			ApplicationInfo app;

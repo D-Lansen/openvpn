@@ -8,6 +8,7 @@ package de.blinkt.openvpn.core;
 import android.net.IpPrefix;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
 
 import java.lang.reflect.Array;
 import java.math.BigInteger;
@@ -25,11 +26,9 @@ import java.util.Vector;
 import de.blinkt.openvpn.BuildConfig;
 
 
-
 public class NetworkSpace {
 
-    static void assertTrue(boolean f)
-    {
+    static void assertTrue(boolean f) {
         if (!f)
             throw new IllegalStateException();
     }
@@ -179,7 +178,7 @@ public class NetworkSpace {
                 long part = r.mod(BigInteger.valueOf(0x10000)).longValue();
                 if (ipv6str != null || part != 0) {
                     if (ipv6str == null && !lastPart)
-                            ipv6str = ":";
+                        ipv6str = ":";
 
                     if (lastPart)
                         ipv6str = String.format(Locale.US, "%x", part, ipv6str);
@@ -210,8 +209,9 @@ public class NetworkSpace {
 
         }
 
+        @RequiresApi(api = 33)
         public IpPrefix getPrefix() throws UnknownHostException {
-            if (isV4){
+            if (isV4) {
                 /* add 0x01 00 00 00 00, so that all representations are 5 byte otherwise
                 /* numbers that are above 0x7fffffff get a leading 0x00 byte to not be negative
                  and small number 1-3 bytes*/
@@ -220,9 +220,7 @@ public class NetworkSpace {
 
                 InetAddress inet4addr = Inet4Address.getByAddress(ipBytes);
                 return new IpPrefix(inet4addr, networkMask);
-            }
-            else
-            {
+            } else {
                 /* same dance for IPv6 */
                 byte[] ipBytes = netAddress.add(BigInteger.ONE.shiftLeft(128)).toByteArray();
                 ipBytes = Arrays.copyOfRange(ipBytes, 1, 17);
@@ -281,7 +279,7 @@ public class NetworkSpace {
             // Check if it and the next of it are compatible
             IpAddress nextNet = networks.poll();
 
-            if (BuildConfig.DEBUG) assertTrue(currentNet!=null);
+            if (BuildConfig.DEBUG) assertTrue(currentNet != null);
             if (nextNet == null || currentNet.getLastAddress().compareTo(nextNet.getFirstAddress()) == -1) {
                 // Everything good, no overlapping nothing to do
                 ipsDone.add(currentNet);

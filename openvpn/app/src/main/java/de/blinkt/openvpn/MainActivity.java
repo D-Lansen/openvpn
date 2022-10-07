@@ -18,6 +18,8 @@ import android.os.RemoteException;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -30,7 +32,7 @@ import java.net.UnknownHostException;
 import de.blinkt.openvpn.api.IOpenVPNAPIService;
 import de.blinkt.openvpn.api.IOpenVPNStatusCallback;
 
-public class MainActivity extends Activity implements Handler.Callback {
+public class MainActivity extends Activity {
 
     private static final int MSG_UPDATE_STATE = 0;
     private static final int MSG_UPDATE_MYIP = 1;
@@ -157,10 +159,24 @@ public class MainActivity extends Activity implements Handler.Callback {
 
     };
 
+    private void initHandler(){
+        mHandler = new Handler(new Handler.Callback() {
+            @Override
+            public boolean handleMessage(@NonNull Message msg) {
+                if (msg.what == MSG_UPDATE_STATE) {
+                    ((TextView) findViewById(R.id.status)).setText((CharSequence) msg.obj);
+                } else if (msg.what == MSG_UPDATE_MYIP) {
+                    ((TextView) findViewById(R.id.MyIpText)).setText((CharSequence) msg.obj);
+                }
+                return true;
+            }
+        });
+    }
+
     @Override
     public void onStart() {
         super.onStart();
-        mHandler = new Handler(this);
+        initHandler();
         bindService();
     }
 
@@ -222,13 +238,4 @@ public class MainActivity extends Activity implements Handler.Callback {
         }
     }
 
-    @Override
-    public boolean handleMessage(Message msg) {
-        if (msg.what == MSG_UPDATE_STATE) {
-            ((TextView) findViewById(R.id.status)).setText((CharSequence) msg.obj);
-        } else if (msg.what == MSG_UPDATE_MYIP) {
-            ((TextView) findViewById(R.id.MyIpText)).setText((CharSequence) msg.obj);
-        }
-        return true;
-    }
 }
