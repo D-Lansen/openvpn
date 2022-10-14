@@ -51,7 +51,6 @@ public class ConfirmDialog extends Activity {
                 Log.e(TAG, "onResume:", e);
             } finally {
                 finish();
-                unbindService(mConnection);
             }
         }
 
@@ -61,6 +60,12 @@ public class ConfirmDialog extends Activity {
         }
 
     };
+
+    @Override
+    protected void onPause(){
+        super.onPause();
+        unbindService(mConnection);
+    }
 
     @Override
     protected void onResume() {
