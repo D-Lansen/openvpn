@@ -184,7 +184,8 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
 
     @Override
     public boolean isAllowedExternalApp(String packagename) throws RemoteException {
-        return true;
+        return new ExternalAppDatabase(OpenVPNService.this)
+                .checkRemoteActionPermission(this, packagename);
     }
 
     @Override

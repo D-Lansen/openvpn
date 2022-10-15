@@ -27,11 +27,9 @@ public class ExternalAppDatabase {
 
     private final static String PREFERENCES_KEY = "allowed_apps";
 
-    boolean isAllowed(String packagename) {
+    public boolean isAllowed(String packagename) {
         Set<String> allowedapps = getExtAppList();
-
         return allowedapps.contains(packagename);
-
     }
 
     public Set<String> getExtAppList() {
@@ -82,6 +80,17 @@ public class ExternalAppDatabase {
 
         }
         throw new SecurityException("Unauthorized OpenVPN API Caller");
+    }
+
+    public boolean checkRemoteActionPermission(Context c, String callingPackage) {
+        if (callingPackage == null)
+            callingPackage = "de.blinkt.openvpn.ANYPACKAGE";
+
+        if (isAllowed(callingPackage)) {
+            return true;
+        } else {
+            return false;
+        }
     }
 
 }
