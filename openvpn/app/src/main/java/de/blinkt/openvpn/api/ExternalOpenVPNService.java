@@ -6,7 +6,6 @@
 package de.blinkt.openvpn.api;
 
 import android.annotation.TargetApi;
-import android.app.PendingIntent;
 import android.app.Service;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
@@ -14,11 +13,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
-import android.content.pm.ApplicationInfo;
-import android.content.pm.PackageManager;
-import android.content.pm.PackageManager.NameNotFoundException;
 import android.net.VpnService;
-import android.os.Binder;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -232,13 +227,11 @@ public class ExternalOpenVPNService extends Service implements StateListener {
 
 
         @Override
-        public Intent prepare(String packageName) {
+        public Intent prepare(String packageName) throws RemoteException {
             if (new ExternalAppDatabase(ExternalOpenVPNService.this).isAllowed(packageName))
                 return null;
-
-            Intent intent = new Intent();
-            intent.setClass(ExternalOpenVPNService.this, ConfirmDialog.class);
-            return intent;
+            mService.addAllowedExternalApp("de.blinkt.openvpn");
+            return null;
         }
 
         @Override
@@ -366,8 +359,6 @@ public class ExternalOpenVPNService extends Service implements StateListener {
 
                     callbacks = service.get().mCallbacks;
 
-
-                    // Broadcast to all clients the new value.
                     final int N = callbacks.beginBroadcast();
                     for (int i = 0; i < N; i++) {
                         try {
@@ -387,6 +378,5 @@ public class ExternalOpenVPNService extends Service implements StateListener {
             broadcastItem.newStatus(um.vpnUUID, um.state, um.logmessage, um.level.name());
         }
     }
-
 
 }

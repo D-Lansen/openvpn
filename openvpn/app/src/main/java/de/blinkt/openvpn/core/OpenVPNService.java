@@ -184,8 +184,7 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
 
     @Override
     public boolean isAllowedExternalApp(String packagename) throws RemoteException {
-        ExternalAppDatabase extapps = new ExternalAppDatabase(OpenVPNService.this);
-        return extapps.checkRemoteActionPermission(this, packagename);
+        return true;
     }
 
     @Override
@@ -323,7 +322,6 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
     private void lpNotificationExtras(Notification.Builder nbuilder, String category) {
         nbuilder.setCategory(category);
         nbuilder.setLocalOnly(true);
-
     }
 
     private boolean runningOnAndroidTV() {

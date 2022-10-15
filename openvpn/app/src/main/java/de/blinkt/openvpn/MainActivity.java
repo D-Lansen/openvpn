@@ -25,10 +25,8 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.lang.reflect.InvocationTargetException;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.net.UnknownHostException;
 
 import de.blinkt.openvpn.api.IOpenVPNAPIService;
 import de.blinkt.openvpn.api.IOpenVPNStatusCallback;
@@ -107,7 +105,6 @@ public class MainActivity extends Activity {
     private void startEmbeddedProfile() {
         try {
             InputStream conf;
-            /* Try opening test.local.conf first */
             try {
                 conf = this.getAssets().open("lichen02.ovpn");
             } catch (IOException e) {
@@ -138,14 +135,13 @@ public class MainActivity extends Activity {
 
         Intent intent = new Intent(getBaseContext(), OpenVPNService.class);
         intent.setAction(OpenVPNService.START_SERVICE);
-        bindService(intent, conn, Context.BIND_AUTO_CREATE);
+        this.bindService(intent, conn, Context.BIND_AUTO_CREATE);
     }
 
     private ServiceConnection mConnection = new ServiceConnection() {
         public void onServiceConnected(ComponentName className, IBinder service) {
             mService = IOpenVPNAPIService.Stub.asInterface(service);
             try {
-                // Request permission to use the API
                 Intent i = mService.prepare(this.getClass().getPackage().getName());
                 if (i != null) {
                     startActivityForResult(i, ICS_OPENVPN_PERMISSION);
@@ -158,8 +154,6 @@ public class MainActivity extends Activity {
         }
 
         public void onServiceDisconnected(ComponentName className) {
-            // This is called when the connection with the service has been
-            // unexpectedly disconnected -- that is, its process crashed.
             mService = null;
         }
     };
