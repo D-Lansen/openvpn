@@ -70,5 +70,15 @@
         android:layout_marginTop="17dp"
         android:text="profile" />
 
+    <Button
+        android:id="@+id/control"
+        android:layout_width="125dp"
+        android:layout_height="50dp"
+        android:layout_below="@+id/MyIpText"
+        android:layout_alignParentStart="true"
+        android:layout_alignParentLeft="true"
+        android:layout_marginStart="176dp"
+        android:layout_marginTop="15dp"
+        android:text="PAUSE" />
 
 </RelativeLayout>

@@ -38,14 +38,6 @@
             </intent-filter>
         </activity>
 
-        <activity
-            android:name=".api.DisconnectVPN"
-            android:autoRemoveFromRecents="true"
-            android:excludeFromRecents="true"
-            android:noHistory="true"
-            android:taskAffinity=".DisconnectVPN"
-            android:theme="@style/blinkt.dialog" />
-
         <service
             android:name=".core.OpenVPNService"
             android:exported="true"

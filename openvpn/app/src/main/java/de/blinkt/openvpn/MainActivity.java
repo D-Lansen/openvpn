@@ -15,6 +15,7 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
 import android.os.RemoteException;
+import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -31,6 +32,8 @@ import java.net.UnknownHostException;
 
 import de.blinkt.openvpn.api.IOpenVPNAPIService;
 import de.blinkt.openvpn.api.IOpenVPNStatusCallback;
+import de.blinkt.openvpn.core.IOpenVPNServiceInternal;
+import de.blinkt.openvpn.core.OpenVPNService;
 
 public class MainActivity extends Activity {
 
@@ -43,14 +46,34 @@ public class MainActivity extends Activity {
     private static final int PROFILE_ADD_NEW_EDIT = 9;
 
     protected IOpenVPNAPIService mService = null;
+    protected IOpenVPNServiceInternal m_service = null;
     private Handler mHandler;
     private String mStartUUID = null;
-
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        findViewById(R.id.control).setOnClickListener(v -> {
+            if (((Button) findViewById(R.id.control)).getText().toString().equals("RESUME")) {
+                try {
+                    m_service.userPause(false);
+                } catch (RemoteException e) {
+                    e.printStackTrace();
+                }
+                ((Button) findViewById(R.id.control)).setText("PAUSE");
+                return;
+            }
+            if (((Button) findViewById(R.id.control)).getText().toString().equals("PAUSE")) {
+                try {
+                    m_service.userPause(true);
+                } catch (RemoteException e) {
+                    e.printStackTrace();
+                }
+                ((Button) findViewById(R.id.control)).setText("RESUME");
+                return;
+            }
+        });
         findViewById(R.id.disconnect).setOnClickListener(v -> {
             try {
                 mService.disconnect();
@@ -112,6 +135,10 @@ public class MainActivity extends Activity {
         Intent openvpnService = new Intent(IOpenVPNAPIService.class.getName());
         openvpnService.setPackage("de.blinkt.openvpn");
         this.bindService(openvpnService, mConnection, Context.BIND_AUTO_CREATE);
+
+        Intent intent = new Intent(getBaseContext(), OpenVPNService.class);
+        intent.setAction(OpenVPNService.START_SERVICE);
+        bindService(intent, conn, Context.BIND_AUTO_CREATE);
     }
 
     private ServiceConnection mConnection = new ServiceConnection() {
@@ -137,9 +164,18 @@ public class MainActivity extends Activity {
         }
     };
 
-    private void unbindService() {
-        this.unbindService(mConnection);
-    }
+    private ServiceConnection conn = new ServiceConnection() {
+
+        @Override
+        public void onServiceConnected(ComponentName className, IBinder service) {
+            m_service = IOpenVPNServiceInternal.Stub.asInterface(service);
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName arg0) {
+            m_service = null;
+        }
+    };
 
     private IOpenVPNStatusCallback mCallback = new IOpenVPNStatusCallback.Stub() {
         /**
@@ -159,7 +195,7 @@ public class MainActivity extends Activity {
 
     };
 
-    private void initHandler(){
+    private void initHandler() {
         mHandler = new Handler(new Handler.Callback() {
             @Override
             public boolean handleMessage(@NonNull Message msg) {
@@ -177,13 +213,14 @@ public class MainActivity extends Activity {
     public void onStart() {
         super.onStart();
         initHandler();
-        bindService();
+        this.bindService();
     }
 
     @Override
     public void onStop() {
         super.onStop();
-        unbindService();
+        this.unbindService(mConnection);
+        this.unbindService(conn);
     }
 
     @Override
@@ -219,8 +256,7 @@ public class MainActivity extends Activity {
         }
     }
 
-    public String getMyOwnIP() throws UnknownHostException, IOException, RemoteException,
-            IllegalArgumentException, IllegalAccessException, InvocationTargetException, NoSuchMethodException {
+    public String getMyOwnIP() throws IOException {
         StringBuilder resp = new StringBuilder();
 
         URL url = new URL("https://icanhazip.com");
