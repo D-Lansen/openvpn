@@ -23,12 +23,10 @@ import android.content.pm.ShortcutManager;
 import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.net.ConnectivityManager;
-import android.net.IpPrefix;
 import android.net.ProxyInfo;
 import android.net.Uri;
 import android.net.VpnService;
 import android.os.Build;
-import android.os.Bundle;
 import android.os.Handler;
 import android.os.Handler.Callback;
 import android.os.HandlerThread;
@@ -57,10 +55,9 @@ import java.util.Locale;
 import java.util.Vector;
 import java.util.concurrent.ExecutionException;
 
-import de.blinkt.openvpn.LaunchVPN;
 import de.blinkt.openvpn.R;
 import de.blinkt.openvpn.VpnProfile;
-import de.blinkt.openvpn.activities.DisconnectVPN;
+import de.blinkt.openvpn.api.DisconnectVPN;
 import de.blinkt.openvpn.api.ExternalAppDatabase;
 import de.blinkt.openvpn.core.VpnStatus.ByteCountListener;
 import de.blinkt.openvpn.core.VpnStatus.StateListener;
@@ -398,16 +395,6 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
             nbuilder.addAction(R.drawable.ic_menu_play,
                     getString(R.string.resumevpn), resumeVPNPending);
         }
-    }
-
-    PendingIntent getUserInputIntent(String needed) {
-        Intent intent = new Intent(getApplicationContext(), LaunchVPN.class);
-        intent.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
-        intent.putExtra("need", needed);
-        Bundle b = new Bundle();
-        b.putString("need", needed);
-        PendingIntent pIntent = PendingIntent.getActivity(this, 12, intent, PendingIntent.FLAG_IMMUTABLE);
-        return pIntent;
     }
 
     PendingIntent getGraphPendingIntent() {
