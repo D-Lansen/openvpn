@@ -62,13 +62,6 @@
             android:exported="false"
             android:process=":openvpn" />
 
-        <activity android:name=".api.GrantPermissionsActivity"
-                android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-            </intent-filter>
-        </activity>
-
         <receiver android:name=".OnBootReceiver"
                 android:exported="true">
             <intent-filter android:priority="999">
