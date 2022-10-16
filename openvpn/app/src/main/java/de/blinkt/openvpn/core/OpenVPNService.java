@@ -57,7 +57,6 @@ import java.util.concurrent.ExecutionException;
 
 import de.blinkt.openvpn.R;
 import de.blinkt.openvpn.VpnProfile;
-import de.blinkt.openvpn.api.ExternalAppDatabase;
 import de.blinkt.openvpn.core.VpnStatus.ByteCountListener;
 import de.blinkt.openvpn.core.VpnStatus.StateListener;
 
@@ -178,14 +177,12 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
 
     @Override
     public void addAllowedExternalApp(String packagename) throws RemoteException {
-        ExternalAppDatabase extapps = new ExternalAppDatabase(OpenVPNService.this);
-        extapps.addApp(packagename);
+        return;
     }
 
     @Override
     public boolean isAllowedExternalApp(String packagename) throws RemoteException {
-        return new ExternalAppDatabase(OpenVPNService.this)
-                .checkRemoteActionPermission(this, packagename);
+        return true;
     }
 
     @Override
