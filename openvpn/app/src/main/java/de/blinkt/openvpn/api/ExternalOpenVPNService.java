@@ -119,7 +119,6 @@ public class ExternalOpenVPNService extends Service implements StateListener {
             return profiles;
         }
 
-
         private void startProfile(VpnProfile vp) {
             VPNLaunchHelper.startOpenVpn(vp, getBaseContext());
         }
@@ -130,7 +129,6 @@ public class ExternalOpenVPNService extends Service implements StateListener {
             VpnProfile vp = ProfileManager.get(getBaseContext(), profileUUID);
             if (vp.checkProfile(getApplicationContext()) != R.string.no_error_found)
                 throw new RemoteException(getString(vp.checkProfile(getApplicationContext())));
-
             startProfile(vp);
         }
 
@@ -169,7 +167,6 @@ public class ExternalOpenVPNService extends Service implements StateListener {
         public boolean addVPNProfile(String name, String config) throws RemoteException {
             return addNewVPNProfile(name, true, config) != null;
         }
-
 
         @Override
         public APIVpnProfile addNewVPNProfile(String name, boolean userEditable, String config) throws RemoteException {
@@ -221,28 +218,20 @@ public class ExternalOpenVPNService extends Service implements StateListener {
 
         @Override
         public Intent prepareVPNService() throws RemoteException {
-            if (VpnService.prepare(ExternalOpenVPNService.this) == null)
-                return null;
-            else
-                return VpnService.prepare(getBaseContext());
+            return VpnService.prepare(getBaseContext());
         }
-
 
         @Override
         public void registerStatusCallback(IOpenVPNStatusCallback cb) throws RemoteException {
-
             if (cb != null) {
                 cb.newStatus(mMostRecentState.vpnUUID, mMostRecentState.state,
-                        mMostRecentState.logmessage, mMostRecentState.level.name());
+                        mMostRecentState.logMessage, mMostRecentState.level.name());
                 mCallbacks.register(cb);
             }
-
-
         }
 
         @Override
         public void unregisterStatusCallback(IOpenVPNStatusCallback cb) throws RemoteException {
-
             if (cb != null)
                 mCallbacks.unregister(cb);
         }
@@ -286,13 +275,13 @@ public class ExternalOpenVPNService extends Service implements StateListener {
 
     class UpdateMessage {
         public String state;
-        public String logmessage;
+        public String logMessage;
         public ConnectionStatus level;
         String vpnUUID;
 
-        UpdateMessage(String state, String logmessage, ConnectionStatus level) {
+        UpdateMessage(String state, String logMessage, ConnectionStatus level) {
             this.state = state;
-            this.logmessage = logmessage;
+            this.logMessage = logMessage;
             this.level = level;
         }
     }
@@ -350,7 +339,7 @@ public class ExternalOpenVPNService extends Service implements StateListener {
 
         private void sendUpdate(IOpenVPNStatusCallback broadcastItem,
                                 UpdateMessage um) throws RemoteException {
-            broadcastItem.newStatus(um.vpnUUID, um.state, um.logmessage, um.level.name());
+            broadcastItem.newStatus(um.vpnUUID, um.state, um.logMessage, um.level.name());
         }
     }
 
