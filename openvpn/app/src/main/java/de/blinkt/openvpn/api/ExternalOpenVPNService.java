@@ -105,35 +105,15 @@ public class ExternalOpenVPNService extends Service implements StateListener {
     private final IOpenVPNAPIService.Stub mBinder = new IOpenVPNAPIService.Stub() {
 
         @Override
-        public List<APIVpnProfile> getProfiles() throws RemoteException {
-
-            ProfileManager pm = ProfileManager.getInstance(getBaseContext());
-
-            List<APIVpnProfile> profiles = new LinkedList<>();
-
-            for (VpnProfile vp : pm.getProfiles()) {
-                if (!vp.profileDeleted)
-                    profiles.add(new APIVpnProfile(vp.getUUIDString(), vp.mName, vp.mUserEditable, vp.mProfileCreator));
-            }
-
-            return profiles;
-        }
-
-        private void startProfile(VpnProfile vp) {
+        public void startProfile(String profileUUID) throws RemoteException {
+            VpnProfile vp = ProfileManager.get(getBaseContext(), profileUUID);
+            if (vp.checkProfile(getApplicationContext()) != R.string.no_error_found)
+                throw new RemoteException(getString(vp.checkProfile(getApplicationContext())));
             VPNLaunchHelper.startOpenVpn(vp, getBaseContext());
         }
 
         @Override
-        public void startProfile(String profileUUID) throws RemoteException {
-
-            VpnProfile vp = ProfileManager.get(getBaseContext(), profileUUID);
-            if (vp.checkProfile(getApplicationContext()) != R.string.no_error_found)
-                throw new RemoteException(getString(vp.checkProfile(getApplicationContext())));
-            startProfile(vp);
-        }
-
-        @Override
-        public void startVPNwithExtras(String inlineConfig, Bundle extras) throws RemoteException {
+        public void startVPN(String inlineConfig) throws RemoteException {
 
             ConfigParser cp = new ConfigParser();
             try {
@@ -145,58 +125,13 @@ public class ExternalOpenVPNService extends Service implements StateListener {
 
                 vp.mProfileCreator = PACKAGE_NAME;
 
-                if (extras != null) {
-                    vp.mAllowAppVpnBypass = extras.getBoolean(EXTRA_INLINE_PROFILE_ALLOW_VPN_BYPASS, false);
-                }
-
                 ProfileManager.setTemporaryProfile(ExternalOpenVPNService.this, vp);
 
-                startProfile(vp);
+                VPNLaunchHelper.startOpenVpn(vp, getBaseContext());
 
             } catch (IOException | ConfigParseError e) {
                 throw new RemoteException(e.getMessage());
             }
-        }
-
-        @Override
-        public void startVPN(String inlineConfig) throws RemoteException {
-            startVPNwithExtras(inlineConfig, null);
-        }
-
-        @Override
-        public boolean addVPNProfile(String name, String config) throws RemoteException {
-            return addNewVPNProfile(name, true, config) != null;
-        }
-
-        @Override
-        public APIVpnProfile addNewVPNProfile(String name, boolean userEditable, String config) throws RemoteException {
-
-            ConfigParser cp = new ConfigParser();
-            try {
-                cp.parseConfig(new StringReader(config));
-                VpnProfile vp = cp.convertProfile();
-                vp.mName = name;
-                vp.mProfileCreator = PACKAGE_NAME;
-                vp.mUserEditable = userEditable;
-                ProfileManager pm = ProfileManager.getInstance(getBaseContext());
-                pm.addProfile(vp);
-                pm.saveProfile(ExternalOpenVPNService.this, vp);
-                pm.saveProfileList(ExternalOpenVPNService.this);
-                return new APIVpnProfile(vp.getUUIDString(), vp.mName, vp.mUserEditable, vp.mProfileCreator);
-            } catch (IOException e) {
-                VpnStatus.logException(e);
-                return null;
-            } catch (ConfigParseError e) {
-                VpnStatus.logException(e);
-                return null;
-            }
-        }
-
-        @Override
-        public void removeProfile(String profileUUID) throws RemoteException {
-            ProfileManager pm = ProfileManager.getInstance(getBaseContext());
-            VpnProfile vp = ProfileManager.get(getBaseContext(), profileUUID);
-            pm.removeProfile(ExternalOpenVPNService.this, vp);
         }
 
         @Override
@@ -208,17 +143,6 @@ public class ExternalOpenVPNService extends Service implements StateListener {
             } catch (IOException e) {
                 throw new RemoteException(e.getMessage());
             }
-        }
-
-
-        @Override
-        public Intent prepare(String packageName) throws RemoteException {
-            return null;
-        }
-
-        @Override
-        public Intent prepareVPNService() throws RemoteException {
-            return VpnService.prepare(getBaseContext());
         }
 
         @Override

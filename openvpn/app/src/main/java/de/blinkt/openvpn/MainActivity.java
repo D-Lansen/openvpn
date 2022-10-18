@@ -10,6 +10,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.net.VpnService;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
@@ -45,7 +46,7 @@ public class MainActivity extends Activity {
 
     protected IOpenVPNAPIService mService = null;
     protected IOpenVPNServiceInternal m_service = null;
-    private Handler mHandler;
+    private Handler mHandler = null;
     private String mStartUUID = null;
 
     @Override
@@ -141,16 +142,7 @@ public class MainActivity extends Activity {
     private ServiceConnection mConnection = new ServiceConnection() {
         public void onServiceConnected(ComponentName className, IBinder service) {
             mService = IOpenVPNAPIService.Stub.asInterface(service);
-            try {
-                Intent i = mService.prepare(this.getClass().getPackage().getName());
-                if (i != null) {
-                    startActivityForResult(i, ICS_OPENVPN_PERMISSION);
-                } else {
-                    onActivityResult(ICS_OPENVPN_PERMISSION, Activity.RESULT_OK, null);
-                }
-            } catch (RemoteException e) {
-                e.printStackTrace();
-            }
+            onActivityResult(ICS_OPENVPN_PERMISSION, Activity.RESULT_OK, null);
         }
 
         public void onServiceDisconnected(ComponentName className) {
@@ -186,7 +178,6 @@ public class MainActivity extends Activity {
             Message msg = Message.obtain(mHandler, MSG_UPDATE_STATE, state + "|" + message);
             msg.sendToTarget();
         }
-
     };
 
     private void initHandler() {
@@ -242,7 +233,7 @@ public class MainActivity extends Activity {
     }
 
     private void prepareStartProfile(int requestCode) throws RemoteException {
-        Intent requestpermission = mService.prepareVPNService();
+        Intent requestpermission = VpnService.prepare(getBaseContext());
         if (requestpermission == null) {
             onActivityResult(requestCode, Activity.RESULT_OK, null);
         } else {
@@ -253,7 +244,7 @@ public class MainActivity extends Activity {
     public String getMyOwnIP() throws IOException {
         StringBuilder resp = new StringBuilder();
 
-        URL url = new URL("https://icanhazip.com");
+        URL url = new URL("https://myip.ipip.net/");
         HttpURLConnection urlConnection = (HttpURLConnection) url.openConnection();
         try {
             BufferedReader in = new BufferedReader(new InputStreamReader(urlConnection.getInputStream()));
