@@ -11,6 +11,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.net.VpnService;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
@@ -33,7 +34,6 @@ import de.blinkt.openvpn.core.ConfigParser;
 import de.blinkt.openvpn.core.IOpenVPNServiceInternal;
 import de.blinkt.openvpn.core.OpenVPNService;
 import de.blinkt.openvpn.core.ProfileManager;
-import de.blinkt.openvpn.core.VPNLaunchHelper;
 
 public class MainActivity extends Activity {
 
@@ -137,13 +137,19 @@ public class MainActivity extends Activity {
 
             ProfileManager.setTemporaryProfile(MainActivity.this, vp);
 
-            VPNLaunchHelper.startOpenVpn(vp, getBaseContext());
+            Context context = getBaseContext();
+            Intent startVPN = vp.getStartServiceIntent(context);
+            if (startVPN != null) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+                    context.startForegroundService(startVPN);
+                else
+                    context.startService(startVPN);
+            }
 
         } catch (IOException | ConfigParser.ConfigParseError e) {
             Log.e("MainActivity", "startVpn.err:" + e.getMessage());
         }
     }
-
 
     private void bindService() {
         Intent intent = new Intent(getBaseContext(), OpenVPNService.class);
@@ -167,7 +173,7 @@ public class MainActivity extends Activity {
     private void initHandler() {
         mHandler = new Handler(new Handler.Callback() {
             @Override
-            public boolean handleMessage( Message msg) {
+            public boolean handleMessage(Message msg) {
                 if (msg.what == MSG_UPDATE_MYIP) {
                     ((TextView) findViewById(R.id.MyIpText)).setText((CharSequence) msg.obj);
                 }

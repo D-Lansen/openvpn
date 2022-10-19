@@ -15,15 +15,7 @@ interface IOpenVPNServiceInternal {
 
     void userPause(boolean b);
 
-    /**
-     * @param replaceConnection True if the VPN is connected by a new connection.
-     * @return true if there was a process that has been send a stop signal
-     */
     boolean stopVPN(boolean replaceConnection);
-
-    void addAllowedExternalApp(String packagename);
-
-    boolean isAllowedExternalApp(String packagename);
 
     void challengeResponse(String repsonse);
 }

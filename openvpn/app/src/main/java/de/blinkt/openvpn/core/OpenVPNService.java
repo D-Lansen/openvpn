@@ -113,17 +113,6 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
         }
 
         @Override
-        public void addAllowedExternalApp(String packagename) throws RemoteException {
-            OpenVPNService.this.addAllowedExternalApp(packagename);
-        }
-
-        @Override
-        public boolean isAllowedExternalApp(String packagename) throws RemoteException {
-            return OpenVPNService.this.isAllowedExternalApp(packagename);
-
-        }
-
-        @Override
         public void challengeResponse(String repsonse) throws RemoteException {
             OpenVPNService.this.challengeResponse(repsonse);
         }
@@ -173,16 +162,6 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
                     return res.getString(R.string.volume_gbyte, bytesUnit);
 
             }
-    }
-
-    @Override
-    public void addAllowedExternalApp(String packagename) throws RemoteException {
-        return;
-    }
-
-    @Override
-    public boolean isAllowedExternalApp(String packagename) throws RemoteException {
-        return true;
     }
 
     @Override

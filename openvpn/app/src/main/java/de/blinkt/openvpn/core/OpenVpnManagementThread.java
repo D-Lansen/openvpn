@@ -141,15 +141,12 @@ public class OpenVpnManagementThread implements Runnable, OpenVPNManagement {
         }
 
         try {
-
             mServerSocket = new LocalServerSocket(mServerSocketLocal.getFileDescriptor());
             return true;
         } catch (IOException e) {
             VpnStatus.logException(e);
         }
         return false;
-
-
     }
 
     /**

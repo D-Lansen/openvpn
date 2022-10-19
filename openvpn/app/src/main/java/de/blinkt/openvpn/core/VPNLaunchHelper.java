@@ -20,6 +20,7 @@ import de.blinkt.openvpn.R;
 import de.blinkt.openvpn.VpnProfile;
 
 public class VPNLaunchHelper {
+
     private static final String MINIPIEVPN = "pie_openvpn";
 
     private static String writeMiniVPN(Context context) {
@@ -45,7 +46,6 @@ public class VPNLaunchHelper {
 
         throw new RuntimeException("Cannot find any executable for this device's ABIs " + Arrays.toString(abis));
     }
-
 
     static String[] buildOpenvpnArgv(Context c) {
         Vector<String> args = new Vector<>();
@@ -99,16 +99,13 @@ public class VPNLaunchHelper {
 
     }
 
-
     public static void startOpenVpn(VpnProfile startprofile, Context context) {
-        Intent startVPN = startprofile.prepareStartService(context);
+        Intent startVPN = startprofile.getStartServiceIntent(context);
         if (startVPN != null) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-                //noinspection NewApi
                 context.startForegroundService(startVPN);
             else
                 context.startService(startVPN);
-
         }
     }
 }
