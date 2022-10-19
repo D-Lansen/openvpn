@@ -16,6 +16,7 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
 import android.os.RemoteException;
+import android.util.Log;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -26,25 +27,22 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.StringReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 
-import de.blinkt.openvpn.api.IOpenVPNAPIService;
-import de.blinkt.openvpn.api.IOpenVPNStatusCallback;
+import de.blinkt.openvpn.core.ConfigParser;
 import de.blinkt.openvpn.core.IOpenVPNServiceInternal;
 import de.blinkt.openvpn.core.OpenVPNService;
+import de.blinkt.openvpn.core.ProfileManager;
+import de.blinkt.openvpn.core.VPNLaunchHelper;
 
 public class MainActivity extends Activity {
 
     private static final int MSG_UPDATE_STATE = 0;
     private static final int MSG_UPDATE_MYIP = 1;
     private static final int START_PROFILE = 2;
-    private static final int START_PROFILE_BYUUID = 3;
-    private static final int ICS_OPENVPN_PERMISSION = 7;
-    private static final int PROFILE_ADD_NEW = 8;
-    private static final int PROFILE_ADD_NEW_EDIT = 9;
 
-    protected IOpenVPNAPIService mService = null;
     protected IOpenVPNServiceInternal m_service = null;
     private Handler mHandler = null;
     private String mStartUUID = null;
@@ -75,7 +73,7 @@ public class MainActivity extends Activity {
         });
         findViewById(R.id.disconnect).setOnClickListener(v -> {
             try {
-                mService.disconnect();
+                m_service.stopVPN(false);
             } catch (RemoteException e) {
                 e.printStackTrace();
             }
@@ -122,33 +120,39 @@ public class MainActivity extends Activity {
             }
             br.close();
             conf.close();
-            mService.startVPN(config.toString());
-        } catch (IOException | RemoteException e) {
+            startVpn(config.toString());
+        } catch (IOException e) {
             e.printStackTrace();
         }
         Toast.makeText(this, "Profile Add", Toast.LENGTH_LONG).show();
     }
 
-    private void bindService() {
-        Intent openvpnService = new Intent(IOpenVPNAPIService.class.getName());
-        openvpnService.setPackage("de.blinkt.openvpn");
-        this.bindService(openvpnService, mConnection, Context.BIND_AUTO_CREATE);
+    public void startVpn(String inlineConfig) {
+        ConfigParser cp = new ConfigParser();
+        try {
+            cp.parseConfig(new StringReader(inlineConfig));
+            VpnProfile vp = cp.convertProfile();
+            vp.mName = "Remote APP VPN";
+            if (vp.checkProfile(getApplicationContext()) != R.string.no_error_found)
+                Log.e("MainActivity", "startVpn.err:" + getString(vp.checkProfile(getApplicationContext())));
 
+            vp.mProfileCreator = "de.blinkt.openvpn";
+
+            ProfileManager.setTemporaryProfile(MainActivity.this, vp);
+
+            VPNLaunchHelper.startOpenVpn(vp, getBaseContext());
+
+        } catch (IOException | ConfigParser.ConfigParseError e) {
+            Log.e("MainActivity", "startVpn.err:" + e.getMessage());
+        }
+    }
+
+
+    private void bindService() {
         Intent intent = new Intent(getBaseContext(), OpenVPNService.class);
         intent.setAction(OpenVPNService.START_SERVICE);
         this.bindService(intent, conn, Context.BIND_AUTO_CREATE);
     }
-
-    private ServiceConnection mConnection = new ServiceConnection() {
-        public void onServiceConnected(ComponentName className, IBinder service) {
-            mService = IOpenVPNAPIService.Stub.asInterface(service);
-            onActivityResult(ICS_OPENVPN_PERMISSION, Activity.RESULT_OK, null);
-        }
-
-        public void onServiceDisconnected(ComponentName className) {
-            mService = null;
-        }
-    };
 
     private ServiceConnection conn = new ServiceConnection() {
 
@@ -163,30 +167,11 @@ public class MainActivity extends Activity {
         }
     };
 
-    private IOpenVPNStatusCallback mCallback = new IOpenVPNStatusCallback.Stub() {
-        /**
-         * This is called by the remote service regularly to tell us about
-         * new values.  Note that IPC calls are dispatched through a thread
-         * pool running in each process, so the code executing here will
-         * NOT be running in our main thread like most other things -- so,
-         * to update the UI, we need to use a Handler to hop over there.
-         */
-
-        @Override
-        public void newStatus(String uuid, String state, String message, String level)
-                throws RemoteException {
-            Message msg = Message.obtain(mHandler, MSG_UPDATE_STATE, state + "|" + message);
-            msg.sendToTarget();
-        }
-    };
-
     private void initHandler() {
         mHandler = new Handler(new Handler.Callback() {
             @Override
             public boolean handleMessage(@NonNull Message msg) {
-                if (msg.what == MSG_UPDATE_STATE) {
-                    ((TextView) findViewById(R.id.status)).setText((CharSequence) msg.obj);
-                } else if (msg.what == MSG_UPDATE_MYIP) {
+                if (msg.what == MSG_UPDATE_MYIP) {
                     ((TextView) findViewById(R.id.MyIpText)).setText((CharSequence) msg.obj);
                 }
                 return true;
@@ -204,29 +189,13 @@ public class MainActivity extends Activity {
     @Override
     public void onStop() {
         super.onStop();
-        this.unbindService(mConnection);
         this.unbindService(conn);
     }
 
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         if (resultCode == Activity.RESULT_OK) {
-            if (requestCode == START_PROFILE_BYUUID)
-                try {
-                    mService.startProfile(mStartUUID);
-                } catch (RemoteException e) {
-                    e.printStackTrace();
-                }
-            if (requestCode == ICS_OPENVPN_PERMISSION) {
-                try {
-                    mService.registerStatusCallback(mCallback);
-                } catch (RemoteException e) {
-                    e.printStackTrace();
-                }
-            }
-            if ((requestCode == PROFILE_ADD_NEW) ||
-                    (requestCode == PROFILE_ADD_NEW_EDIT) ||
-                    (requestCode == START_PROFILE)) {
+            if (requestCode == START_PROFILE) {
                 startEmbeddedProfile();
             }
         }
@@ -243,7 +212,12 @@ public class MainActivity extends Activity {
 
     public String getMyOwnIP() throws IOException {
         StringBuilder resp = new StringBuilder();
-
+//        https://ipv4.ddnspod.com
+//        https://api-ipv4.ip.sb/ip
+//        https://myip.ipip.net
+//        https://ddns.oray.com/checkip
+//        https://speed.neu.edu.cn/getIP.php
+//        https://icanhazip.com
         URL url = new URL("https://myip.ipip.net/");
         HttpURLConnection urlConnection = (HttpURLConnection) url.openConnection();
         try {
@@ -258,5 +232,4 @@ public class MainActivity extends Activity {
             urlConnection.disconnect();
         }
     }
-
 }

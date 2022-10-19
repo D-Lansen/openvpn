@@ -48,15 +48,6 @@
             </intent-filter>
         </service>
         <service
-            android:name=".api.ExternalOpenVPNService"
-            android:process=":openvpn"
-            android:exported="true"
-                tools:ignore="ExportedService">
-            <intent-filter>
-                <action android:name="de.blinkt.openvpn.api.IOpenVPNAPIService" />
-            </intent-filter>
-        </service>
-        <service
             android:name=".core.OpenVPNStatusService"
             android:exported="false"
             android:process=":openvpn" />
