@@ -13,10 +13,6 @@ public interface IOpenVpnServiceInternal {
 
     boolean stopVPN(boolean replaceConnection);
 
-    void addAllowedExternalApp(String packageName);
-
-    boolean isAllowedExternalApp(String packageName);
-
     void challengeResponse(String response);
 
 }

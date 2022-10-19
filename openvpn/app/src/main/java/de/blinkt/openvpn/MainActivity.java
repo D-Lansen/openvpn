@@ -21,8 +21,6 @@ import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.annotation.NonNull;
-
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -45,7 +43,6 @@ public class MainActivity extends Activity {
 
     protected IOpenVPNServiceInternal m_service = null;
     private Handler mHandler = null;
-    private String mStartUUID = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -170,7 +167,7 @@ public class MainActivity extends Activity {
     private void initHandler() {
         mHandler = new Handler(new Handler.Callback() {
             @Override
-            public boolean handleMessage(@NonNull Message msg) {
+            public boolean handleMessage( Message msg) {
                 if (msg.what == MSG_UPDATE_MYIP) {
                     ((TextView) findViewById(R.id.MyIpText)).setText((CharSequence) msg.obj);
                 }
