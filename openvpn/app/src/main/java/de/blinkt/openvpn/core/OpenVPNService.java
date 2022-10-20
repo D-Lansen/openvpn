@@ -328,8 +328,7 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
         }
     }
 
-    private void jbNotificationExtras(int priority,
-                                      android.app.Notification.Builder nbuilder) {
+    private void jbNotificationExtras(int priority, android.app.Notification.Builder nbuilder) {
         try {
             if (priority != 0) {
                 Method setpriority = nbuilder.getClass().getMethod("setPriority", int.class);
@@ -1318,5 +1317,5 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
 
         mNotificationManager.notify(notificationId, notification);
     }
-    
+
 }

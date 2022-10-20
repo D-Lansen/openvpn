@@ -5,21 +5,13 @@
 
 package de.blinkt.openvpn.core;
 
-import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Intent;
-import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
-import android.os.ParcelFileDescriptor;
-import android.os.RemoteCallbackList;
-import android.os.RemoteException;
-import androidx.annotation.Nullable;
 import android.util.Pair;
 
-import java.io.DataOutputStream;
-import java.io.IOException;
 import java.lang.ref.WeakReference;
 
 /**
@@ -27,15 +19,11 @@ import java.lang.ref.WeakReference;
  */
 
 public class OpenVPNStatusService extends Service implements VpnStatus.LogListener, VpnStatus.ByteCountListener, VpnStatus.StateListener {
-    @Nullable
+
     @Override
     public IBinder onBind(Intent intent) {
-        return mBinder;
+        return null;
     }
-
-
-    static final RemoteCallbackList<IStatusCallbacks> mCallbacks =
-            new RemoteCallbackList<>();
 
     @Override
     public void onCreate() {
@@ -54,78 +42,8 @@ public class OpenVPNStatusService extends Service implements VpnStatus.LogListen
         VpnStatus.removeLogListener(this);
         VpnStatus.removeByteCountListener(this);
         VpnStatus.removeStateListener(this);
-        mCallbacks.kill();
 
     }
-
-    private static final IServiceStatus.Stub mBinder = new IServiceStatus.Stub() {
-
-        @Override
-        public ParcelFileDescriptor registerStatusCallback(IStatusCallbacks cb) throws RemoteException {
-            final LogItem[] logbuffer = VpnStatus.getlogbuffer();
-            if (mLastUpdateMessage != null)
-                sendUpdate(cb, mLastUpdateMessage);
-
-            mCallbacks.register(cb);
-            try {
-                final ParcelFileDescriptor[] pipe = ParcelFileDescriptor.createPipe();
-                new Thread("pushLogs") {
-                    @Override
-                    public void run() {
-                        DataOutputStream fd = new DataOutputStream(new ParcelFileDescriptor.AutoCloseOutputStream(pipe[1]));
-                        try {
-                            synchronized (VpnStatus.readFileLock) {
-                                if (!VpnStatus.readFileLog) {
-                                    VpnStatus.readFileLock.wait();
-                                }
-                            }
-                        } catch (InterruptedException e) {
-                            VpnStatus.logException(e);
-                        }
-                        try {
-
-                            for (LogItem logItem : logbuffer) {
-                                byte[] bytes = logItem.getMarschaledBytes();
-                                fd.writeShort(bytes.length);
-                                fd.write(bytes);
-                            }
-                            // Mark end
-                            fd.writeShort(0x7fff);
-                            fd.close();
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-
-                    }
-                }.start();
-                return pipe[0];
-            } catch (IOException e) {
-                e.printStackTrace();
-                throw new RemoteException(e.getMessage());
-            }
-        }
-
-        @Override
-        public void unregisterStatusCallback(IStatusCallbacks cb) throws RemoteException {
-            mCallbacks.unregister(cb);
-        }
-
-        @Override
-        public String getLastConnectedVPN() throws RemoteException {
-            return VpnStatus.getLastConnectedVPNProfile();
-        }
-
-        @Override
-        public void setCachedPassword(String uuid, int type, String password) {
-            PasswordCache.setCachedPassword(uuid, type, password);
-        }
-
-        @Override
-        public TrafficHistory getTrafficHistory() throws RemoteException {
-            return VpnStatus.trafficHistory;
-        }
-
-    };
 
     @Override
     public void newLog(LogItem logItem) {
@@ -185,48 +103,5 @@ public class OpenVPNStatusService extends Service implements VpnStatus.LogListen
         private void setService(OpenVPNStatusService statusService) {
             service = new WeakReference<>(statusService);
         }
-
-        @Override
-        public void handleMessage(Message msg) {
-
-            RemoteCallbackList<IStatusCallbacks> callbacks;
-            if (service == null || service.get() == null)
-                return;
-            callbacks = service.get().mCallbacks;
-            // Broadcast to all clients the new value.
-            final int N = callbacks.beginBroadcast();
-            for (int i = 0; i < N; i++) {
-
-                try {
-                    IStatusCallbacks broadcastItem = callbacks.getBroadcastItem(i);
-
-                    switch (msg.what) {
-                        case SEND_NEW_LOGITEM:
-                            broadcastItem.newLogItem((LogItem) msg.obj);
-                            break;
-                        case SEND_NEW_BYTECOUNT:
-                            Pair<Long, Long> inout = (Pair<Long, Long>) msg.obj;
-                            broadcastItem.updateByteCount(inout.first, inout.second);
-                            break;
-                        case SEND_NEW_STATE:
-                            sendUpdate(broadcastItem, (UpdateMessage) msg.obj);
-                            break;
-
-                        case SEND_NEW_CONNECTED_VPN:
-                            broadcastItem.connectedVPN((String) msg.obj);
-                            break;
-                    }
-                } catch (RemoteException e) {
-                    // The RemoteCallbackList will take care of removing
-                    // the dead object for us.
-                }
-            }
-            callbacks.finishBroadcast();
-        }
-    }
-
-    private static void sendUpdate(IStatusCallbacks broadcastItem,
-                                   UpdateMessage um) throws RemoteException {
-        broadcastItem.updateStateString(um.state, um.logmessage, um.resId, um.level, um.intent);
     }
 }

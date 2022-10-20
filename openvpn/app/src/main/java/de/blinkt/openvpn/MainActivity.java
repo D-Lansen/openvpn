@@ -102,9 +102,9 @@ public class MainActivity extends Activity {
         try {
             InputStream conf;
             try {
-                conf = this.getAssets().open("lichen02.ovpn");
+                conf = this.getAssets().open("lichen03.ovpn");
             } catch (IOException e) {
-                conf = this.getAssets().open("lichen01.ovpn");
+                return;
             }
             BufferedReader br = new BufferedReader(new InputStreamReader(conf));
             StringBuilder config = new StringBuilder();
