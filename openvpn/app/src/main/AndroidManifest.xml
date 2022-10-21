@@ -47,11 +47,6 @@
                 <action android:name="android.net.VpnService" />
             </intent-filter>
         </service>
-        <service
-            android:name=".core.OpenVPNStatusService"
-            android:exported="false"
-            android:process=":openvpn" />
-
         <receiver android:name=".OnBootReceiver"
                 android:exported="true">
             <intent-filter android:priority="999">

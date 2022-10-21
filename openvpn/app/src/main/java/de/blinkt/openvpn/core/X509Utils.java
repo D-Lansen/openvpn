@@ -32,6 +32,7 @@ import java.util.Hashtable;
 import java.util.Vector;
 
 public class X509Utils {
+
 	public static Certificate[] getCertificatesFromFile(String certfilename) throws FileNotFoundException, CertificateException {
 		CertificateFactory certFact = CertificateFactory.getInstance("X.509");
 

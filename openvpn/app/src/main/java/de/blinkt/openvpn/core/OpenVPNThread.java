@@ -148,32 +148,6 @@ public class OpenVPNThread implements Runnable {
                 if (logline.startsWith(DUMP_PATH_STRING))
                     mDumpPath = logline.substring(DUMP_PATH_STRING.length());
 
-                Matcher m = LOG_PATTERN.matcher(logline);
-                if (m.matches()) {
-                    int flags = Integer.parseInt(m.group(3), 16);
-                    String msg = m.group(4);
-                    int logLevel = flags & 0x0F;
-
-                    VpnStatus.LogLevel logStatus = VpnStatus.LogLevel.INFO;
-
-                    if ((flags & M_FATAL) != 0)
-                        logStatus = VpnStatus.LogLevel.ERROR;
-                    else if ((flags & M_NONFATAL) != 0)
-                        logStatus = VpnStatus.LogLevel.WARNING;
-                    else if ((flags & M_WARN) != 0)
-                        logStatus = VpnStatus.LogLevel.WARNING;
-                    else if ((flags & M_DEBUG) != 0)
-                        logStatus = VpnStatus.LogLevel.VERBOSE;
-
-                    if (msg.startsWith("MANAGEMENT: CMD"))
-                        logLevel = Math.max(4, logLevel);
-
-                    VpnStatus.logMessageOpenVPN(logStatus, logLevel, msg);
-                    VpnStatus.addExtraHints(msg);
-                } else {
-                    VpnStatus.logInfo("P:" + logline);
-                }
-
                 if (Thread.interrupted()) {
                     throw new InterruptedException("OpenVpn process was killed form java code");
                 }

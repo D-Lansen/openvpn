@@ -39,12 +39,8 @@ public class VpnStatus {
     private static HandlerThread mHandlerThread;
 
     private static String mLastConnectedVPNUUID;
-    static boolean readFileLog =false;
+    static boolean readFileLog = false;
     final static java.lang.Object readFileLock = new Object();
-
-
-    public static TrafficHistory trafficHistory;
-
 
     public static void logException(LogLevel ll, String context, Throwable e) {
         StringWriter sw = new StringWriter();
@@ -129,24 +125,19 @@ public class VpnStatus {
     }
 
     public static void flushLog() {
-        if (mLogFileHandler!=null)
+        if (mLogFileHandler != null)
             mLogFileHandler.sendEmptyMessage(LogFileHandler.FLUSH_TO_DISK);
     }
 
     public synchronized static void setConnectedVPNProfile(String uuid) {
         mLastConnectedVPNUUID = uuid;
-        for (StateListener sl: stateListener)
+        for (StateListener sl : stateListener)
             sl.setConnectedVPN(uuid);
     }
 
 
-    public static String getLastConnectedVPNProfile()
-    {
+    public static String getLastConnectedVPNProfile() {
         return mLastConnectedVPNUUID;
-    }
-
-    public static void setTrafficHistory(TrafficHistory trafficHistory) {
-        VpnStatus.trafficHistory = trafficHistory;
     }
 
     public enum LogLevel {
@@ -201,7 +192,6 @@ public class VpnStatus {
         logListener = new Vector<>();
         stateListener = new Vector<>();
         byteCountListener = new Vector<>();
-        trafficHistory = new TrafficHistory();
 
         logInformation();
 
@@ -238,7 +228,7 @@ public class VpnStatus {
         String nativeAPI;
         try {
             nativeAPI = NativeUtils.getNativeAPI();
-        } catch (UnsatisfiedLinkError|NoClassDefFoundError ignore) {
+        } catch (UnsatisfiedLinkError | NoClassDefFoundError ignore) {
             nativeAPI = "error";
         }
 
@@ -255,8 +245,6 @@ public class VpnStatus {
     }
 
     public synchronized static void addByteCountListener(ByteCountListener bcl) {
-        TrafficHistory.LastDiff diff = trafficHistory.getLastDiff(null);
-        bcl.updateByteCount(diff.getIn(), diff.getOut(), diff.getDiffIn(),diff.getDiffOut());
         byteCountListener.add(bcl);
     }
 
@@ -372,8 +360,7 @@ public class VpnStatus {
         updateStateString(state, msg, rid, level);
     }
 
-    public synchronized static void updateStateString(String state, String msg, int resid, ConnectionStatus level)
-    {
+    public synchronized static void updateStateString(String state, String msg, int resid, ConnectionStatus level) {
         updateStateString(state, msg, resid, level, null);
     }
 
@@ -423,8 +410,7 @@ public class VpnStatus {
         newLogItem(li, false, true);
     }
 
-    public static void newLogItem(LogItem logItem, boolean cachedLine)
-    {
+    public static void newLogItem(LogItem logItem, boolean cachedLine) {
         newLogItem(logItem, cachedLine, false);
     }
 
@@ -455,15 +441,14 @@ public class VpnStatus {
         /* Shortcut for the shortcut that it should be added at the
          * end to avoid traversing the list
          */
-        if (!logbuffer.isEmpty() && logbuffer.getLast().getLogtime() <= logItem.getLogtime())
-        {
+        if (!logbuffer.isEmpty() && logbuffer.getLast().getLogtime() <= logItem.getLogtime()) {
             logbuffer.addLast(logItem);
             return;
         }
 
         ListIterator<LogItem> itr = logbuffer.listIterator();
         long newItemLogTime = logItem.getLogtime();
-        while(itr.hasNext()) {
+        while (itr.hasNext()) {
             LogItem laterLogItem = itr.next();
             if (enforceUnique && laterLogItem.equals(logItem))
                 /* Identical object found, ignore new item */
@@ -508,20 +493,11 @@ public class VpnStatus {
     }
 
 
-    public static void addExtraHints(String msg) {
-        if ((msg.endsWith("md too weak") && msg.startsWith("OpenSSL: error")) || msg.contains("error:140AB18E")
-                || msg.contains("SSL_CA_MD_TOO_WEAK") || (msg.contains("ca md too weak")))
-            logError("OpenSSL reported a certificate with a weak hash, please see the in app FAQ about weak hashes.");
-        if ((msg.contains("digital envelope routines::unsupported")))
-            logError("The encryption method of your private keys/pkcs12 might be outdated and you probably need to enable " +
-                    "the OpenSSL legacy provider to be able to use this profile.");
-    }
-
     public static synchronized void updateByteCount(long in, long out) {
-        TrafficHistory.LastDiff diff = trafficHistory.add(in, out);
-
-        for (ByteCountListener bcl : byteCountListener) {
-            bcl.updateByteCount(in, out, diff.getDiffIn(), diff.getDiffOut());
-        }
+//        TrafficHistory.LastDiff diff = trafficHistory.add(in, out);
+//
+//        for (ByteCountListener bcl : byteCountListener) {
+//            bcl.updateByteCount(in, out, diff.getDiffIn(), diff.getDiffOut());
+//        }
     }
 }

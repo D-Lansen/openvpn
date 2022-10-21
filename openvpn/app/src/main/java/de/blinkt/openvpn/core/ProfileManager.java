@@ -54,7 +54,6 @@ public class ProfileManager {
     private static void checkInstance(Context context) {
         if (instance == null) {
             instance = new ProfileManager();
-            ProfileEncryption.initMasterCryptAlias();
             instance.loadVPNList(context);
         }
     }
@@ -122,43 +121,15 @@ public class ProfileManager {
 
         File encryptedFileOld = context.getFileStreamPath(filename + ".cpold");
 
-        if (encryptedFileOld.exists())
-        {
+        if (encryptedFileOld.exists()) {
             encryptedFileOld.delete();
         }
 
         String deleteIfExists;
         try {
             FileOutputStream vpnFileOut;
-            if (preferEncryption && ProfileEncryption.encryptionEnabled()) {
-                File encryptedFile = context.getFileStreamPath(filename + ".cp");
-
-                if (encryptedFile.exists())
-                {
-                    if (!encryptedFile.renameTo(encryptedFileOld))
-                    {
-                        VpnStatus.logInfo("Cannot rename " + encryptedFile);
-                    }
-                }
-                try {
-                    vpnFileOut = ProfileEncryption.getEncryptedVpOutput(context, encryptedFile);
-                    deleteIfExists = filename + ".vp";
-                    if (encryptedFileOld.exists()) {
-                        encryptedFileOld.delete();
-                    }
-                } catch (IOException ioe)
-                {
-                    VpnStatus.logException(VpnStatus.LogLevel.INFO, "Error trying to write an encrypted VPN profile, disabling " +
-                            "encryption", ioe);
-                    encryptionBroken = true;
-                    saveProfile(context, profile);
-                    return;
-                }
-            }
-            else {
-                vpnFileOut = context.openFileOutput(filename + ".vp", Activity.MODE_PRIVATE);
-                deleteIfExists = filename + ".cp";
-            }
+            vpnFileOut = context.openFileOutput(filename + ".vp", Activity.MODE_PRIVATE);
+            deleteIfExists = filename + ".cp";
 
             vpnFile = new ObjectOutputStream(vpnFileOut);
 
@@ -167,14 +138,11 @@ public class ProfileManager {
             vpnFile.close();
 
             File delete = context.getFileStreamPath(deleteIfExists);
-            if (delete.exists())
-            {
+            if (delete.exists()) {
                 //noinspection ResultOfMethodCallIgnored
                 delete.delete();
             }
-
-
-        } catch (IOException | GeneralSecurityException e) {
+        } catch (IOException e) {
             VpnStatus.logException("saving VPN profile", e);
             throw new RuntimeException(e);
         }
@@ -257,10 +225,10 @@ public class ProfileManager {
     /**
      * Checks if a profile has been added deleted since last loading and will update its
      * profiles
+     *
      * @param context
      */
-    public synchronized void refreshVPNList(Context context)
-    {
+    public synchronized void refreshVPNList(Context context) {
         SharedPreferences listpref = Preferences.getSharedPreferencesMulti(PREFS_NAME, context);
         Set<String> vlist = listpref.getStringSet("vpnlist", null);
         if (vlist == null)
@@ -272,13 +240,11 @@ public class ProfileManager {
         }
 
         Vector<String> removeUuids = new Vector<>();
-        for (String profileuuid:profiles.keySet())
-        {
+        for (String profileuuid : profiles.keySet()) {
             if (!vlist.contains(profileuuid))
                 removeUuids.add(profileuuid);
         }
-        for (String uuid: removeUuids)
-        {
+        for (String uuid : removeUuids) {
             profiles.remove(uuid);
         }
     }
@@ -306,9 +272,9 @@ public class ProfileManager {
             File encryptedPathOld = context.getFileStreamPath(vpnentry + ".cpold");
 
             if (encryptedPath.exists()) {
-                vpInput = ProfileEncryption.getEncryptedVpInput(context, encryptedPath);
+                throw new GeneralSecurityException("encryption of file not supported in this build");
             } else if (encryptedPathOld.exists()) {
-                vpInput = ProfileEncryption.getEncryptedVpInput(context, encryptedPathOld);
+                throw new GeneralSecurityException("encryption of file not supported in this build");
             } else {
                 vpInput = context.openFileInput(vpnentry + ".vp");
             }

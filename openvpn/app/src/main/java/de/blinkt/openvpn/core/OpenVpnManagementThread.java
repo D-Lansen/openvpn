@@ -13,10 +13,13 @@ import android.net.LocalSocketAddress;
 import android.os.Build;
 import android.os.Handler;
 import android.os.ParcelFileDescriptor;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
+
 import android.system.Os;
 import android.util.Log;
+
 import de.blinkt.openvpn.R;
 import de.blinkt.openvpn.VpnProfile;
 
@@ -239,7 +242,7 @@ public class OpenVpnManagementThread implements Runnable, OpenVPNManagement {
             fdClose(fd);
 
             return;
-        } catch ( NoSuchMethodException | IllegalArgumentException | InvocationTargetException | IllegalAccessException | NullPointerException e) {
+        } catch (NoSuchMethodException | IllegalArgumentException | InvocationTargetException | IllegalAccessException | NullPointerException e) {
             VpnStatus.logException("Failed to retrieve fd from socket (" + fd + ")", e);
         }
 
@@ -280,7 +283,7 @@ public class OpenVpnManagementThread implements Runnable, OpenVPNManagement {
 
             switch (cmd) {
                 case "INFO":
-                /* Ignore greeting from management */
+                    /* Ignore greeting from management */
                     return;
                 case "PASSWORD":
                     processPWCommand(argument);
@@ -328,15 +331,11 @@ public class OpenVpnManagementThread implements Runnable, OpenVPNManagement {
         }
     }
 
-    private void processInfoMessage(String info)
-    {
+    private void processInfoMessage(String info) {
         if (info.startsWith("OPEN_URL:") || info.startsWith("CR_TEXT:")
-            || info.startsWith("WEB_AUTH:"))
-        {
+                || info.startsWith("WEB_AUTH:")) {
             mOpenVPNService.trigger_sso(info);
-        }
-        else
-        {
+        } else {
             VpnStatus.logDebug("Info message from server:" + info);
         }
     }
@@ -496,7 +495,7 @@ public class OpenVpnManagementThread implements Runnable, OpenVPNManagement {
 
             VpnStatus.logInfo(R.string.using_proxy, proxyname, proxyname);
 
-            String pwstr =  usePwAuth ? " auto" : "";
+            String pwstr = usePwAuth ? " auto" : "";
 
             String proxycmd = String.format(Locale.ENGLISH, "proxy %s %s %s%s\n",
                     proxyType == Connection.ProxyType.HTTP ? "HTTP" : "SOCKS",
@@ -522,9 +521,6 @@ public class OpenVpnManagementThread implements Runnable, OpenVPNManagement {
         int comma = argument.indexOf(',');
         long in = Long.parseLong(argument.substring(0, comma));
         long out = Long.parseLong(argument.substring(comma + 1));
-
-        VpnStatus.updateByteCount(in, out);
-
     }
 
     private void processNeedCommand(String argument) {
@@ -535,7 +531,6 @@ public class OpenVpnManagementThread implements Runnable, OpenVPNManagement {
         String extra = argument.split(":", 2)[1];
 
         String status = "ok";
-
 
         switch (needed) {
             case "PROTECTFD":
@@ -552,15 +547,7 @@ public class OpenVpnManagementThread implements Runnable, OpenVPNManagement {
             case "ROUTE": {
                 String[] routeparts = extra.split(" ");
 
-            /*
-            buf_printf (&out, "%s %s %s dev %s", network, netmask, gateway, rgi->iface);
-            else
-            buf_printf (&out, "%s %s %s", network, netmask, gateway);
-            */
-
                 if (routeparts.length == 5) {
-                    //if (BuildConfig.DEBUG)
-                    //                assertEquals("dev", routeparts[3]);
                     mOpenVPNService.addRoute(routeparts[0], routeparts[1], routeparts[2], routeparts[4]);
                 } else if (routeparts.length >= 3) {
                     mOpenVPNService.addRoute(routeparts[0], routeparts[1], routeparts[2], null);
@@ -701,7 +688,7 @@ public class OpenVpnManagementThread implements Runnable, OpenVPNManagement {
                 break;
         }
         if (pw != null) {
-            if (username !=null) {
+            if (username != null) {
                 String usercmd = String.format("username '%s' %s\n",
                         needed, VpnProfile.openVpnEscape(username));
                 managmentCommand(usercmd);
@@ -736,7 +723,7 @@ public class OpenVpnManagementThread implements Runnable, OpenVPNManagement {
 
     @Override
     public void sendCRResponse(String response) {
-        managmentCommand("cr-response "  + response + "\n");
+        managmentCommand("cr-response " + response + "\n");
     }
 
     public void signalusr1() {
@@ -762,18 +749,18 @@ public class OpenVpnManagementThread implements Runnable, OpenVPNManagement {
 
 
         SignaturePadding padding = SignaturePadding.NO_PADDING;
-        String saltlen="";
-        String hashalg="";
+        String saltlen = "";
+        String hashalg = "";
         boolean needsDigest = false;
 
-        for (int i=1;i < arguments.length;i++) {
+        for (int i = 1; i < arguments.length; i++) {
             String arg = arguments[i];
-            if(arg.equals("RSA_PKCS1_PADDING"))
+            if (arg.equals("RSA_PKCS1_PADDING"))
                 padding = SignaturePadding.RSA_PKCS1_PADDING;
             else if (arg.equals("RSA_PKCS1_PSS_PADDING"))
                 padding = SignaturePadding.RSA_PKCS1_PSS_PADDING;
             else if (arg.startsWith("saltlen="))
-                saltlen= arg.substring(8);
+                saltlen = arg.substring(8);
             else if (arg.startsWith("hashalg="))
                 hashalg = arg.substring(8);
             else if (arg.equals("data=message"))
