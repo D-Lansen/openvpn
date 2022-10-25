@@ -10,12 +10,10 @@ import android.content.Intent;
 import android.net.LocalServerSocket;
 import android.net.LocalSocket;
 import android.net.LocalSocketAddress;
-import android.os.Build;
 import android.os.Handler;
 import android.os.ParcelFileDescriptor;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.RequiresApi;
 
 import android.system.Os;
 import android.util.Log;
@@ -93,7 +91,6 @@ public class OpenVpnManagementThread implements Runnable, OpenVPNManagement {
             VpnStatus.logWarning("Orbot integration for external applications is disabled. Waiting %ds before connecting to the default port. Enable external app integration in Orbot or use Socks v5 config instead of Orbot to avoid this delay.");
         }
     };
-    private transient Connection mCurrentProxyConnection;
 
     public OpenVpnManagementThread(VpnProfile profile, OpenVPNService openVpnService) {
         mProfile = profile;
@@ -286,7 +283,7 @@ public class OpenVpnManagementThread implements Runnable, OpenVPNManagement {
                     /* Ignore greeting from management */
                     return;
                 case "PASSWORD":
-                    processPWCommand(argument);
+//                    processPWCommand(argument);
                     break;
                 case "HOLD":
                     handleHold(argument);
@@ -305,13 +302,13 @@ public class OpenVpnManagementThread implements Runnable, OpenVPNManagement {
                     processProxyCMD(argument);
                     break;
                 case "LOG":
-                    processLogMessage(argument);
+//                    processLogMessage(argument);
                     break;
                 case "PK_SIGN":
-                    processSignCommand(argument);
+//                    processSignCommand(argument);
                     break;
                 case "INFOMSG":
-                    processInfoMessage(argument);
+//                    processInfoMessage(argument);
                     break;
                 default:
                     VpnStatus.logWarning("MGMT: Got unrecognized command" + command);
@@ -329,59 +326,6 @@ public class OpenVpnManagementThread implements Runnable, OpenVPNManagement {
             Log.i(TAG, "Got unrecognized line from managment" + command);
             VpnStatus.logWarning("MGMT: Got unrecognized line from management:" + command);
         }
-    }
-
-    private void processInfoMessage(String info) {
-        if (info.startsWith("OPEN_URL:") || info.startsWith("CR_TEXT:")
-                || info.startsWith("WEB_AUTH:")) {
-            mOpenVPNService.trigger_sso(info);
-        } else {
-            VpnStatus.logDebug("Info message from server:" + info);
-        }
-    }
-
-    private void processLogMessage(String argument) {
-        String[] args = argument.split(",", 4);
-        // 0 unix time stamp
-        // 1 log level N,I,E etc.
-                /*
-                  (b) zero or more message flags in a single string:
-          I -- informational
-          F -- fatal error
-          N -- non-fatal error
-          W -- warning
-          D -- debug, and
-                 */
-        // 2 log message
-
-        Log.d("OpenVPN", argument);
-
-        VpnStatus.LogLevel level;
-        switch (args[1]) {
-            case "I":
-                level = VpnStatus.LogLevel.INFO;
-                break;
-            case "W":
-                level = VpnStatus.LogLevel.WARNING;
-                break;
-            case "D":
-                level = VpnStatus.LogLevel.VERBOSE;
-                break;
-            case "F":
-                level = VpnStatus.LogLevel.ERROR;
-                break;
-            default:
-                level = VpnStatus.LogLevel.INFO;
-                break;
-        }
-
-        int ovpnlevel = Integer.parseInt(args[2]) & 0x0F;
-        String msg = args[3];
-
-        if (msg.startsWith("MANAGEMENT: CMD"))
-            ovpnlevel = Math.max(4, ovpnlevel);
-
-        VpnStatus.logMessageOpenVPN(level, ovpnlevel, msg);
     }
 
     boolean shouldBeRunning() {
@@ -448,8 +392,6 @@ public class OpenVpnManagementThread implements Runnable, OpenVPNManagement {
             proxyport = connection.mProxyPort;
             proxyUseAuth = connection.mUseProxyAuth;
 
-            // Use transient variable to remember http user/password
-            mCurrentProxyConnection = connection;
 
         } else {
             VpnStatus.logError(String.format(Locale.ENGLISH, "OpenVPN is asking for a proxy of an unknown connection entry (%d)", connectionEntryNumber));
@@ -644,68 +586,6 @@ public class OpenVpnManagementThread implements Runnable, OpenVPNManagement {
         return false;
     }
 
-    private void processPWCommand(String argument) {
-        //argument has the form 	Need 'Private Key' password
-        // or  ">PASSWORD:Verification Failed: '%s' ['%s']"
-        String needed;
-
-
-        try {
-            // Ignore Auth token message, already managed by openvpn itself
-            if (argument.startsWith("Auth-Token:")) {
-                return;
-            }
-
-            int p1 = argument.indexOf('\'');
-            int p2 = argument.indexOf('\'', p1 + 1);
-            needed = argument.substring(p1 + 1, p2);
-            if (argument.startsWith("Verification Failed")) {
-                proccessPWFailed(needed, argument.substring(p2 + 1));
-                return;
-            }
-        } catch (StringIndexOutOfBoundsException sioob) {
-            VpnStatus.logError("Could not parse management Password command: " + argument);
-            return;
-        }
-
-        String pw = null;
-        String username = null;
-
-        switch (needed) {
-            case "Private Key":
-                pw = mProfile.getPasswordPrivateKey();
-                break;
-            case "Auth":
-                pw = mProfile.getPasswordAuth();
-                username = mProfile.mUsername;
-
-                break;
-            case "HTTP Proxy":
-                if (mCurrentProxyConnection != null) {
-                    pw = mCurrentProxyConnection.mProxyAuthPassword;
-                    username = mCurrentProxyConnection.mProxyAuthUser;
-                }
-                break;
-        }
-        if (pw != null) {
-            if (username != null) {
-                String usercmd = String.format("username '%s' %s\n",
-                        needed, VpnProfile.openVpnEscape(username));
-                managmentCommand(usercmd);
-            }
-            String cmd = String.format("password '%s' %s\n", needed, VpnProfile.openVpnEscape(pw));
-            managmentCommand(cmd);
-        } else {
-            mOpenVPNService.requestInputFromUser(R.string.password, needed);
-            VpnStatus.logError(String.format("Openvpn requires Authentication type '%s' but no password/key information available", needed));
-        }
-
-    }
-
-    private void proccessPWFailed(String needed, String args) {
-        VpnStatus.updateStateString("AUTH_FAILED", needed + args, R.string.state_auth_failed, ConnectionStatus.LEVEL_AUTH_FAILED);
-    }
-
     @Override
     public void networkChange(boolean samenetwork) {
         if (mWaitingForRelease)
@@ -741,45 +621,6 @@ public class OpenVpnManagementThread implements Runnable, OpenVPNManagement {
         releaseHold();
     }
 
-    private void processSignCommand(String argument) {
-
-        String[] arguments = argument.split(",");
-
-        // NC9t8IkYrjAQcCzc85zN0H5TvwfAUDwYkR4j2ga6fGw=,RSA_PKCS1_PSS_PADDING,hashalg=SHA256,saltlen=digest
-
-
-        SignaturePadding padding = SignaturePadding.NO_PADDING;
-        String saltlen = "";
-        String hashalg = "";
-        boolean needsDigest = false;
-
-        for (int i = 1; i < arguments.length; i++) {
-            String arg = arguments[i];
-            if (arg.equals("RSA_PKCS1_PADDING"))
-                padding = SignaturePadding.RSA_PKCS1_PADDING;
-            else if (arg.equals("RSA_PKCS1_PSS_PADDING"))
-                padding = SignaturePadding.RSA_PKCS1_PSS_PADDING;
-            else if (arg.startsWith("saltlen="))
-                saltlen = arg.substring(8);
-            else if (arg.startsWith("hashalg="))
-                hashalg = arg.substring(8);
-            else if (arg.equals("data=message"))
-                needsDigest = true;
-        }
-
-        String signed_string = mProfile.getSignedData(mOpenVPNService, arguments[0], padding, saltlen, hashalg, needsDigest);
-
-        if (signed_string == null) {
-            managmentCommand("pk-sig\n");
-            managmentCommand("\nEND\n");
-            stopOpenVPN();
-            return;
-        }
-        managmentCommand("pk-sig\n");
-        managmentCommand(signed_string);
-        managmentCommand("\nEND\n");
-    }
-
     @Override
     public void pause(pauseReason reason) {
         lastPauseReason = reason;
@@ -798,7 +639,6 @@ public class OpenVpnManagementThread implements Runnable, OpenVPNManagement {
         boolean stopSucceed = stopOpenVPN();
         if (stopSucceed) {
             mShuttingDown = true;
-
         }
         return stopSucceed;
     }

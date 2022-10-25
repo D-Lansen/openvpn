@@ -14,14 +14,12 @@ import android.net.NetworkInfo;
 import android.net.NetworkInfo.State;
 import android.os.Handler;
 import android.os.Looper;
-import android.preference.PreferenceManager;
 
 import de.blinkt.openvpn.R;
 import de.blinkt.openvpn.core.VpnStatus.ByteCountListener;
 
 import java.util.LinkedList;
 import java.util.Objects;
-import java.util.StringTokenizer;
 
 import static de.blinkt.openvpn.core.OpenVPNManagement.pauseReason;
 
@@ -139,7 +137,6 @@ public class DeviceStateReceiver extends BroadcastReceiver implements ByteCountL
     public void onReceive(Context context, Intent intent) {
         SharedPreferences prefs = Preferences.getDefaultSharedPreferences(context);
 
-
         if (ConnectivityManager.CONNECTIVITY_ACTION.equals(intent.getAction())) {
             networkStateChange(context);
         } else if (Intent.ACTION_SCREEN_OFF.equals(intent.getAction())) {
@@ -176,7 +173,7 @@ public class DeviceStateReceiver extends BroadcastReceiver implements ByteCountL
     }
 
     public static boolean equalsObj(Object a, Object b) {
-        return (a == null) ? (b == null) : a.equals(b);
+        return Objects.equals(a, b);
     }
 
 

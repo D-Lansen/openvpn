@@ -204,7 +204,7 @@ public class VpnProfile implements Serializable, Cloneable {
 
         if (escapedString.equals(unescaped) && !escapedString.contains(" ") &&
                 !escapedString.contains("#") && !escapedString.contains(";")
-                && !escapedString.equals("")  && !escapedString.contains("'"))
+                && !escapedString.equals("") && !escapedString.contains("'"))
             return unescaped;
         else
             return '"' + escapedString + '"';
@@ -734,8 +734,6 @@ public class VpnProfile implements Serializable, Cloneable {
                 }
             }
         }
-
-
         return cfg.toString();
     }
 
@@ -852,10 +850,6 @@ public class VpnProfile implements Serializable, Cloneable {
             e.printStackTrace();
             return null;
         }
-    }
-
-    public void pwDidFail(Context c) {
-
     }
 
     private X509Certificate[] getKeyStoreCertificates(Context context) throws KeyChainException, InterruptedException {
@@ -1065,29 +1059,6 @@ public class VpnProfile implements Serializable, Cloneable {
 
     }
 
-    //! Openvpn asks for a "Private Key", this should be pkcs12 key
-    //
-    public String getPasswordPrivateKey() {
-        String cachedPw = PasswordCache.getPKCS12orCertificatePassword(mUuid, true);
-        if (cachedPw != null) {
-            return cachedPw;
-        }
-        switch (mAuthenticationType) {
-            case TYPE_PKCS12:
-            case TYPE_USERPASS_PKCS12:
-                return mPKCS12Password;
-
-            case TYPE_CERTIFICATES:
-            case TYPE_USERPASS_CERTIFICATES:
-                return mKeyPassword;
-
-            case TYPE_USERPASS:
-            case TYPE_STATICKEYS:
-            default:
-                return null;
-        }
-    }
-
     public boolean isUserPWAuth() {
         switch (mAuthenticationType) {
             case TYPE_USERPASS:
@@ -1157,15 +1128,6 @@ public class VpnProfile implements Serializable, Cloneable {
         return 0;
     }
 
-    public String getPasswordAuth() {
-        String cachedPw = PasswordCache.getAuthPassword(mUuid, true);
-        if (cachedPw != null) {
-            return cachedPw;
-        } else {
-            return mPassword;
-        }
-    }
-
     // Used by the Array Adapter
     @Override
     public String toString() {
@@ -1180,25 +1142,7 @@ public class VpnProfile implements Serializable, Cloneable {
         return mPrivateKey;
     }
 
-    @Nullable
-    public String getSignedData(Context c, String b64data, OpenVPNManagement.SignaturePadding padding, String saltlen, String hashalg, boolean needDigest) {
-        byte[] data = Base64.decode(b64data, Base64.DEFAULT);
-        byte[] signed_bytes;
-        if (mAuthenticationType == TYPE_EXTERNAL_APP) {
-            signed_bytes = getExtAppSignedData(c, data, padding, saltlen, hashalg, needDigest);
-        } else {
-            signed_bytes = getKeyChainSignedData(data, padding, saltlen, hashalg, needDigest);
-        }
-
-        if (signed_bytes != null)
-            return Base64.encodeToString(signed_bytes, Base64.NO_WRAP);
-        else
-            return null;
-    }
-
-    private byte[] getExtAppSignedData(Context c, byte[] data, OpenVPNManagement.SignaturePadding padding, String saltlen, String hashalg, boolean needDigest)
-    {
-
+    private byte[] getExtAppSignedData(Context c, byte[] data, OpenVPNManagement.SignaturePadding padding, String saltlen, String hashalg, boolean needDigest) {
         Bundle extra = new Bundle();
         RsaPaddingType paddingType;
         switch (padding) {
@@ -1232,8 +1176,6 @@ public class VpnProfile implements Serializable, Cloneable {
 
     private byte[] getKeyChainSignedData(byte[] data, OpenVPNManagement.SignaturePadding padding, String saltlen, String hashalg, boolean needDigest) {
         PrivateKey privkey = getKeystoreKey();
-
-
         try {
             @SuppressLint("GetInstance")
             String keyalgorithm = privkey.getAlgorithm();
@@ -1282,7 +1224,7 @@ public class VpnProfile implements Serializable, Cloneable {
 
         int MSBits = (numbits - 1) & 0x7;
 
-        return NativeUtils.addRssPssPadding(hashtype, MSBits, numbits/8, hash);
+        return NativeUtils.addRssPssPadding(hashtype, MSBits, numbits / 8, hash);
     }
 
     private int getHashtype(String digest) throws NoSuchAlgorithmException {
@@ -1359,7 +1301,6 @@ public class VpnProfile implements Serializable, Cloneable {
         for (Connection c : mConnections)
             if (c.usesExtraProxyOptions())
                 return true;
-
         return false;
     }
 
