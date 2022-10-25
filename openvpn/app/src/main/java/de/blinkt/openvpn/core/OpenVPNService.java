@@ -463,24 +463,7 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N_MR1) {
                 updateShortCutUsage(mProfile);
             }
-
         } else {
-            /* The intent is null when we are set as always-on or the service has been restarted. */
-            mProfile = ProfileManager.getLastConnectedProfile(this);
-            VpnStatus.logInfo(R.string.service_restarted);
-
-            /* Got no profile, just stop */
-            if (mProfile == null) {
-                Log.d("OpenVPN", "Got no last connected profile on null intent. Assuming always on.");
-                mProfile = ProfileManager.getAlwaysOnVPN(this);
-
-
-                if (mProfile == null) {
-                    return null;
-                }
-            }
-            /* Do the asynchronous keychain certificate stuff */
-            mProfile.checkForRestart(this);
         }
         return mProfile;
     }
@@ -516,46 +499,33 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
         // An old running VPN should now be exited
         mStarting = false;
 
-        // Start a new session by creating a new thread.
-        boolean useOpenVPN3 = VpnProfile.doUseOpenVPN3(this);
-
         // Open the Management Interface
-        if (!useOpenVPN3) {
-            // start a Thread that handles incoming messages of the management socket
-            OpenVpnManagementThread ovpnManagementThread = new OpenVpnManagementThread(mProfile, this);
-            if (ovpnManagementThread.openManagementInterface(this)) {
-                Thread mSocketManagerThread = new Thread(ovpnManagementThread, "OpenVPNManagementThread");
-                mSocketManagerThread.start();
-                mManagement = ovpnManagementThread;
-                VpnStatus.logInfo("started Socket Thread");
-            } else {
-                endVpnService();
-                return;
-            }
+        // start a Thread that handles incoming messages of the management socket
+        OpenVpnManagementThread ovpnManagementThread = new OpenVpnManagementThread(mProfile, this);
+        if (ovpnManagementThread.openManagementInterface(this)) {
+            Thread mSocketManagerThread = new Thread(ovpnManagementThread, "OpenVPNManagementThread");
+            mSocketManagerThread.start();
+            mManagement = ovpnManagementThread;
+            VpnStatus.logInfo("started Socket Thread");
+        } else {
+            endVpnService();
+            return;
         }
 
         Runnable processThread;
-        if (useOpenVPN3) {
-            OpenVPNManagement mOpenVPN3 = instantiateOpenVPN3Core();
-            processThread = (Runnable) mOpenVPN3;
-            mManagement = mOpenVPN3;
-        } else {
-            processThread = new OpenVPNThread(this, argv, nativeLibraryDirectory, tmpDir);
-        }
+        processThread = new OpenVPNThread(this, argv, nativeLibraryDirectory, tmpDir);
 
         synchronized (mProcessLock) {
             mProcessThread = new Thread(processThread, "OpenVPNProcessThread");
             mProcessThread.start();
         }
 
-        if (!useOpenVPN3) {
-            try {
-                mProfile.writeConfigFileOutput(this, ((OpenVPNThread) processThread).getOpenVPNStdin());
-            } catch (IOException | ExecutionException | InterruptedException e) {
-                VpnStatus.logException("Error generating config file", e);
-                endVpnService();
-                return;
-            }
+        try {
+            mProfile.writeConfigFileOutput(this, ((OpenVPNThread) processThread).getOpenVPNStdin());
+        } catch (IOException | ExecutionException | InterruptedException e) {
+            VpnStatus.logException("Error generating config file", e);
+            endVpnService();
+            return;
         }
 
         final DeviceStateReceiver oldDeviceStateReceiver = mDeviceStateReceiver;
@@ -689,8 +659,7 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
 
         if (mLocalIP != null) {
             // OpenVPN3 manages excluded local networks by callback
-            if (!VpnProfile.doUseOpenVPN3(this))
-                addLocalNetworksToRoutes();
+            addLocalNetworksToRoutes();
             try {
                 builder.addAddress(mLocalIP.mIp, mLocalIP.len);
             } catch (IllegalArgumentException iae) {
@@ -707,9 +676,7 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
                 VpnStatus.logError(R.string.ip_add_error, mLocalIPv6, iae.getLocalizedMessage());
                 return null;
             }
-
         }
-
 
         for (String dns : mDnslist) {
             try {
