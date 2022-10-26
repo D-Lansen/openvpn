@@ -7,19 +7,24 @@ package de.blinkt.openvpn.core;
 
 import android.content.Context;
 import android.content.Intent;
+import android.content.res.Resources;
 import android.os.Build;
+import android.util.Log;
+
+import androidx.annotation.NonNull;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.FormatFlagsConversionMismatchException;
 import java.util.LinkedList;
 import java.util.ListIterator;
 import java.util.Locale;
+import java.util.UnknownFormatConversionException;
 import java.util.Vector;
 
 import de.blinkt.openvpn.R;
 
 public class VpnStatus {
-    private static final LinkedList<LogItem> logbuffer;
 
     private static Vector<StateListener> stateListener;
 
@@ -31,36 +36,11 @@ public class VpnStatus {
 
     private static Intent mLastIntent = null;
 
-    static boolean readFileLog = false;
-    final static java.lang.Object readFileLock = new Object();
-
-    public static void logException(LogLevel ll, String context, Throwable e) {
-        StringWriter sw = new StringWriter();
-        e.printStackTrace(new PrintWriter(sw));
-        LogItem li;
-        if (context != null) {
-            li = new LogItem(ll, R.string.unhandled_exception_context, e.getMessage(), sw.toString(), context);
-        } else {
-            li = new LogItem(ll, R.string.unhandled_exception, e.getMessage(), sw.toString());
-        }
-        newLogItem(li);
-    }
-
-    public static void logException(Throwable e) {
-        logException(LogLevel.ERROR, null, e);
-    }
-
-    public static void logException(String context, Throwable e) {
-        logException(LogLevel.ERROR, context, e);
-    }
-
-    static final int MAXLOGENTRIES = 1000;
-
     public static boolean isVPNActive() {
         return mLastLevel != ConnectionStatus.LEVEL_AUTH_FAILED && !(mLastLevel == ConnectionStatus.LEVEL_NOTCONNECTED);
     }
 
-    public static String getLastCleanLogMessage(Context c) {
+    public static String getLastStateId(Context c) {
         String message = mLaststatemsg;
         switch (mLastLevel) {
             case LEVEL_CONNECTED:
@@ -110,42 +90,6 @@ public class VpnStatus {
             sl.setConnectedVPN(uuid);
     }
 
-    public enum LogLevel {
-        INFO(2),
-        ERROR(-2),
-        WARNING(1),
-        VERBOSE(3),
-        DEBUG(4);
-
-        protected int mValue;
-
-        LogLevel(int value) {
-            mValue = value;
-        }
-
-        public int getInt() {
-            return mValue;
-        }
-
-        public static LogLevel getEnumByValue(int value) {
-            switch (value) {
-                case 2:
-                    return INFO;
-                case -2:
-                    return ERROR;
-                case 1:
-                    return WARNING;
-                case 3:
-                    return VERBOSE;
-                case 4:
-                    return DEBUG;
-
-                default:
-                    return null;
-            }
-        }
-    }
-
     // keytool -printcert -jarfile de.blinkt.openvpn_85.apk
     static final byte[] officalkey = {-58, -42, -44, -106, 90, -88, -87, -88, -52, -124, 84, 117, 66, 79, -112, -111, -46, 86, -37, 109};
     static final byte[] officaldebugkey = {-99, -69, 45, 71, 114, -116, 82, 66, -99, -122, 50, -70, -56, -111, 98, -35, -65, 105, 82, 43};
@@ -155,26 +99,14 @@ public class VpnStatus {
     private static ConnectionStatus mLastLevel = ConnectionStatus.LEVEL_NOTCONNECTED;
 
     static {
-        logbuffer = new LinkedList<>();
         stateListener = new Vector<>();
         logInformation();
-
     }
 
     public interface StateListener {
-        void updateState(String state, String logmessage, int localizedResId, ConnectionStatus level, Intent Intent);
+        void updateState(String state, String logMessage, int localizedResId, ConnectionStatus level, Intent Intent);
 
         void setConnectedVPN(String uuid);
-    }
-
-
-    public synchronized static void logMessage(LogLevel level, String prefix, String message) {
-        newLogItem(new LogItem(level, prefix + message));
-    }
-
-    public synchronized static void clearLog() {
-        logbuffer.clear();
-        logInformation();
     }
 
     private static void logInformation() {
@@ -188,7 +120,6 @@ public class VpnStatus {
         logInfo(R.string.mobile_info, Build.MODEL, Build.BOARD, Build.BRAND, Build.VERSION.SDK_INT,
                 nativeAPI, Build.VERSION.RELEASE, Build.ID, Build.FINGERPRINT, "", "");
     }
-
 
     public synchronized static void addStateListener(StateListener sl) {
         if (!stateListener.contains(sl)) {
@@ -229,7 +160,6 @@ public class VpnStatus {
             default:
                 return R.string.unknown_state;
         }
-
     }
 
     public static void updateStatePause(OpenVPNManagement.pauseReason pauseReason) {
@@ -244,7 +174,6 @@ public class VpnStatus {
                 VpnStatus.updateStateString("USERPAUSE", "", R.string.state_userpause, ConnectionStatus.LEVEL_VPNPAUSED);
                 break;
         }
-
     }
 
     private static ConnectionStatus getLevel(String state) {
@@ -273,18 +202,8 @@ public class VpnStatus {
 
     }
 
-
     public synchronized static void removeStateListener(StateListener sl) {
         stateListener.remove(sl);
-    }
-
-
-    synchronized public static LogItem[] getlogbuffer() {
-
-        // The stoned way of java to return an array from a vector
-        // brought to you by eclipse auto complete
-        return logbuffer.toArray(new LogItem[logbuffer.size()]);
-
     }
 
     static void updateStateString(String state, String msg) {
@@ -306,7 +225,8 @@ public class VpnStatus {
         // Simply ignore these state
         if (mLastLevel == ConnectionStatus.LEVEL_CONNECTED &&
                 (state.equals("WAIT") || state.equals("AUTH"))) {
-            newLogItem(new LogItem((LogLevel.DEBUG), String.format("Ignoring OpenVPN Status in CONNECTED state (%s->%s): %s", state, level.toString(), msg)));
+            logDebug(String.format("Ignoring OpenVPN Status in CONNECTED state (%s->%s): %s", state, level.toString(), msg));
+//            newLogItem(new LogItem((LogLevel.DEBUG), String.format("Ignoring OpenVPN Status in CONNECTED state (%s->%s): %s", state, level.toString(), msg)));
             return;
         }
 
@@ -316,115 +236,100 @@ public class VpnStatus {
         mLastLevel = level;
         mLastIntent = intent;
 
-
         for (StateListener sl : stateListener) {
             sl.updateState(state, msg, resid, level, intent);
         }
-        //newLogItem(new LogItem((LogLevel.DEBUG), String.format("New OpenVPN Status (%s->%s): %s",state,level.toString(),msg)));
+    }
+
+    public static String getLogStr(String mMessage, int mResourceId, Object[] mArgs) {
+        try {
+            if (mMessage != null) {
+                return mMessage;
+            } else {
+                String str = String.format(Locale.ENGLISH, "resid %d ", mResourceId);
+                if (mArgs != null)
+                    str += join("|", mArgs);
+                return str;
+            }
+        } catch (UnknownFormatConversionException | FormatFlagsConversionMismatchException e) {
+            throw e;
+        }
+    }
+
+    public static String join(CharSequence delimiter, Object[] tokens) {
+        StringBuilder sb = new StringBuilder();
+        boolean firstTime = true;
+        for (Object token : tokens) {
+            if (firstTime) {
+                firstTime = false;
+            } else {
+                sb.append(delimiter);
+            }
+            sb.append(token);
+        }
+        return sb.toString();
     }
 
     public static void logInfo(String message) {
-        newLogItem(new LogItem(LogLevel.INFO, message));
-    }
-
-    public static void logDebug(String message) {
-        newLogItem(new LogItem(LogLevel.DEBUG, message));
+        Log.i("Log", getLogStr(message, 0, null));
     }
 
     public static void logInfo(int resourceId, Object... args) {
-        newLogItem(new LogItem(LogLevel.INFO, resourceId, args));
+        Log.i("Log", getLogStr(null, resourceId, args));
+    }
+
+    public static void logInfo(String message, int resourceId, Object... args) {
+        Log.i("Log", getLogStr(message, resourceId, args));
+    }
+
+    public static void logDebug(String message) {
+        Log.d("Log", getLogStr(message, 0, null));
     }
 
     public static void logDebug(int resourceId, Object... args) {
-        newLogItem(new LogItem(LogLevel.DEBUG, resourceId, args));
+        Log.d("Log", getLogStr(null, resourceId, args));
     }
 
-    static void newLogItem(LogItem logItem) {
-        newLogItem(logItem, false, false);
-    }
-
-    public static void newLogItemIfUnique(LogItem li) {
-        newLogItem(li, false, true);
-    }
-
-    public static void newLogItem(LogItem logItem, boolean cachedLine) {
-        newLogItem(logItem, cachedLine, false);
-    }
-
-    synchronized static void newLogItem(LogItem logItem, boolean cachedLine, boolean enforceUnique) {
-        if (cachedLine) {
-            logbuffer.addFirst(logItem);
-        } else {
-            insertLogItemByLogTime(logItem, enforceUnique);
-        }
-
-        if (logbuffer.size() > MAXLOGENTRIES + MAXLOGENTRIES / 2) {
-            while (logbuffer.size() > MAXLOGENTRIES)
-                logbuffer.removeFirst();
-        }
-    }
-
-    private static void insertLogItemByLogTime(LogItem logItem, boolean enforceUnique) {
-        /* Shortcut for the shortcut that it should be added at the
-         * end to avoid traversing the list
-         */
-        if (!logbuffer.isEmpty() && logbuffer.getLast().getLogtime() <= logItem.getLogtime()) {
-            logbuffer.addLast(logItem);
-            return;
-        }
-
-        ListIterator<LogItem> itr = logbuffer.listIterator();
-        long newItemLogTime = logItem.getLogtime();
-        while (itr.hasNext()) {
-            LogItem laterLogItem = itr.next();
-            if (enforceUnique && laterLogItem.equals(logItem))
-                /* Identical object found, ignore new item */
-                return;
-
-            if (laterLogItem.getLogtime() > newItemLogTime) {
-                itr.previous();
-                itr.add(logItem);
-                return;
-            }
-        }
-        /* no hasNext, add at the end */
-        itr.add(logItem);
-    }
-
-
-    public static void logError(String msg) {
-        newLogItem(new LogItem(LogLevel.ERROR, msg));
-
+    public static void logDebug(String message, int resourceId, Object... args) {
+        Log.d("Log", getLogStr(message, resourceId, args));
     }
 
     public static void logWarning(int resourceId, Object... args) {
-        newLogItem(new LogItem(LogLevel.WARNING, resourceId, args));
+        Log.w("Log", getLogStr(null, resourceId, args));
     }
 
     public static void logWarning(String msg) {
-        newLogItem(new LogItem(LogLevel.WARNING, msg));
+        Log.w("Log", getLogStr(msg, 0, null));
     }
 
+    public static void logWarning(String msg, int resourceId, Object... args) {
+        Log.w("Log", getLogStr(msg, resourceId, args));
+    }
+
+    public static void logError(String msg) {
+        Log.e("Log", getLogStr(msg, 0, null));
+    }
 
     public static void logError(int resourceId) {
-        newLogItem(new LogItem(LogLevel.ERROR, resourceId));
+        Log.e("Log", getLogStr(null, resourceId, null));
     }
 
     public static void logError(int resourceId, Object... args) {
-        newLogItem(new LogItem(LogLevel.ERROR, resourceId, args));
+        Log.e("Log", getLogStr(null, resourceId, args));
     }
 
-    public static void logMessageOpenVPN(LogLevel level, int ovpnlevel, String message) {
-        /* Check for the weak md whe we have a message from OpenVPN */
-        newLogItem(new LogItem(level, ovpnlevel, message));
+    public static void logError(String msg, int resourceId, Object... args) {
+        Log.e("Log", getLogStr(msg, resourceId, args));
     }
 
-
-    public static synchronized void updateByteCount(long in, long out) {
-//        TrafficHistory.LastDiff diff = trafficHistory.add(in, out);
-//
-//        for (ByteCountListener bcl : byteCountListener) {
-//            bcl.updateByteCount(in, out, diff.getDiffIn(), diff.getDiffOut());
-//        }
+    public static void logException(Throwable e) {
+        logException(null, e);
     }
+
+    public static void logException(String context, Throwable e) {
+        StringWriter sw = new StringWriter();
+        e.printStackTrace(new PrintWriter(sw));
+        logError(context, 0, e.getMessage(), sw.toString());
+    }
+
 }

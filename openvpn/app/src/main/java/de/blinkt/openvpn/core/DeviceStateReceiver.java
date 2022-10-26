@@ -69,17 +69,6 @@ public class DeviceStateReceiver extends BroadcastReceiver implements OpenVPNMan
         DISCONNECTED
     }
 
-    private static class Datapoint {
-        private Datapoint(long t, long d) {
-            timestamp = t;
-            data = d;
-        }
-
-        long timestamp;
-        long data;
-    }
-
-    private final LinkedList<Datapoint> trafficdata = new LinkedList<>();
 
     public void userPause(boolean pause) {
         if (pause) {
@@ -119,7 +108,7 @@ public class DeviceStateReceiver extends BroadcastReceiver implements OpenVPNMan
                     VpnStatus.logError(R.string.screen_nopersistenttun);
 
                 screen = connectState.PENDINGDISCONNECT;
-                fillTrafficData();
+
                 if (network == connectState.DISCONNECTED || userpause == connectState.DISCONNECTED)
                     screen = connectState.DISCONNECTED;
             }
@@ -137,10 +126,6 @@ public class DeviceStateReceiver extends BroadcastReceiver implements OpenVPNMan
                 /*Update the reason why we are still paused */
                 mManagement.pause(getPauseReason());
         }
-    }
-
-    private void fillTrafficData() {
-        trafficdata.add(new Datapoint(System.currentTimeMillis(), TRAFFIC_LIMIT));
     }
 
     public static boolean equalsObj(Object a, Object b) {

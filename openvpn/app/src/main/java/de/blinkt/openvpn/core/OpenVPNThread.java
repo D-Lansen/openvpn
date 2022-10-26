@@ -67,12 +67,9 @@ public class OpenVPNThread implements Runnable {
     @Override
     public void run() {
         try {
-            Log.i(TAG, "Starting openvpn");
             startOpenVPNThreadArgs(mArgv);
-            Log.i(TAG, "OpenVPN process exited");
         } catch (Exception e) {
             VpnStatus.logException("Starting OpenVPN Thread", e);
-            Log.e(TAG, "OpenVPNThread Got " + e.toString());
         } finally {
             int exitvalue = 0;
             try {
@@ -91,18 +88,7 @@ public class OpenVPNThread implements Runnable {
                 VpnStatus.updateStateString("NOPROCESS", "No process running.", R.string.state_noprocess, ConnectionStatus.LEVEL_NOTCONNECTED);
 
             if (mDumpPath != null) {
-                try {
-                    BufferedWriter logout = new BufferedWriter(new FileWriter(mDumpPath + ".log"));
-                    SimpleDateFormat timeformat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.GERMAN);
-                    for (LogItem li : VpnStatus.getlogbuffer()) {
-                        String time = timeformat.format(new Date(li.getLogtime()));
-                        logout.write(time + " " + li.getString(mService) + "\n");
-                    }
-                    logout.close();
-                    VpnStatus.logError(R.string.minidump_generated);
-                } catch (IOException e) {
-                    VpnStatus.logError("Writing minidump log: " + e.getLocalizedMessage());
-                }
+                VpnStatus.logError(R.string.minidump_generated);
             }
 
             if (!mNoProcessExitStatus)

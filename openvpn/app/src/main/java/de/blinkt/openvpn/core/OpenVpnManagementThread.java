@@ -58,7 +58,6 @@ public class OpenVpnManagementThread implements Runnable, OpenVPNManagement {
         public void run() {
             sendProxyCMD(Connection.ProxyType.SOCKS5, "127.0.0.1", Integer.toString(OrbotHelper.SOCKS_PROXY_PORT_DEFAULT), false);
             OrbotHelper.get(mOpenVPNService).removeStatusCallback(statusCallback);
-
         }
     };
     private OrbotHelper.StatusCallback statusCallback = new OrbotHelper.StatusCallback() {
@@ -299,7 +298,8 @@ public class OpenVpnManagementThread implements Runnable, OpenVPNManagement {
                         processState(argument);
                     break;
                 case "PROXY":
-                    processProxyCMD(argument);
+                    managmentCommand("proxy NONE\n");
+//                    processProxyCMD(argument);
                     break;
                 case "LOG":
 //                    processLogMessage(argument);
@@ -373,63 +373,6 @@ public class OpenVpnManagementThread implements Runnable, OpenVPNManagement {
     public void releaseHold() {
         if (mWaitingForRelease)
             releaseHoldCmd();
-    }
-
-    private void processProxyCMD(String argument) {
-        String[] args = argument.split(",", 3);
-
-        Connection.ProxyType proxyType = Connection.ProxyType.NONE;
-
-        int connectionEntryNumber = Integer.parseInt(args[0]) - 1;
-        String proxyport = null;
-        String proxyname = null;
-        boolean proxyUseAuth = false;
-
-        if (mProfile != null && mProfile.mConnections != null && mProfile.mConnections.length > connectionEntryNumber) {
-            Connection connection = mProfile.mConnections[connectionEntryNumber];
-            proxyType = connection.mProxyType;
-            proxyname = connection.mProxyName;
-            proxyport = connection.mProxyPort;
-            proxyUseAuth = connection.mUseProxyAuth;
-
-
-        } else {
-            VpnStatus.logError(String.format(Locale.ENGLISH, "OpenVPN is asking for a proxy of an unknown connection entry (%d)", connectionEntryNumber));
-        }
-
-        // atuo detection of proxy
-        if (proxyType == Connection.ProxyType.NONE && mProfile != null) {
-            SocketAddress proxyaddr = ProxyDetection.detectProxy(mProfile);
-            if (proxyaddr instanceof InetSocketAddress) {
-                InetSocketAddress isa = (InetSocketAddress) proxyaddr;
-                proxyType = Connection.ProxyType.HTTP;
-                proxyname = isa.getHostName();
-                proxyport = String.valueOf(isa.getPort());
-                proxyUseAuth = false;
-            }
-        }
-
-        if (args.length >= 2 && proxyType == Connection.ProxyType.HTTP) {
-            String proto = args[1];
-            if (proto.equals("UDP")) {
-                proxyname = null;
-                VpnStatus.logInfo("Not using an HTTP proxy since the connection uses UDP");
-            }
-        }
-
-        if (proxyType == Connection.ProxyType.ORBOT) {
-            VpnStatus.updateStateString("WAIT_ORBOT", "Waiting for Orbot to start", R.string.state_waitorbot, ConnectionStatus.LEVEL_CONNECTING_NO_SERVER_REPLY_YET);
-            OrbotHelper orbotHelper = OrbotHelper.get(mOpenVPNService);
-            if (!OrbotHelper.checkTorReceier(mOpenVPNService))
-                VpnStatus.logError("Orbot does not seem to be installed!");
-
-            mResumeHandler.postDelayed(orbotStatusTimeOutRunnable, ORBOT_TIMEOUT_MS);
-            orbotHelper.addStatusCallback(mOpenVPNService, statusCallback);
-
-            orbotHelper.sendOrbotStartAndStatusBroadcast();
-        } else {
-            sendProxyCMD(proxyType, proxyname, proxyport, proxyUseAuth);
-        }
     }
 
     private void sendProxyCMD(Connection.ProxyType proxyType, String proxyname, String proxyport, boolean usePwAuth) {

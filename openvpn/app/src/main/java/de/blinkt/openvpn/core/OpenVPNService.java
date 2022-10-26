@@ -417,8 +417,8 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
         // Always show notification here to avoid problem with startForeground timeout
         VpnStatus.logInfo(R.string.building_configration);
         VpnStatus.updateStateString("VPN_GENERATE_CONFIG", "", R.string.building_configration, ConnectionStatus.LEVEL_START);
-        showNotification(VpnStatus.getLastCleanLogMessage(this),
-                VpnStatus.getLastCleanLogMessage(this), NOTIFICATION_CHANNEL_NEWSTATUS_ID, 0, ConnectionStatus.LEVEL_START, null);
+        showNotification(VpnStatus.getLastStateId(this),
+                VpnStatus.getLastStateId(this), NOTIFICATION_CHANNEL_NEWSTATUS_ID, 0, ConnectionStatus.LEVEL_START, null);
 
 
         /* start the OpenVPN process itself in a background thread */
@@ -799,7 +799,6 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
             VpnStatus.logError(getString(R.string.error) + e.getLocalizedMessage());
             return null;
         }
-
     }
 
     @RequiresApi(api = 33)
@@ -1089,10 +1088,9 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
     }
 
     @Override
-    public void updateState(String state, String logmessage, int resid, ConnectionStatus level, Intent intent) {
+    public void updateState(String state, String logMessage, int resid, ConnectionStatus level, Intent intent) {
         // If the process is not running, ignore any state,
         // Notification should be invisible in this state
-
         doSendBroadcast(state, level);
         if (mProcessThread == null && !mNotificationAlwaysVisible)
             return;
@@ -1100,24 +1098,22 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
         String channel = NOTIFICATION_CHANNEL_NEWSTATUS_ID;
         // Display byte count only after being connected
 
-        {
-            if (level == LEVEL_CONNECTED) {
-                mDisplayBytecount = true;
-                mConnecttime = System.currentTimeMillis();
-                if (!runningOnAndroidTV())
-                    channel = NOTIFICATION_CHANNEL_BG_ID;
-            } else {
-                mDisplayBytecount = false;
-            }
-
-            // Other notifications are shown,
-            // This also mean we are no longer connected, ignore bytecount messages until next
-            // CONNECTED
-            // Does not work :(
-            showNotification(VpnStatus.getLastCleanLogMessage(this),
-                    VpnStatus.getLastCleanLogMessage(this), channel, 0, level, intent);
-
+        if (level == LEVEL_CONNECTED) {
+            mDisplayBytecount = true;
+            mConnecttime = System.currentTimeMillis();
+            if (!runningOnAndroidTV())
+                channel = NOTIFICATION_CHANNEL_BG_ID;
+        } else {
+            mDisplayBytecount = false;
         }
+
+        // Other notifications are shown,
+        // This also mean we are no longer connected, ignore bytecount messages until next
+        // CONNECTED
+        // Does not work :(
+        showNotification(VpnStatus.getLastStateId(this),
+                VpnStatus.getLastStateId(this), channel, 0, level, intent);
+
     }
 
     @Override
