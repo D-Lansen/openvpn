@@ -103,11 +103,9 @@ public class DeviceStateReceiver extends BroadcastReceiver implements ByteCountL
             screen = connectState.DISCONNECTED;
             VpnStatus.logInfo(R.string.screenoff_pause,
                     "64 kB", TRAFFIC_WINDOW);
-
             mManagement.pause(getPauseReason());
         }
     }
-
 
     public void userPause(boolean pause) {
         if (pause) {
@@ -164,7 +162,6 @@ public class DeviceStateReceiver extends BroadcastReceiver implements ByteCountL
             else if (!shouldBeConnected())
                 /*Update the reason why we are still paused */
                 mManagement.pause(getPauseReason());
-
         }
     }
 
@@ -175,7 +172,6 @@ public class DeviceStateReceiver extends BroadcastReceiver implements ByteCountL
     public static boolean equalsObj(Object a, Object b) {
         return Objects.equals(a, b);
     }
-
 
     public void networkStateChange(Context context) {
         NetworkInfo networkInfo = getCurrentNetworkInfo(context);
@@ -193,16 +189,6 @@ public class DeviceStateReceiver extends BroadcastReceiver implements ByteCountL
             String extrainfo = networkInfo.getExtraInfo();
             if (extrainfo == null)
                 extrainfo = "";
-
-			/*
-            if(networkInfo.getType()==android.net.ConnectivityManager.TYPE_WIFI) {
-				WifiManager wifiMgr = (WifiManager) context.getSystemService(Context.WIFI_SERVICE);
-				WifiInfo wifiinfo = wifiMgr.getConnectionInfo();
-				extrainfo+=wifiinfo.getBSSID();
-
-				subtype += wifiinfo.getNetworkId();
-			}*/
-
 
             netstatestring = String.format("%2$s %4$s to %1$s %3$s", networkInfo.getTypeName(),
                     networkInfo.getDetailedState(), extrainfo, subtype);

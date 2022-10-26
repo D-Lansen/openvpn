@@ -347,7 +347,6 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
 
     }
 
-
     PendingIntent getGraphPendingIntent() {
         // Let the configure Button show the Log
 
@@ -611,7 +610,6 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
         }
         // Just in case unregister for state
         VpnStatus.removeStateListener(this);
-        VpnStatus.flushLog();
     }
 
     private String getTunConfigString() {

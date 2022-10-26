@@ -8,10 +8,7 @@ package de.blinkt.openvpn.core;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
-import android.os.HandlerThread;
-import android.os.Message;
 
-import java.io.File;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.LinkedList;
@@ -36,9 +33,6 @@ public class VpnStatus {
 
     private static Intent mLastIntent = null;
 
-    private static HandlerThread mHandlerThread;
-
-    private static String mLastConnectedVPNUUID;
     static boolean readFileLog = false;
     final static java.lang.Object readFileLock = new Object();
 
@@ -113,31 +107,9 @@ public class VpnStatus {
 
     }
 
-    public static void initLogCache(File cacheDir) {
-        mHandlerThread = new HandlerThread("LogFileWriter", Thread.MIN_PRIORITY);
-        mHandlerThread.start();
-        mLogFileHandler = new LogFileHandler(mHandlerThread.getLooper());
-
-
-        Message m = mLogFileHandler.obtainMessage(LogFileHandler.LOG_INIT, cacheDir);
-        mLogFileHandler.sendMessage(m);
-
-    }
-
-    public static void flushLog() {
-        if (mLogFileHandler != null)
-            mLogFileHandler.sendEmptyMessage(LogFileHandler.FLUSH_TO_DISK);
-    }
-
     public synchronized static void setConnectedVPNProfile(String uuid) {
-        mLastConnectedVPNUUID = uuid;
         for (StateListener sl : stateListener)
             sl.setConnectedVPN(uuid);
-    }
-
-
-    public static String getLastConnectedVPNProfile() {
-        return mLastConnectedVPNUUID;
     }
 
     public enum LogLevel {
@@ -182,10 +154,7 @@ public class VpnStatus {
     static final byte[] amazonkey = {-116, -115, -118, -89, -116, -112, 120, 55, 79, -8, -119, -23, 106, -114, -85, -56, -4, 105, 26, -57};
     static final byte[] fdroidkey = {-92, 111, -42, -46, 123, -96, -60, 79, -27, -31, 49, 103, 11, -54, -68, -27, 17, 2, 121, 104};
 
-
     private static ConnectionStatus mLastLevel = ConnectionStatus.LEVEL_NOTCONNECTED;
-
-    private static LogFileHandler mLogFileHandler;
 
     static {
         logbuffer = new LinkedList<>();
@@ -220,8 +189,6 @@ public class VpnStatus {
     public synchronized static void clearLog() {
         logbuffer.clear();
         logInformation();
-        if (mLogFileHandler != null)
-            mLogFileHandler.sendEmptyMessage(LogFileHandler.TRIM_LOG_FILE);
     }
 
     private static void logInformation() {
@@ -419,17 +386,11 @@ public class VpnStatus {
             logbuffer.addFirst(logItem);
         } else {
             insertLogItemByLogTime(logItem, enforceUnique);
-            if (mLogFileHandler != null) {
-                Message m = mLogFileHandler.obtainMessage(LogFileHandler.LOG_MESSAGE, logItem);
-                mLogFileHandler.sendMessage(m);
-            }
         }
 
         if (logbuffer.size() > MAXLOGENTRIES + MAXLOGENTRIES / 2) {
             while (logbuffer.size() > MAXLOGENTRIES)
                 logbuffer.removeFirst();
-            if (mLogFileHandler != null)
-                mLogFileHandler.sendMessage(mLogFileHandler.obtainMessage(LogFileHandler.TRIM_LOG_FILE));
         }
 
         for (LogListener ll : logListener) {
