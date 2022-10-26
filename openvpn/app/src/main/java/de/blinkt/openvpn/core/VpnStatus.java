@@ -21,9 +21,7 @@ import de.blinkt.openvpn.R;
 public class VpnStatus {
     private static final LinkedList<LogItem> logbuffer;
 
-    private static Vector<LogListener> logListener;
     private static Vector<StateListener> stateListener;
-    private static Vector<ByteCountListener> byteCountListener;
 
     private static String mLaststatemsg = "";
 
@@ -158,17 +156,9 @@ public class VpnStatus {
 
     static {
         logbuffer = new LinkedList<>();
-        logListener = new Vector<>();
         stateListener = new Vector<>();
-        byteCountListener = new Vector<>();
-
         logInformation();
 
-    }
-
-
-    public interface LogListener {
-        void newLog(LogItem logItem);
     }
 
     public interface StateListener {
@@ -177,13 +167,9 @@ public class VpnStatus {
         void setConnectedVPN(String uuid);
     }
 
-    public interface ByteCountListener {
-        void updateByteCount(long in, long out, long diffIn, long diffOut);
-    }
 
     public synchronized static void logMessage(LogLevel level, String prefix, String message) {
         newLogItem(new LogItem(level, prefix + message));
-
     }
 
     public synchronized static void clearLog() {
@@ -201,22 +187,6 @@ public class VpnStatus {
 
         logInfo(R.string.mobile_info, Build.MODEL, Build.BOARD, Build.BRAND, Build.VERSION.SDK_INT,
                 nativeAPI, Build.VERSION.RELEASE, Build.ID, Build.FINGERPRINT, "", "");
-    }
-
-    public synchronized static void addLogListener(LogListener ll) {
-        logListener.add(ll);
-    }
-
-    public synchronized static void removeLogListener(LogListener ll) {
-        logListener.remove(ll);
-    }
-
-    public synchronized static void addByteCountListener(ByteCountListener bcl) {
-        byteCountListener.add(bcl);
-    }
-
-    public synchronized static void removeByteCountListener(ByteCountListener bcl) {
-        byteCountListener.remove(bcl);
     }
 
 
@@ -391,10 +361,6 @@ public class VpnStatus {
         if (logbuffer.size() > MAXLOGENTRIES + MAXLOGENTRIES / 2) {
             while (logbuffer.size() > MAXLOGENTRIES)
                 logbuffer.removeFirst();
-        }
-
-        for (LogListener ll : logListener) {
-            ll.newLog(logItem);
         }
     }
 

@@ -16,14 +16,13 @@ import android.os.Handler;
 import android.os.Looper;
 
 import de.blinkt.openvpn.R;
-import de.blinkt.openvpn.core.VpnStatus.ByteCountListener;
 
 import java.util.LinkedList;
 import java.util.Objects;
 
 import static de.blinkt.openvpn.core.OpenVPNManagement.pauseReason;
 
-public class DeviceStateReceiver extends BroadcastReceiver implements ByteCountListener, OpenVPNManagement.PausedStateCallback {
+public class DeviceStateReceiver extends BroadcastReceiver implements OpenVPNManagement.PausedStateCallback {
     private final Handler mDisconnectHandler;
     private int lastNetwork = -1;
     private OpenVPNManagement mManagement;
@@ -81,31 +80,6 @@ public class DeviceStateReceiver extends BroadcastReceiver implements ByteCountL
     }
 
     private final LinkedList<Datapoint> trafficdata = new LinkedList<>();
-
-
-    @Override
-    public void updateByteCount(long in, long out, long diffIn, long diffOut) {
-        if (screen != connectState.PENDINGDISCONNECT)
-            return;
-
-        long total = diffIn + diffOut;
-        trafficdata.add(new Datapoint(System.currentTimeMillis(), total));
-
-        while (trafficdata.getFirst().timestamp <= (System.currentTimeMillis() - TRAFFIC_WINDOW * 1000)) {
-            trafficdata.removeFirst();
-        }
-
-        long windowtraffic = 0;
-        for (Datapoint dp : trafficdata)
-            windowtraffic += dp.data;
-
-        if (windowtraffic < TRAFFIC_LIMIT) {
-            screen = connectState.DISCONNECTED;
-            VpnStatus.logInfo(R.string.screenoff_pause,
-                    "64 kB", TRAFFIC_WINDOW);
-            mManagement.pause(getPauseReason());
-        }
-    }
 
     public void userPause(boolean pause) {
         if (pause) {
