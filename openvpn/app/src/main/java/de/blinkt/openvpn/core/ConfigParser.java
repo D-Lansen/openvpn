@@ -1,12 +1,9 @@
-/*
- * Copyright (c) 2012-2016 Arne Schwabe
- * Distributed under the GNU GPL v2 with additional terms. For full terms see the file doc/LICENSE.txt
- */
-
 package de.blinkt.openvpn.core;
 
 import android.os.Build;
+
 import androidx.core.util.Pair;
+
 import android.text.TextUtils;
 
 import java.io.BufferedReader;
@@ -17,19 +14,11 @@ import java.util.*;
 
 import de.blinkt.openvpn.VpnProfile;
 
-//! Openvpn Config FIle Parser, probably not 100% accurate but close enough
-
-// And remember, this is valid :)
-// --<foo>
-// bar
-// </foo>
 public class ConfigParser {
-
 
     public static final String CONVERTED_PROFILE = "converted Profile";
     final String[] unsupportedOptions = {"config",
             "tls-server"
-
     };
     // Ignore all scripts
     // in most cases these won't work and user who wish to execute scripts will
@@ -124,7 +113,7 @@ public class ConfigParser {
             "http-proxy-user-pass",
             "explicit-exit-notify",
     };
-    private HashSet<String>  connectionOptionsSet = new HashSet<>(Arrays.asList(connectionOptions));
+    private HashSet<String> connectionOptionsSet = new HashSet<>(Arrays.asList(connectionOptions));
 
     private HashMap<String, Vector<Vector<String>>> options = new HashMap<>();
     private HashMap<String, Vector<String>> meta = new HashMap<String, Vector<String>>();
@@ -428,7 +417,7 @@ public class ConfigParser {
         if (direction != null)
             np.mTLSAuthDirection = direction.get(1);
 
-        for (String crypt: new String[]{"tls-crypt", "tls-crypt-v2"}) {
+        for (String crypt : new String[]{"tls-crypt", "tls-crypt-v2"}) {
             Vector<String> tlscrypt = getOption(crypt, 1, 1);
             if (tlscrypt != null) {
                 np.mUseTLSAuth = true;
@@ -506,8 +495,7 @@ public class ConfigParser {
                     if (np.mDNS1.equals(VpnProfile.DEFAULT_DNS1)) {
                         np.mDNS1 = arg;
                         np.mDNS2 = "";
-                    }
-                    else
+                    } else
                         np.mDNS2 = arg;
                 }
             }
@@ -540,17 +528,13 @@ public class ConfigParser {
         if (cipher != null)
             np.mCipher = cipher.get(1);
 
-        if (data_ciphers != null)
-        {
+        if (data_ciphers != null) {
             np.mDataCiphers = data_ciphers.get(1);
-        }
-        else if (ncp_ciphers != null)
-        {
+        } else if (ncp_ciphers != null) {
             np.mDataCiphers = ncp_ciphers.get(1);
         }
         Vector<String> tls_cert_profile = getOption("tls-cert-profile", 1, 1);
-        if (tls_cert_profile != null)
-        {
+        if (tls_cert_profile != null) {
             String profile = tls_cert_profile.get(1);
             for (String choice : new String[]{"insecure", "preferred", "legacy", "suiteb"}) {
                 if (choice.equals(profile)) {
@@ -558,23 +542,19 @@ public class ConfigParser {
                     break;
                 }
             }
-            if (!profile.equals(np.mTlSCertProfile))
-            {
+            if (!profile.equals(np.mTlSCertProfile)) {
                 throw new ConfigParseError("Invalid tls-cert-profile '" + profile + "'");
             }
         }
 
         Vector<String> provider = getOption("provider", 1, 9);
-        if (provider != null)
-        {
+        if (provider != null) {
             String providers = provider.get(1).toLowerCase(Locale.ROOT);
             if (providers.equals("legacy:default") || providers.equals("default:legacy"))
                 np.mUseLegacyProvider = true;
 
-            for (String prov:provider)
-            {
-                if ("legacy".equals(prov.toLowerCase(Locale.ROOT)))
-                {
+            for (String prov : provider) {
+                if ("legacy".equals(prov.toLowerCase(Locale.ROOT))) {
                     np.mUseLegacyProvider = true;
                 }
             }
@@ -582,8 +562,7 @@ public class ConfigParser {
 
 
         Vector<String> compatmode = getOption("compat-mode", 1, 1);
-        if (compatmode != null)
-        {
+        if (compatmode != null) {
             Scanner versionScanner = new Scanner(compatmode.get(1));
             versionScanner.useDelimiter("\\.");
             int major = versionScanner.nextInt();
@@ -604,15 +583,13 @@ public class ConfigParser {
         }
 
         Vector<Vector<String>> peerfp = getAllOption("peer-fingerprint", 1, 1);
-        if (peerfp != null)
-        {
+        if (peerfp != null) {
             np.mCheckPeerFingerprint = true;
-            for (Vector<String> fp: peerfp)
-            {
+            for (Vector<String> fp : peerfp) {
                 if (fp.get(1).startsWith(VpnProfile.INLINE_TAG))
-                    np.mPeerFingerPrints+=fp.get(1).substring(VpnProfile.INLINE_TAG.length()) + "\n";
+                    np.mPeerFingerPrints += fp.get(1).substring(VpnProfile.INLINE_TAG.length()) + "\n";
                 else
-                    np.mPeerFingerPrints+=fp.get(1) + "\n";
+                    np.mPeerFingerPrints += fp.get(1) + "\n";
             }
         }
 
@@ -797,7 +774,7 @@ public class ConfigParser {
         }
 
         // Parse OpenVPN Access Server extra
-        for (String as_name_directive: new String[]{"PROFILE", "FRIENDLY_NAME"}) {
+        for (String as_name_directive : new String[]{"PROFILE", "FRIENDLY_NAME"}) {
             Vector<String> friendlyname = meta.get(as_name_directive);
             if (friendlyname != null && friendlyname.size() > 1)
                 np.mName = friendlyname.get(1);
@@ -899,8 +876,7 @@ public class ConfigParser {
         Vector<Vector<String>> remotes = getAllOption("remote", 1, 3);
 
 
-
-        Vector <String> optionsToRemove = new Vector<>();
+        Vector<String> optionsToRemove = new Vector<>();
         // Assume that we need custom options if connectionDefault are set or in the connection specific set
         for (Map.Entry<String, Vector<Vector<String>>> option : options.entrySet()) {
             if (connDefault != null || connectionOptionsSet.contains(option.getKey())) {
@@ -908,7 +884,7 @@ public class ConfigParser {
                 optionsToRemove.add(option.getKey());
             }
         }
-        for (String o: optionsToRemove)
+        for (String o : optionsToRemove)
             options.remove(o);
 
         if (!(conn.mCustomConfiguration == null || "".equals(conn.mCustomConfiguration.trim())))
@@ -989,9 +965,8 @@ public class ConfigParser {
             options.remove(option);
 
 
-        boolean customOptions=false;
-        for (Vector<Vector<String>>  option: options.values())
-        {
+        boolean customOptions = false;
+        for (Vector<Vector<String>> option : options.values()) {
             for (Vector<String> optionsline : option) {
                 if (!ignoreThisOption(optionsline)) {
                     customOptions = true;

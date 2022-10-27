@@ -93,11 +93,11 @@ public class OpenVPNThread implements Runnable {
 
             if (!mNoProcessExitStatus)
                 mService.openvpnStopped();
-            Log.i(TAG, "Exiting");
         }
     }
 
     private void startOpenVPNThreadArgs(String[] argv) {
+
         LinkedList<String> argvlist = new LinkedList<String>();
 
         Collections.addAll(argvlist, argv);
@@ -139,7 +139,6 @@ public class OpenVPNThread implements Runnable {
             mStreamFuture.cancel(true);
             stopProcess();
         }
-
 
     }
 

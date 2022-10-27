@@ -5,7 +5,7 @@ import android.content.SharedPreferences;
 
 public class Preferences {
 
-    static SharedPreferences getSharedPreferencesMulti(String name, Context c) {
+    public static SharedPreferences getSharedPreferencesMulti(String name, Context c) {
         return c.getSharedPreferences(name, Context.MODE_MULTI_PROCESS | Context.MODE_PRIVATE);
     }
 

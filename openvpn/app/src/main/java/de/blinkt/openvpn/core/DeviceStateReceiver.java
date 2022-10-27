@@ -69,7 +69,6 @@ public class DeviceStateReceiver extends BroadcastReceiver implements OpenVPNMan
         DISCONNECTED
     }
 
-
     public void userPause(boolean pause) {
         if (pause) {
             userpause = connectState.DISCONNECTED;

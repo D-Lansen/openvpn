@@ -100,7 +100,7 @@ public class VpnStatus {
 
     static {
         stateListener = new Vector<>();
-        logInformation();
+        apiInformation();
     }
 
     public interface StateListener {
@@ -109,7 +109,7 @@ public class VpnStatus {
         void setConnectedVPN(String uuid);
     }
 
-    private static void logInformation() {
+    private static void apiInformation() {
         String nativeAPI;
         try {
             nativeAPI = NativeUtils.getNativeAPI();

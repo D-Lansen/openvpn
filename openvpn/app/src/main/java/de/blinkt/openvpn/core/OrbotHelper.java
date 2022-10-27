@@ -164,13 +164,6 @@ public class OrbotHelper {
         mContext.sendBroadcast(getOrbotStartIntent(mContext));
     }
 
-    private void startOrbotService(String action) {
-        Intent clearVPNMode = new Intent();
-        clearVPNMode.setComponent(new ComponentName(ORBOT_PACKAGE_NAME, ".service.TorService"));
-        clearVPNMode.setAction(action);
-        mContext.startService(clearVPNMode);
-    }
-
     public interface StatusCallback {
         /**
          * Called when Orbot is operational

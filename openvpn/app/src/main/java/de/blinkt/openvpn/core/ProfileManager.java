@@ -158,7 +158,7 @@ public class ProfileManager {
         int tried = 0;
         while ((profile == null || profile.mVersion < version) && (tried++ < tries)) {
             try {
-                Thread.sleep(100);
+                Thread.sleep(10);
             } catch (InterruptedException ignored) {
             }
             instance.loadVPNList(context);

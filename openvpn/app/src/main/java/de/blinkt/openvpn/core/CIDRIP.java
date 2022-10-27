@@ -1,21 +1,15 @@
-/*
- * Copyright (c) 2012-2016 Arne Schwabe
- * Distributed under the GNU GPL v2 with additional terms. For full terms see the file doc/LICENSE.txt
- */
-
 package de.blinkt.openvpn.core;
 
 import java.util.Locale;
 
-class CIDRIP {
-    String mIp;
-    int len;
+public class CIDRIP {
 
+    public String mIp;
+    public int len;
 
     public CIDRIP(String ip, String mask) {
         mIp = ip;
         len = calculateLenFromMask(mask);
-
     }
 
     public static int calculateLenFromMask(String mask) {
@@ -55,7 +49,7 @@ class CIDRIP {
 
         long newip = ip & (0xffffffffL << (32 - len));
         if (newip != ip) {
-            mIp = String.format(Locale.US,"%d.%d.%d.%d", (newip & 0xff000000) >> 24, (newip & 0xff0000) >> 16, (newip & 0xff00) >> 8, newip & 0xff);
+            mIp = String.format(Locale.US, "%d.%d.%d.%d", (newip & 0xff000000) >> 24, (newip & 0xff0000) >> 16, (newip & 0xff00) >> 8, newip & 0xff);
             return true;
         } else {
             return false;
