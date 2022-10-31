@@ -12,8 +12,6 @@ import java.io.Reader;
 import java.io.StringReader;
 import java.util.*;
 
-import de.blinkt.openvpn.VpnProfile;
-
 public class ConfigParser {
 
     public static final String CONVERTED_PROFILE = "converted Profile";

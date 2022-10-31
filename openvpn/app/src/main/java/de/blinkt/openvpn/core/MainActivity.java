@@ -3,7 +3,7 @@
  * Distributed under the GNU GPL v2 with additional terms. For full terms see the file doc/LICENSE.txt
  */
 
-package de.blinkt.openvpn;
+package de.blinkt.openvpn.core;
 
 import android.app.Activity;
 import android.content.ComponentName;
@@ -11,7 +11,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.net.VpnService;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
@@ -20,20 +19,14 @@ import android.os.RemoteException;
 import android.util.Log;
 import android.widget.Button;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.StringReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 
-import de.blinkt.openvpn.core.ConfigParser;
-import de.blinkt.openvpn.core.IOpenVPNServiceInternal;
-import de.blinkt.openvpn.core.OpenVPNService;
-import de.blinkt.openvpn.core.ProfileManager;
+import de.blinkt.openvpn.R;
 
 public class MainActivity extends Activity {
 
@@ -41,8 +34,84 @@ public class MainActivity extends Activity {
     private static final int MSG_UPDATE_MYIP = 1;
     private static final int START_PROFILE = 2;
 
-    protected IOpenVPNServiceInternal m_service = null;
     private Handler mHandler = null;
+    private IBinder mBinder;
+
+    private ServiceConnection mServiceConn = new ServiceConnection() {
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            Log.i("client", "mServiceConnPlus onServiceDisconnected");
+        }
+
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            Log.i("client", " mServiceConnPlus onServiceConnected");
+            mBinder = service;
+        }
+    };
+
+    public void startVpn(String ovpnName) {
+        if (mBinder == null) {
+            Log.e("MainActivity", "mPlusBinder == null");
+            return;
+        }
+        android.os.Parcel _data = android.os.Parcel.obtain();
+        android.os.Parcel _reply = android.os.Parcel.obtain();
+        try {
+            _data.writeInterfaceToken("startVpn");
+            _data.writeString(ovpnName);
+            mBinder.transact(0x001, _data, _reply, 0);
+            _reply.readException();
+            return;
+        } catch (RemoteException e) {
+            e.printStackTrace();
+        } finally {
+            _reply.recycle();
+            _data.recycle();
+        }
+    }
+
+    public void userPause(int i) {
+        if (mBinder == null) {
+            Log.e("MainActivity", "mPlusBinder == null");
+            return;
+        }
+        android.os.Parcel _data = android.os.Parcel.obtain();
+        android.os.Parcel _reply = android.os.Parcel.obtain();
+        try {
+            _data.writeInterfaceToken("userPause");
+            _data.writeInt(i);
+            mBinder.transact(0x010, _data, _reply, 0);
+            _reply.readException();
+            return;
+        } catch (RemoteException e) {
+            e.printStackTrace();
+        } finally {
+            _reply.recycle();
+            _data.recycle();
+        }
+    }
+
+    public void stopVpn(int i) {
+        if (mBinder == null) {
+            Log.e("MainActivity", "mPlusBinder == null");
+            return;
+        }
+        android.os.Parcel _data = android.os.Parcel.obtain();
+        android.os.Parcel _reply = android.os.Parcel.obtain();
+        try {
+            _data.writeInterfaceToken("stopVpn");
+            _data.writeInt(i);
+            mBinder.transact(0x011, _data, _reply, 0);
+            _reply.readException();
+            return;
+        } catch (RemoteException e) {
+            e.printStackTrace();
+        } finally {
+            _reply.recycle();
+            _data.recycle();
+        }
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -50,30 +119,18 @@ public class MainActivity extends Activity {
         setContentView(R.layout.activity_main);
         findViewById(R.id.control).setOnClickListener(v -> {
             if (((Button) findViewById(R.id.control)).getText().toString().equals("RESUME")) {
-                try {
-                    m_service.userPause(false);
-                } catch (RemoteException e) {
-                    e.printStackTrace();
-                }
+                userPause(0);
                 ((Button) findViewById(R.id.control)).setText("PAUSE");
                 return;
             }
             if (((Button) findViewById(R.id.control)).getText().toString().equals("PAUSE")) {
-                try {
-                    m_service.userPause(true);
-                } catch (RemoteException e) {
-                    e.printStackTrace();
-                }
+                userPause(1);
                 ((Button) findViewById(R.id.control)).setText("RESUME");
                 return;
             }
         });
         findViewById(R.id.disconnect).setOnClickListener(v -> {
-            try {
-                m_service.stopVPN(false);
-            } catch (RemoteException e) {
-                e.printStackTrace();
-            }
+            stopVpn(0);
         });
         findViewById(R.id.getMyIP).setOnClickListener(v -> {
             new Thread() {
@@ -98,77 +155,10 @@ public class MainActivity extends Activity {
         });
     }
 
-    private void startEmbeddedProfile() {
-        try {
-            InputStream conf;
-            try {
-                conf = this.getAssets().open("lichen03.ovpn");
-            } catch (IOException e) {
-                return;
-            }
-            BufferedReader br = new BufferedReader(new InputStreamReader(conf));
-            StringBuilder config = new StringBuilder();
-            String line;
-            while (true) {
-                line = br.readLine();
-                if (line == null)
-                    break;
-                config.append(line).append("\n");
-            }
-            br.close();
-            conf.close();
-            startVpn(config.toString());
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        Toast.makeText(this, "Profile Add", Toast.LENGTH_LONG).show();
-    }
-
-    public void startVpn(String inlineConfig) {
-        ConfigParser cp = new ConfigParser();
-        try {
-            cp.parseConfig(new StringReader(inlineConfig));
-            VpnProfile vp = cp.convertProfile();
-            vp.mName = "Remote APP VPN";
-            if (vp.checkProfile(getApplicationContext()) != R.string.no_error_found)
-                Log.e("MainActivity", "startVpn.err:" + getString(vp.checkProfile(getApplicationContext())));
-
-            vp.mProfileCreator = "de.blinkt.openvpn";
-
-            ProfileManager.setTemporaryProfile(MainActivity.this, vp);
-
-            Context context = getBaseContext();
-            Intent startVPN = vp.getStartServiceIntent(context);
-            if (startVPN != null) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-                    context.startForegroundService(startVPN);
-                else
-                    context.startService(startVPN);
-            }
-
-        } catch (IOException | ConfigParser.ConfigParseError e) {
-            Log.e("MainActivity", "startVpn.err:" + e.getMessage());
-        }
-    }
-
     private void bindService() {
-        Intent intent = new Intent(getBaseContext(), OpenVPNService.class);
-        intent.setAction(OpenVPNService.START_SERVICE);
-        this.bindService(intent, conn, Context.BIND_AUTO_CREATE);
+        this.bindService(new Intent(this, OpenVPNService.class),
+                mServiceConn, Context.BIND_AUTO_CREATE);
     }
-
-    private ServiceConnection conn = new ServiceConnection() {
-
-        @Override
-        public void onServiceConnected(ComponentName className, IBinder service) {
-            m_service = IOpenVPNServiceInternal.Stub.asInterface(service);
-        }
-
-        @Override
-        public void onServiceDisconnected(ComponentName arg0) {
-            m_service = null;
-        }
-    };
 
     private void initHandler() {
         mHandler = new Handler(new Handler.Callback() {
@@ -192,14 +182,14 @@ public class MainActivity extends Activity {
     @Override
     public void onStop() {
         super.onStop();
-        this.unbindService(conn);
+        this.unbindService(mServiceConn);
     }
 
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         if (resultCode == Activity.RESULT_OK) {
             if (requestCode == START_PROFILE) {
-                startEmbeddedProfile();
+                startVpn("lichen03.ovpn");
             }
         }
     }

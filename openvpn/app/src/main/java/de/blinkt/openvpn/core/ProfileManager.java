@@ -24,8 +24,6 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.Vector;
 
-import de.blinkt.openvpn.VpnProfile;
-
 public class ProfileManager {
     private static final String PREFS_NAME = "VPNList";
 

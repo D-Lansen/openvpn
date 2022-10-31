@@ -1,18 +1,14 @@
 /*
- * Copyright (c) 2012-2016 Arne Schwabe
+ * Copyright (c) 2012-2022 Arne Schwabe
  * Distributed under the GNU GPL v2 with additional terms. For full terms see the file doc/LICENSE.txt
  */
 
-package de.blinkt.openvpn;
+package de.blinkt.openvpn.core;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
-
-import de.blinkt.openvpn.core.Preferences;
-import de.blinkt.openvpn.core.ProfileManager;
-import de.blinkt.openvpn.core.VPNLaunchHelper;
 
 
 public class OnBootReceiver extends BroadcastReceiver {

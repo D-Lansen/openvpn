@@ -1,9 +1,9 @@
 /*
- * Copyright (c) 2012-2016 Arne Schwabe
+ * Copyright (c) 2012-2022 Arne Schwabe
  * Distributed under the GNU GPL v2 with additional terms. For full terms see the file doc/LICENSE.txt
  */
 
-package de.blinkt.openvpn;
+package de.blinkt.openvpn.core;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
@@ -16,10 +16,9 @@ import android.preference.PreferenceManager;
 
 import android.text.TextUtils;
 
-import de.blinkt.openvpn.core.*;
+import de.blinkt.openvpn.R;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.OutputStream;

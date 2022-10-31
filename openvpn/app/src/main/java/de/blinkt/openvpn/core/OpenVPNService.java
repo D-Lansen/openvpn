@@ -26,23 +26,30 @@ import android.net.ConnectivityManager;
 import android.net.ProxyInfo;
 import android.net.Uri;
 import android.net.VpnService;
+import android.os.Binder;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Handler.Callback;
 import android.os.HandlerThread;
 import android.os.IBinder;
 import android.os.Message;
+import android.os.Parcel;
 import android.os.ParcelFileDescriptor;
 import android.os.RemoteException;
 import android.system.OsConstants;
 import android.text.TextUtils;
 import android.util.Base64;
+import android.util.Log;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.StringReader;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.Inet6Address;
@@ -55,10 +62,9 @@ import java.util.Vector;
 import java.util.concurrent.ExecutionException;
 
 import de.blinkt.openvpn.R;
-import de.blinkt.openvpn.VpnProfile;
 import de.blinkt.openvpn.core.VpnStatus.StateListener;
 
-public class OpenVPNService extends VpnService implements StateListener, Callback, IOpenVPNServiceInternal {
+public class OpenVPNService extends VpnService implements StateListener, Callback {
     public static final String START_SERVICE = "de.blinkt.openvpn.START_SERVICE";
     public static final String START_SERVICE_STICKY = "de.blinkt.openvpn.START_SERVICE_STICKY";
     public static final String ALWAYS_SHOW_NOTIFICATION = "de.blinkt.openvpn.NOTIFICATION_ALWAYS_VISIBLE";
@@ -92,30 +98,6 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
     private boolean mStarting = false;
     private long mConnecttime;
     private OpenVPNManagement mManagement;
-    private final IBinder mBinder = new IOpenVPNServiceInternal.Stub() {
-
-        @Override
-        public boolean protect(int fd) throws RemoteException {
-            return OpenVPNService.this.protect(fd);
-        }
-
-        @Override
-        public void userPause(boolean shouldbePaused) throws RemoteException {
-            OpenVPNService.this.userPause(shouldbePaused);
-        }
-
-        @Override
-        public boolean stopVPN(boolean replaceConnection) throws RemoteException {
-            return OpenVPNService.this.stopVPN(replaceConnection);
-        }
-
-        @Override
-        public void challengeResponse(String repsonse) throws RemoteException {
-            OpenVPNService.this.challengeResponse(repsonse);
-        }
-
-
-    };
     private String mLastTunCfg;
     private String mRemoteGW;
     private Handler guiHandler;
@@ -161,7 +143,6 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
             }
     }
 
-    @Override
     public void challengeResponse(String response) throws RemoteException {
         if (mManagement != null) {
             String b64response = Base64.encodeToString(response.getBytes(Charset.forName("UTF-8")), Base64.DEFAULT);
@@ -169,14 +150,115 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
         }
     }
 
+    private Stub mBinder = new Stub();
+
+    public class Stub extends Binder {
+        @Override
+        protected boolean onTransact(int code, Parcel data, Parcel reply,
+                                     int flags) throws RemoteException {
+            switch (code) {
+                case 0x001: {
+                    data.enforceInterface("startVpn");
+                    startVpn(data.readString());
+                    reply.writeNoException();
+                    return true;
+                }
+                case 0x010: {
+                    data.enforceInterface("userPause");
+                    userPause(data.readInt());
+                    reply.writeNoException();
+                    return true;
+                }
+                case 0x011: {
+                    data.enforceInterface("stopVpn");
+                    stopVpn(data.readInt());
+                    reply.writeNoException();
+                    return true;
+                }
+            }
+            return super.onTransact(code, data, reply, flags);
+        }
+
+        public int mul(int a, int b) {
+            return a * b;
+        }
+    }
 
     @Override
     public IBinder onBind(Intent intent) {
-        String action = intent.getAction();
-        if (action != null && action.equals(START_SERVICE))
-            return mBinder;
+        return mBinder;
+    }
+
+    private void startVpn(String ovpnName) {
+        try {
+            InputStream conf;
+            try {
+                conf = this.getAssets().open(ovpnName);
+            } catch (IOException e) {
+                return;
+            }
+            BufferedReader br = new BufferedReader(new InputStreamReader(conf));
+            StringBuilder config = new StringBuilder();
+            String line;
+            while (true) {
+                line = br.readLine();
+                if (line == null)
+                    break;
+                config.append(line).append("\n");
+            }
+            br.close();
+            conf.close();
+            startVpnConfig(config.toString());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void startVpnConfig(String inlineConfig) {
+        ConfigParser cp = new ConfigParser();
+        try {
+            cp.parseConfig(new StringReader(inlineConfig));
+            VpnProfile vp = cp.convertProfile();
+            vp.mName = "Remote APP VPN";
+            if (vp.checkProfile(getApplicationContext()) != R.string.no_error_found)
+                Log.e("MainActivity", "startVpn.err:" + getString(vp.checkProfile(getApplicationContext())));
+
+            vp.mProfileCreator = "de.blinkt.openvpn";
+
+            ProfileManager.setTemporaryProfile(OpenVPNService.this, vp);
+
+            Intent startVPN = vp.getStartServiceIntent(this);
+
+            if (startVPN != null) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+                    this.startForegroundService(startVPN);
+                else
+                    this.startService(startVPN);
+            }
+
+        } catch (IOException | ConfigParser.ConfigParseError e) {
+            Log.e("OpenVPNService", "startVpn.err:" + e.getMessage());
+        }
+    }
+
+    public void userPause(int i) {
+        userPause(i != 0);
+    }
+
+    public void userPause(boolean shouldBePaused) {
+        if (mDeviceStateReceiver != null)
+            mDeviceStateReceiver.userPause(shouldBePaused);
+    }
+
+    public void stopVpn(int i) {
+        stopVpn(i != 0);
+    }
+
+    public boolean stopVpn(boolean replaceConnection) {
+        if (getManagement() != null)
+            return getManagement().stopVPN(replaceConnection);
         else
-            return super.onBind(intent);
+            return false;
     }
 
     @Override
@@ -375,19 +457,6 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
             }
     }
 
-    public void userPause(boolean shouldBePaused) {
-        if (mDeviceStateReceiver != null)
-            mDeviceStateReceiver.userPause(shouldBePaused);
-    }
-
-    @Override
-    public boolean stopVPN(boolean replaceConnection) throws RemoteException {
-        if (getManagement() != null)
-            return getManagement().stopVPN(replaceConnection);
-        else
-            return false;
-    }
-
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent != null && intent.getBooleanExtra(ALWAYS_SHOW_NOTIFICATION, false))
@@ -525,7 +594,6 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
         });
     }
 
-
     private void stopOldOpenVPNProcess() {
         if (mManagement != null) {
             if (mOpenVPNThread != null)
@@ -554,23 +622,6 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
                 }
             }
         }
-    }
-
-    private OpenVPNManagement instantiateOpenVPN3Core() {
-        try {
-            Class<?> cl = Class.forName("de.blinkt.openvpn.core.OpenVPNThreadv3");
-            return (OpenVPNManagement) cl.getConstructor(OpenVPNService.class, VpnProfile.class).newInstance(this, mProfile);
-        } catch (IllegalArgumentException | InstantiationException | InvocationTargetException |
-                NoSuchMethodException | ClassNotFoundException | IllegalAccessException e) {
-            e.printStackTrace();
-        }
-        return null;
-    }
-
-
-    @Override
-    public IBinder asBinder() {
-        return mBinder;
     }
 
     @Override

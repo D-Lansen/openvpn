@@ -17,7 +17,6 @@ import android.os.Looper;
 
 import de.blinkt.openvpn.R;
 
-import java.util.LinkedList;
 import java.util.Objects;
 
 import static de.blinkt.openvpn.core.OpenVPNManagement.pauseReason;
@@ -34,7 +33,6 @@ public class DeviceStateReceiver extends BroadcastReceiver implements OpenVPNMan
 
     // Time to wait after network disconnect to pause the VPN
     private final int DISCONNECT_WAIT = 20;
-
 
     connectState network = connectState.DISCONNECTED;
     connectState screen = connectState.SHOULDBECONNECTED;
