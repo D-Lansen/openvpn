@@ -98,13 +98,4 @@ public class VPNLaunchHelper {
 
     }
 
-    public static void startOpenVpn(VpnProfile startprofile, Context context) {
-        Intent startVPN = startprofile.getStartServiceIntent(context);
-        if (startVPN != null) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-                context.startForegroundService(startVPN);
-            else
-                context.startService(startVPN);
-        }
-    }
 }

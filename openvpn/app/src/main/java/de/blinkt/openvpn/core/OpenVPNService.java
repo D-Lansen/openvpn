@@ -225,7 +225,8 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
 
             vp.mProfileCreator = "de.blinkt.openvpn";
 
-            ProfileManager.setTemporaryProfile(OpenVPNService.this, vp);
+            this.mProfile = vp;
+//            ProfileManager.setTemporaryProfile(OpenVPNService.this, vp);
 
             Intent startVPN = vp.getStartServiceIntent(this);
 
@@ -279,7 +280,7 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
         }
         unregisterDeviceStateReceiver(mDeviceStateReceiver);
         mDeviceStateReceiver = null;
-        ProfileManager.setConntectedVpnProfileDisconnected(this);
+//        ProfileManager.setConntectedVpnProfileDisconnected(this);
         mOpenVPNThread = null;
         if (!mStarting) {
             stopForeground(!mNotificationAlwaysVisible);
@@ -508,28 +509,13 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
         }
     }
 
-    private VpnProfile fetchVPNProfile(Intent intent) {
-        if (intent != null && intent.hasExtra(getPackageName() + ".profileUUID")) {
-            String profileUUID = intent.getStringExtra(getPackageName() + ".profileUUID");
-            int profileVersion = intent.getIntExtra(getPackageName() + ".profileVersion", 0);
-            // Try for 10s to get current version of the profile
-            mProfile = ProfileManager.get(this, profileUUID, profileVersion, 10);
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N_MR1) {
-                updateShortCutUsage(mProfile);
-            }
-        } else {
-        }
-        return mProfile;
-    }
-
     private void startOpenVPN(Intent intent, int startId) {
-        VpnProfile vp = fetchVPNProfile(intent);
-        if (vp == null) {
+        if (mProfile == null) {
             stopSelf(startId);
             return;
         }
 
-        ProfileManager.setConnectedVpnProfile(this, mProfile);
+//        ProfileManager.setConnectedVpnProfile(this, mProfile);
         VpnStatus.setConnectedVPNProfile(mProfile.getUUIDString());
 
         String nativeLibraryDirectory = getApplicationInfo().nativeLibraryDir;
@@ -932,10 +918,8 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
         if (mProfile.mAllowLocalLAN) {
             for (String net : NetworkUtils.getLocalNetworks(this, true)) {
                 addRoutev6(net, false);
-                ;
             }
         }
-
 
     }
 
