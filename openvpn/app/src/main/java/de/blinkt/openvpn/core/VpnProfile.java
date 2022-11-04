@@ -824,8 +824,6 @@ public class VpnProfile implements Serializable, Cloneable {
             if (c.mProxyType == Connection.ProxyType.ORBOT) {
                 if (usesExtraProxyOptions())
                     return R.string.error_orbot_and_proxy_options;
-                if (!OrbotHelper.checkTorReceier(context))
-                    return R.string.no_orbotfound;
             }
         }
 

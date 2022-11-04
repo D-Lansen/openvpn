@@ -45,43 +45,6 @@ public class OpenVpnManagementThread implements Runnable, OpenVPNManagement {
             releaseHoldCmd();
         }
     };
-    private Runnable orbotStatusTimeOutRunnable = new Runnable() {
-        @Override
-        public void run() {
-            sendProxyCMD(Connection.ProxyType.SOCKS5, "127.0.0.1", Integer.toString(OrbotHelper.SOCKS_PROXY_PORT_DEFAULT), false);
-            OrbotHelper.get(mOpenVPNService).removeStatusCallback(statusCallback);
-        }
-    };
-    private OrbotHelper.StatusCallback statusCallback = new OrbotHelper.StatusCallback() {
-
-        @Override
-        public void onStatus(Intent statusIntent) {
-            StringBuilder extras = new StringBuilder();
-            for (String key : statusIntent.getExtras().keySet()) {
-                Object val = statusIntent.getExtras().get(key);
-
-                extras.append(String.format(Locale.ENGLISH, "%s - '%s'", key, val == null ? "null" : val.toString()));
-            }
-            VpnStatus.logDebug("Got Orbot status: " + extras);
-        }
-
-        @Override
-        public void onNotYetInstalled() {
-            VpnStatus.logDebug("Orbot not yet installed");
-        }
-
-        @Override
-        public void onOrbotReady(Intent intent, String socksHost, int socksPort) {
-            mResumeHandler.removeCallbacks(orbotStatusTimeOutRunnable);
-            sendProxyCMD(Connection.ProxyType.SOCKS5, socksHost, Integer.toString(socksPort), false);
-            OrbotHelper.get(mOpenVPNService).removeStatusCallback(this);
-        }
-
-        @Override
-        public void onDisabled(Intent intent) {
-            VpnStatus.logWarning("Orbot integration for external applications is disabled. Waiting %ds before connecting to the default port. Enable external app integration in Orbot or use Socks v5 config instead of Orbot to avoid this delay.");
-        }
-    };
 
     public OpenVpnManagementThread(VpnProfile profile, OpenVPNService openVpnService) {
         mProfile = profile;
