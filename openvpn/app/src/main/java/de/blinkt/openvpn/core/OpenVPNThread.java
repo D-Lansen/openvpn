@@ -6,20 +6,26 @@
 package de.blinkt.openvpn.core;
 
 import android.annotation.SuppressLint;
+import android.content.Context;
+import android.os.Build;
 import android.util.Log;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.LinkedList;
 import java.util.Locale;
+import java.util.Vector;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
 import java.util.regex.Pattern;
@@ -47,8 +53,86 @@ public class OpenVPNThread implements Runnable {
     private String mDumpPath;
     private boolean mNoProcessExitStatus = false;
 
-    public OpenVPNThread(OpenVPNService service, String[] argv, String nativelibdir, String tmpdir) {
-        mArgv = argv;
+    private static final String MINIPIEVPN = "pie_openvpn";
+
+    private static String writeMiniVPN(Context context) {
+        String nativeAPI = NativeUtils.getNativeAPI();
+        /* Q does not allow executing binaries written in temp directory anymore */
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
+            return new File(context.getApplicationInfo().nativeLibraryDir, "libovpnexec.so").getPath();
+
+        String[] abis = Build.SUPPORTED_ABIS;
+
+        if (!nativeAPI.equals(abis[0])) {
+            VpnStatus.logWarning(R.string.abi_mismatch, Arrays.toString(abis), nativeAPI);
+            abis = new String[]{nativeAPI};
+        }
+
+        for (String abi : abis) {
+
+            File vpnExecutable = new File(context.getCacheDir(), "c_" + MINIPIEVPN + "." + abi);
+            if ((vpnExecutable.exists() && vpnExecutable.canExecute()) || writeMiniVPNBinary(context, abi, vpnExecutable)) {
+                return vpnExecutable.getPath();
+            }
+        }
+
+        throw new RuntimeException("Cannot find any executable for this device's ABIs " + Arrays.toString(abis));
+    }
+
+    public static String[] buildOpenvpnArgv(Context c) {
+        Vector<String> args = new Vector<>();
+
+        String binaryName = writeMiniVPN(c);
+        // Add fixed paramenters
+        //args.add("/data/data/de.blinkt.openvpn/lib/openvpn");
+
+        args.add(binaryName);
+
+        args.add("--config");
+        args.add("stdin");
+
+        return args.toArray(new String[0]);
+    }
+
+    private static boolean writeMiniVPNBinary(Context context, String abi, File mvpnout) {
+        try {
+            InputStream mvpn;
+
+            try {
+                mvpn = context.getAssets().open(MINIPIEVPN + "." + abi);
+            } catch (IOException errabi) {
+                VpnStatus.logInfo("Failed getting assets for architecture " + abi);
+                return false;
+            }
+
+
+            FileOutputStream fout = new FileOutputStream(mvpnout);
+
+            byte[] buf = new byte[4096];
+
+            int lenread = mvpn.read(buf);
+            while (lenread > 0) {
+                fout.write(buf, 0, lenread);
+                lenread = mvpn.read(buf);
+            }
+            fout.close();
+
+            if (!mvpnout.setExecutable(true)) {
+                VpnStatus.logError("Failed to make OpenVPN executable");
+                return false;
+            }
+
+
+            return true;
+        } catch (IOException e) {
+            VpnStatus.logException(e);
+            return false;
+        }
+
+    }
+
+    public OpenVPNThread(OpenVPNService service, String nativelibdir, String tmpdir) {
+        mArgv = buildOpenvpnArgv(service);
         mNativeDir = nativelibdir;
         mTmpDir = tmpdir;
         mService = service;
@@ -59,9 +143,8 @@ public class OpenVPNThread implements Runnable {
         mProcess.destroy();
     }
 
-    void setReplaceConnection()
-    {
-        mNoProcessExitStatus=true;
+    void setReplaceConnection() {
+        mNoProcessExitStatus = true;
     }
 
     @Override

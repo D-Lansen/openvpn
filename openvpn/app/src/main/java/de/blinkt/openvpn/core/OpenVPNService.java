@@ -527,10 +527,6 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
             tmpDir = "/tmp";
         }
 
-        // Write OpenVPN binary
-        String[] argv = VPNLaunchHelper.buildOpenvpnArgv(this);
-
-
         // Set a flag that we are starting a new VPN
         mStarting = true;
         // Stop the previous session by interrupting the thread.
@@ -553,7 +549,7 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
         }
 
         Runnable processThread;
-        processThread = new OpenVPNThread(this, argv, nativeLibraryDirectory, tmpDir);
+        processThread = new OpenVPNThread(this, nativeLibraryDirectory, tmpDir);
 
         synchronized (mProcessLock) {
             mProcessThread = new Thread(processThread, "OpenVPNProcessThread");

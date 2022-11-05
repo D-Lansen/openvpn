@@ -8,12 +8,12 @@ package de.blinkt.openvpn.core;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.NetworkInfo.State;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 
 import de.blinkt.openvpn.R;
 
@@ -93,19 +93,10 @@ public class DeviceStateReceiver extends BroadcastReceiver implements OpenVPNMan
 
     @Override
     public void onReceive(Context context, Intent intent) {
-        SharedPreferences prefs = Preferences.getDefaultSharedPreferences(context);
-
         if (ConnectivityManager.CONNECTIVITY_ACTION.equals(intent.getAction())) {
             networkStateChange(context);
         } else if (Intent.ACTION_SCREEN_OFF.equals(intent.getAction())) {
-            boolean screenOffPause = prefs.getBoolean("screenoff", false);
-
-            if (screenOffPause) {
-                screen = connectState.PENDINGDISCONNECT;
-
-                if (network == connectState.DISCONNECTED || userpause == connectState.DISCONNECTED)
-                    screen = connectState.DISCONNECTED;
-            }
+            Log.e("DeviceStateReceiver", "onReceive.ACTION_SCREEN_OFF");
         } else if (Intent.ACTION_SCREEN_ON.equals(intent.getAction())) {
             // Network was disabled because screen off
             boolean connected = shouldBeConnected();
@@ -128,13 +119,9 @@ public class DeviceStateReceiver extends BroadcastReceiver implements OpenVPNMan
 
     public void networkStateChange(Context context) {
         NetworkInfo networkInfo = getCurrentNetworkInfo(context);
-        SharedPreferences prefs = Preferences.getDefaultSharedPreferences(context);
-        boolean sendusr1 = prefs.getBoolean("netchangereconnect", true);
-
-
-        String netstatestring;
+        String netStateString;
         if (networkInfo == null) {
-            netstatestring = "not connected";
+            netStateString = "not connected";
         } else {
             String subtype = networkInfo.getSubtypeName();
             if (subtype == null)
@@ -143,7 +130,7 @@ public class DeviceStateReceiver extends BroadcastReceiver implements OpenVPNMan
             if (extrainfo == null)
                 extrainfo = "";
 
-            netstatestring = String.format("%2$s %4$s to %1$s %3$s", networkInfo.getTypeName(),
+            netStateString = String.format("%2$s %4$s to %1$s %3$s", networkInfo.getTypeName(),
                     networkInfo.getDetailedState(), extrainfo, subtype);
         }
 
@@ -153,14 +140,9 @@ public class DeviceStateReceiver extends BroadcastReceiver implements OpenVPNMan
             boolean pendingDisconnect = (network == connectState.PENDINGDISCONNECT);
             network = connectState.SHOULDBECONNECTED;
 
-            boolean sameNetwork;
-            if (lastConnectedNetwork == null
-                    || lastConnectedNetwork.getType() != networkInfo.getType()
-                    || !equalsObj(lastConnectedNetwork.getExtraInfo(), networkInfo.getExtraInfo())
-                    )
-                sameNetwork = false;
-            else
-                sameNetwork = true;
+            boolean sameNetwork = lastConnectedNetwork != null
+                    && lastConnectedNetwork.getType() == networkInfo.getType()
+                    && equalsObj(lastConnectedNetwork.getExtraInfo(), networkInfo.getExtraInfo());
 
             /* Same network, connection still 'established' */
             if (pendingDisconnect && sameNetwork) {
@@ -188,19 +170,15 @@ public class DeviceStateReceiver extends BroadcastReceiver implements OpenVPNMan
         } else if (networkInfo == null) {
             // Not connected, stop openvpn, set last connected network to no network
             lastNetwork = -1;
-            if (sendusr1) {
-                network = connectState.PENDINGDISCONNECT;
-                mDisconnectHandler.postDelayed(mDelayDisconnectRunnable, DISCONNECT_WAIT * 1000);
-
-            }
+            network = connectState.PENDINGDISCONNECT;
+            mDisconnectHandler.postDelayed(mDelayDisconnectRunnable, DISCONNECT_WAIT * 1000);
         }
 
-
-        if (!netstatestring.equals(lastStateMsg))
-            VpnStatus.logInfo(R.string.netstatus, netstatestring);
+        if (!netStateString.equals(lastStateMsg))
+            VpnStatus.logInfo(R.string.netstatus, netStateString);
         VpnStatus.logDebug(String.format("Debug state info: %s, pause: %s, shouldbeconnected: %s, network: %s ",
-                netstatestring, getPauseReason(), shouldBeConnected(), network));
-        lastStateMsg = netstatestring;
+                netStateString, getPauseReason(), shouldBeConnected(), network));
+        lastStateMsg = netStateString;
 
     }
 
