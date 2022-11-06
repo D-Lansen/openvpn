@@ -1,16 +1,13 @@
-/*
- * Copyright (c) 2012-2018 Arne Schwabe
- * Distributed under the GNU GPL v2 with additional terms. For full terms see the file doc/LICENSE.txt
- */
-
 package de.blinkt.openvpn.core;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
-import android.net.*;
-import android.os.Build;
+import android.net.ConnectivityManager;
+import android.net.LinkAddress;
+import android.net.LinkProperties;
+import android.net.Network;
+import android.net.NetworkCapabilities;
 import android.provider.Settings;
-import android.text.TextUtils;
 
 import java.net.Inet4Address;
 import java.net.Inet6Address;
@@ -24,7 +21,7 @@ public class NetworkUtils {
 
         Network[] networks = conn.getAllNetworks();
         for (Network network : networks) {
-            NetworkInfo ni = conn.getNetworkInfo(network);
+
             LinkProperties li = conn.getLinkProperties(network);
 
             NetworkCapabilities nc = conn.getNetworkCapabilities(network);
@@ -56,15 +53,15 @@ public class NetworkUtils {
     public static String getFakeMacAddrFromSAAID(Context c) {
         char[] HEX_ARRAY = "0123456789ABCDEF".toCharArray();
 
-        String saaid = Settings.Secure.getString(c.getContentResolver(),
+        String saaId = Settings.Secure.getString(c.getContentResolver(),
                 Settings.Secure.ANDROID_ID);
 
-        if (saaid == null)
+        if (saaId == null)
             return null;
 
         StringBuilder ret = new StringBuilder();
-        if (saaid.length() >= 6) {
-            byte[] sb = saaid.getBytes();
+        if (saaId.length() >= 6) {
+            byte[] sb = saaId.getBytes();
             for (int b = 0; b <= 6; b++) {
                 if (b != 0)
                     ret.append(":");

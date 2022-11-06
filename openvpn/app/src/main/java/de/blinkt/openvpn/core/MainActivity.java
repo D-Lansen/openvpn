@@ -1,10 +1,6 @@
-/*
- * Copyright (c) 2012-2022 Arne Schwabe
- * Distributed under the GNU GPL v2 with additional terms. For full terms see the file doc/LICENSE.txt
- */
-
 package de.blinkt.openvpn.core;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.ComponentName;
 import android.content.Context;
@@ -30,14 +26,14 @@ import de.blinkt.openvpn.R;
 
 public class MainActivity extends Activity {
 
-    private static final int MSG_UPDATE_STATE = 0;
+//    private static final int MSG_UPDATE_STATE = 0;
     private static final int MSG_UPDATE_MYIP = 1;
     private static final int START_PROFILE = 2;
 
     private Handler mHandler = null;
     private IBinder mBinder;
 
-    private ServiceConnection mServiceConn = new ServiceConnection() {
+    private final ServiceConnection mServiceConn = new ServiceConnection() {
         @Override
         public void onServiceDisconnected(ComponentName name) {
             Log.i("client", "mServiceConnPlus onServiceDisconnected");
@@ -62,7 +58,6 @@ public class MainActivity extends Activity {
             _data.writeString(ovpnName);
             mBinder.transact(0x001, _data, _reply, 0);
             _reply.readException();
-            return;
         } catch (RemoteException e) {
             e.printStackTrace();
         } finally {
@@ -83,7 +78,6 @@ public class MainActivity extends Activity {
             _data.writeInt(i);
             mBinder.transact(0x010, _data, _reply, 0);
             _reply.readException();
-            return;
         } catch (RemoteException e) {
             e.printStackTrace();
         } finally {
@@ -104,7 +98,6 @@ public class MainActivity extends Activity {
             _data.writeInt(i);
             mBinder.transact(0x011, _data, _reply, 0);
             _reply.readException();
-            return;
         } catch (RemoteException e) {
             e.printStackTrace();
         } finally {
@@ -113,6 +106,7 @@ public class MainActivity extends Activity {
         }
     }
 
+    @SuppressLint("SetTextI18n")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -126,29 +120,24 @@ public class MainActivity extends Activity {
             if (((Button) findViewById(R.id.control)).getText().toString().equals("PAUSE")) {
                 userPause(1);
                 ((Button) findViewById(R.id.control)).setText("RESUME");
-                return;
             }
         });
-        findViewById(R.id.disconnect).setOnClickListener(v -> {
-            stopVpn(0);
-        });
-        findViewById(R.id.getMyIP).setOnClickListener(v -> {
-            new Thread() {
-                @Override
-                public void run() {
-                    try {
-                        String myip = getMyOwnIP();
-                        Message msg = Message.obtain(mHandler, MSG_UPDATE_MYIP, myip);
-                        msg.sendToTarget();
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
+        findViewById(R.id.disconnect).setOnClickListener(v -> stopVpn(0));
+        findViewById(R.id.getMyIP).setOnClickListener(v -> new Thread() {
+            @Override
+            public void run() {
+                try {
+                    String myip = getMyOwnIP();
+                    Message msg = Message.obtain(mHandler, MSG_UPDATE_MYIP, myip);
+                    msg.sendToTarget();
+                } catch (Exception e) {
+                    e.printStackTrace();
                 }
-            }.start();
-        });
+            }
+        }.start());
         findViewById(R.id.profile).setOnClickListener(v -> {
             try {
-                prepareStartProfile(START_PROFILE);
+                prepareStartProfile();
             } catch (RemoteException e) {
                 e.printStackTrace();
             }
@@ -161,14 +150,11 @@ public class MainActivity extends Activity {
     }
 
     private void initHandler() {
-        mHandler = new Handler(new Handler.Callback() {
-            @Override
-            public boolean handleMessage(Message msg) {
-                if (msg.what == MSG_UPDATE_MYIP) {
-                    ((TextView) findViewById(R.id.MyIpText)).setText((CharSequence) msg.obj);
-                }
-                return true;
+        mHandler = new Handler(msg -> {
+            if (msg.what == MSG_UPDATE_MYIP) {
+                ((TextView) findViewById(R.id.MyIpText)).setText((CharSequence) msg.obj);
             }
+            return true;
         });
     }
 
@@ -194,12 +180,12 @@ public class MainActivity extends Activity {
         }
     }
 
-    private void prepareStartProfile(int requestCode) throws RemoteException {
+    private void prepareStartProfile() throws RemoteException {
         Intent requestpermission = VpnService.prepare(getBaseContext());
         if (requestpermission == null) {
-            onActivityResult(requestCode, Activity.RESULT_OK, null);
+            onActivityResult(START_PROFILE, Activity.RESULT_OK, null);
         } else {
-            startActivityForResult(requestpermission, requestCode);
+            startActivityForResult(requestpermission, START_PROFILE);
         }
     }
 

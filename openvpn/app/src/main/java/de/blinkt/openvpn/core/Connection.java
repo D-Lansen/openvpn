@@ -2,6 +2,8 @@ package de.blinkt.openvpn.core;
 
 import android.text.TextUtils;
 
+import androidx.annotation.NonNull;
+
 import java.io.Serializable;
 import java.util.Locale;
 
@@ -72,6 +74,7 @@ public class Connection implements Serializable, Cloneable {
     }
 
 
+    @NonNull
     @Override
     public Connection clone() throws CloneNotSupportedException {
         return (Connection) super.clone();

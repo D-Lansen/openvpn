@@ -1,8 +1,3 @@
-/*
- * Copyright (c) 2012-2016 Arne Schwabe
- * Distributed under the GNU GPL v2 with additional terms. For full terms see the file doc/LICENSE.txt
- */
-
 package de.blinkt.openvpn.core;
 
 public interface OpenVPNManagement {
@@ -14,12 +9,6 @@ public interface OpenVPNManagement {
         noNetwork,
         userPause,
         screenOff,
-    }
-
-    enum SignaturePadding {
-        RSA_PKCS1_PSS_PADDING,
-        RSA_PKCS1_PADDING,
-        NO_PADDING
     }
 
     int mBytecountInterval = 2;

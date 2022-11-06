@@ -2,15 +2,21 @@ package de.blinkt.openvpn.core;
 
 import android.os.Build;
 
-import androidx.core.util.Pair;
-
 import android.text.TextUtils;
+import android.util.Pair;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.Reader;
 import java.io.StringReader;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Scanner;
+import java.util.Vector;
 
 public class ConfigParser {
 
@@ -111,14 +117,14 @@ public class ConfigParser {
             "http-proxy-user-pass",
             "explicit-exit-notify",
     };
-    private HashSet<String> connectionOptionsSet = new HashSet<>(Arrays.asList(connectionOptions));
+    private final HashSet<String> connectionOptionsSet = new HashSet<>(Arrays.asList(connectionOptions));
 
-    private HashMap<String, Vector<Vector<String>>> options = new HashMap<>();
-    private HashMap<String, Vector<String>> meta = new HashMap<String, Vector<String>>();
+    private final HashMap<String, Vector<Vector<String>>> options = new HashMap<>();
+    private final HashMap<String, Vector<String>> meta = new HashMap<>();
     private String auth_user_pass_file;
 
-    static public void useEmbbedUserAuth(VpnProfile np, String inlinedata) {
-        String data = VpnProfile.getEmbeddedContent(inlinedata);
+    public static void useEmbbedUserAuth(VpnProfile np, String inLineData) {
+        String data = VpnProfile.getEmbeddedContent(inLineData);
         String[] parts = data.split("\n");
         if (parts.length >= 2) {
             np.mUsername = parts[0];
@@ -126,8 +132,8 @@ public class ConfigParser {
         }
     }
 
-    static public void useEmbbedHttpAuth(Connection c, String inlinedata) {
-        String data = VpnProfile.getEmbeddedContent(inlinedata);
+    public static void useEmbbedHttpAuth(Connection c, String inLineData) {
+        String data = VpnProfile.getEmbeddedContent(inLineData);
         String[] parts = data.split("\n");
         if (parts.length >= 2) {
             c.mProxyAuthUser = parts[0];
@@ -183,7 +189,7 @@ public class ConfigParser {
                     optionname = optionAliases.get(optionname);
 
                 if (!options.containsKey(optionname)) {
-                    options.put(optionname, new Vector<Vector<String>>());
+                    options.put(optionname, new Vector<>());
                 }
                 options.get(optionname).add(args);
             }
@@ -195,7 +201,7 @@ public class ConfigParser {
     private Vector<String> parsemeta(String line) {
         String meta = line.split("#\\sOVPN_ACCESS_SERVER_", 2)[1];
         String[] parts = meta.split("=", 2);
-        Vector<String> rval = new Vector<String>();
+        Vector<String> rval = new Vector<>();
         Collections.addAll(rval, parts);
         return rval;
 
@@ -206,7 +212,7 @@ public class ConfigParser {
         // CHeck for <foo>
         if (arg0.startsWith("<") && arg0.endsWith(">")) {
             String argname = arg0.substring(1, arg0.length() - 1);
-            String inlinefile = VpnProfile.INLINE_TAG;
+            StringBuilder inlinefile = new StringBuilder(VpnProfile.INLINE_TAG);
 
             String endtag = String.format("</%s>", argname);
             do {
@@ -217,17 +223,17 @@ public class ConfigParser {
                 if (line.trim().equals(endtag))
                     break;
                 else {
-                    inlinefile += line;
-                    inlinefile += "\n";
+                    inlinefile.append(line);
+                    inlinefile.append("\n");
                 }
             } while (true);
 
-            if (inlinefile.endsWith("\n"))
-                inlinefile = inlinefile.substring(0, inlinefile.length() - 1);
+            if (inlinefile.toString().endsWith("\n"))
+                inlinefile = new StringBuilder(inlinefile.substring(0, inlinefile.length() - 1));
 
             args.clear();
             args.add(argname);
-            args.add(inlinefile);
+            args.add(inlinefile.toString());
         }
 
     }
@@ -245,7 +251,7 @@ public class ConfigParser {
 
     // adapted openvpn's parse function to java
     private Vector<String> parseline(String line) throws ConfigParseError {
-        Vector<String> parameters = new Vector<String>();
+        Vector<String> parameters = new Vector<>();
 
         if (line.length() == 0)
             return parameters;
@@ -256,7 +262,7 @@ public class ConfigParser {
         char out = 0;
 
         int pos = 0;
-        String currentarg = "";
+        StringBuilder currentarg = new StringBuilder();
 
         do {
             // Emulate the c parsing ...
@@ -302,8 +308,8 @@ public class ConfigParser {
                 if (state == linestate.done) {
                     /* ASSERT (parm_len > 0); */
                     state = linestate.initial;
-                    parameters.add(currentarg);
-                    currentarg = "";
+                    parameters.add(currentarg.toString());
+                    currentarg = new StringBuilder();
                     out = 0;
                 }
 
@@ -317,7 +323,7 @@ public class ConfigParser {
 
             /* store parameter character */
             if (out != 0) {
-                currentarg += out;
+                currentarg.append(out);
             }
         } while (pos++ < line.length());
 
@@ -351,8 +357,8 @@ public class ConfigParser {
 
         Vector<Vector<String>> routes = getAllOption("route", 1, 4);
         if (routes != null) {
-            String routeopt = "";
-            String routeExcluded = "";
+            StringBuilder routeopt = new StringBuilder();
+            StringBuilder routeExcluded = new StringBuilder();
             for (Vector<String> route : routes) {
                 String netmask = "255.255.255.255";
                 String gateway = "vpn_gateway";
@@ -364,32 +370,26 @@ public class ConfigParser {
 
                 String net = route.get(1);
                 try {
-                    CIDRIP cidr = new CIDRIP(net, netmask);
+                    CidrIp cidr = new CidrIp(net, netmask);
                     if (gateway.equals("net_gateway"))
-                        routeExcluded += cidr.toString() + " ";
+                        routeExcluded.append(cidr).append(" ");
                     else
-                        routeopt += cidr.toString() + " ";
-                } catch (ArrayIndexOutOfBoundsException aioob) {
-                    throw new ConfigParseError("Could not parse netmask of route " + netmask);
-                } catch (NumberFormatException ne) {
-
-
+                        routeopt.append(cidr).append(" ");
+                } catch (ArrayIndexOutOfBoundsException | NumberFormatException aioob) {
                     throw new ConfigParseError("Could not parse netmask of route " + netmask);
                 }
-
             }
-            np.mCustomRoutes = routeopt;
-            np.mExcludedRoutes = routeExcluded;
+            np.mCustomRoutes = routeopt.toString();
+            np.mExcludedRoutes = routeExcluded.toString();
         }
 
         Vector<Vector<String>> routesV6 = getAllOption("route-ipv6", 1, 4);
         if (routesV6 != null) {
-            String customIPv6Routes = "";
+            StringBuilder customIPv6Routes = new StringBuilder();
             for (Vector<String> route : routesV6) {
-                customIPv6Routes += route.get(1) + " ";
+                customIPv6Routes.append(route.get(1)).append(" ");
             }
-
-            np.mCustomRoutesv6 = customIPv6Routes;
+            np.mCustomRoutesv6 = customIPv6Routes.toString();
         }
 
         Vector<String> routeNoPull = getOption("route-nopull", 0, 0);
@@ -502,7 +502,7 @@ public class ConfigParser {
         Vector<String> ifconfig = getOption("ifconfig", 2, 2);
         if (ifconfig != null) {
             try {
-                CIDRIP cidr = new CIDRIP(ifconfig.get(1), ifconfig.get(2));
+                CidrIp cidr = new CidrIp(ifconfig.get(1), ifconfig.get(2));
                 np.mIPv4Address = cidr.toString();
             } catch (NumberFormatException nfe) {
                 throw new ConfigParseError("Could not pase ifconfig IP address: " + nfe.getLocalizedMessage());
@@ -584,9 +584,9 @@ public class ConfigParser {
         if (peerfp != null) {
             np.mCheckPeerFingerprint = true;
             for (Vector<String> fp : peerfp) {
-                if (fp.get(1).startsWith(VpnProfile.INLINE_TAG))
+                if (fp.get(1).startsWith(VpnProfile.INLINE_TAG)) {
                     np.mPeerFingerPrints += fp.get(1).substring(VpnProfile.INLINE_TAG.length()) + "\n";
-                else
+                } else
                     np.mPeerFingerPrints += fp.get(1) + "\n";
             }
         }
@@ -633,14 +633,19 @@ public class ConfigParser {
             np.mRemoteCN = verifyx509name.get(1);
             np.mCheckRemoteCN = true;
             if (verifyx509name.size() > 2) {
-                if (verifyx509name.get(2).equals("name"))
-                    np.mX509AuthType = VpnProfile.X509_VERIFY_TLSREMOTE_RDN;
-                else if (verifyx509name.get(2).equals("subject"))
-                    np.mX509AuthType = VpnProfile.X509_VERIFY_TLSREMOTE_DN;
-                else if (verifyx509name.get(2).equals("name-prefix"))
-                    np.mX509AuthType = VpnProfile.X509_VERIFY_TLSREMOTE_RDN_PREFIX;
-                else
-                    throw new ConfigParseError("Unknown parameter to verify-x509-name: " + verifyx509name.get(2));
+                switch (verifyx509name.get(2)) {
+                    case "name":
+                        np.mX509AuthType = VpnProfile.X509_VERIFY_TLSREMOTE_RDN;
+                        break;
+                    case "subject":
+                        np.mX509AuthType = VpnProfile.X509_VERIFY_TLSREMOTE_DN;
+                        break;
+                    case "name-prefix":
+                        np.mX509AuthType = VpnProfile.X509_VERIFY_TLSREMOTE_RDN_PREFIX;
+                        break;
+                    default:
+                        throw new ConfigParseError("Unknown parameter to verify-x509-name: " + verifyx509name.get(2));
+                }
             } else {
                 np.mX509AuthType = VpnProfile.X509_VERIFY_TLSREMOTE_DN;
             }
@@ -706,14 +711,17 @@ public class ConfigParser {
 
         Vector<String> authretry = getOption("auth-retry", 1, 1);
         if (authretry != null) {
-            if (authretry.get(1).equals("none"))
-                np.mAuthRetry = VpnProfile.AUTH_RETRY_NONE_FORGET;
-            else if (authretry.get(1).equals("nointeract"))
-                np.mAuthRetry = VpnProfile.AUTH_RETRY_NOINTERACT;
-            else if (authretry.get(1).equals("interact"))
-                np.mAuthRetry = VpnProfile.AUTH_RETRY_NOINTERACT;
-            else
-                throw new ConfigParseError("Unknown parameter to auth-retry: " + authretry.get(2));
+            switch (authretry.get(1)) {
+                case "none":
+                    np.mAuthRetry = VpnProfile.AUTH_RETRY_NONE_FORGET;
+                    break;
+                case "nointeract":
+                case "interact":
+                    np.mAuthRetry = VpnProfile.AUTH_RETRY_NOINTERACT;
+                    break;
+                default:
+                    throw new ConfigParseError("Unknown parameter to auth-retry: " + authretry.get(2));
+            }
         }
 
 
@@ -799,14 +807,11 @@ public class ConfigParser {
     private Pair<Connection, Connection[]> parseConnection(String connection, Connection defaultValues) throws IOException, ConfigParseError {
         // Parse a connection Block as a new configuration file
 
-
         ConfigParser connectionParser = new ConfigParser();
         StringReader reader = new StringReader(connection.substring(VpnProfile.INLINE_TAG.length()));
         connectionParser.parseConfig(reader);
 
-        Pair<Connection, Connection[]> conn = connectionParser.parseConnectionOptions(defaultValues);
-
-        return conn;
+        return connectionParser.parseConnectionOptions(defaultValues);
     }
 
     private Pair<Connection, Connection[]> parseConnectionOptions(Connection connDefault) throws ConfigParseError {
@@ -890,10 +895,9 @@ public class ConfigParser {
 
         // Make remotes empty to simplify code
         if (remotes == null)
-            remotes = new Vector<Vector<String>>();
+            remotes = new Vector<>();
 
         Connection[] connections = new Connection[remotes.size()];
-
 
         int i = 0;
         for (Vector<String> remote : remotes) {
@@ -924,14 +928,20 @@ public class ConfigParser {
 
             for (Vector<String> redirect : defgw)
                 for (int i = 1; i < redirect.size(); i++) {
-                    if (redirect.get(i).equals("block-local"))
-                        np.mAllowLocalLAN = false;
-                    else if (redirect.get(i).equals("unblock-local"))
-                        np.mAllowLocalLAN = true;
-                    else if (redirect.get(i).equals("!ipv4"))
-                        noIpv4 = true;
-                    else if (redirect.get(i).equals("ipv6"))
-                        np.mUseDefaultRoutev6 = true;
+                    switch (redirect.get(i)) {
+                        case "block-local":
+                            np.mAllowLocalLAN = false;
+                            break;
+                        case "unblock-local":
+                            np.mAllowLocalLAN = true;
+                            break;
+                        case "!ipv4":
+                            noIpv4 = true;
+                            break;
+                        case "ipv6":
+                            np.mUseDefaultRoutev6 = true;
+                            break;
+                    }
                 }
         if (defaultRoute && !noIpv4)
             np.mUseDefaultRoute = true;
@@ -966,7 +976,7 @@ public class ConfigParser {
         boolean customOptions = false;
         for (Vector<Vector<String>> option : options.values()) {
             for (Vector<String> optionsline : option) {
-                if (!ignoreThisOption(optionsline)) {
+                if (ignoreThisOption(optionsline)) {
                     customOptions = true;
                 }
             }
@@ -976,12 +986,9 @@ public class ConfigParser {
                     + np.mCustomConfigOptions;
 
             for (Vector<Vector<String>> option : options.values()) {
-
                 np.mCustomConfigOptions += getOptionStrings(option);
-
             }
             np.mUseCustomConfig = true;
-
         }
     }
 
@@ -993,33 +1000,34 @@ public class ConfigParser {
 
             boolean ignore = true;
             for (int i = 0; i < ignoreOption.length; i++) {
-                if (!ignoreOption[i].equals(option.get(i)))
+                if (!ignoreOption[i].equals(option.get(i))) {
                     ignore = false;
+                    break;
+                }
             }
             if (ignore)
-                return true;
-
+                return false;
         }
-        return false;
+        return true;
     }
 
     //! Generate options for custom options
     private String getOptionStrings(Vector<Vector<String>> option) {
-        String custom = "";
+        StringBuilder custom = new StringBuilder();
         for (Vector<String> optionsline : option) {
-            if (!ignoreThisOption(optionsline)) {
+            if (ignoreThisOption(optionsline)) {
                 // Check if option had been inlined and inline again
                 if (optionsline.size() == 2 &&
                         "extra-certs".equals(optionsline.get(0))) {
-                    custom += VpnProfile.insertFileData(optionsline.get(0), optionsline.get(1));
+                    custom.append(VpnProfile.insertFileData(optionsline.get(0), optionsline.get(1)));
                 } else {
                     for (String arg : optionsline)
-                        custom += VpnProfile.openVpnEscape(arg) + " ";
-                    custom += "\n";
+                        custom.append(VpnProfile.openVpnEscape(arg)).append(" ");
+                    custom.append("\n");
                 }
             }
         }
-        return custom;
+        return custom.toString();
     }
 
     private void fixup(VpnProfile np) {

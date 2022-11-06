@@ -1,8 +1,3 @@
-/*
- * Copyright (c) 2012-2016 Arne Schwabe
- * Distributed under the GNU GPL v2 with additional terms. For full terms see the file doc/LICENSE.txt
- */
-
 package de.blinkt.openvpn.core;
 
 import android.content.BroadcastReceiver;
@@ -15,24 +10,15 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 
-import de.blinkt.openvpn.R;
-
 import java.util.Objects;
 
 import static de.blinkt.openvpn.core.OpenVPNManagement.pauseReason;
 
 public class DeviceStateReceiver extends BroadcastReceiver implements OpenVPNManagement.PausedStateCallback {
+
     private final Handler mDisconnectHandler;
-    private int lastNetwork = -1;
-    private OpenVPNManagement mManagement;
 
-    // Window time in s
-    private final int TRAFFIC_WINDOW = 60;
-    // Data traffic limit in bytes
-    private final long TRAFFIC_LIMIT = 64 * 1024;
-
-    // Time to wait after network disconnect to pause the VPN
-    private final int DISCONNECT_WAIT = 20;
+    private final OpenVPNManagement mManagement;
 
     connectState network = connectState.DISCONNECTED;
     connectState screen = connectState.SHOULDBECONNECTED;
@@ -135,7 +121,6 @@ public class DeviceStateReceiver extends BroadcastReceiver implements OpenVPNMan
         }
 
         if (networkInfo != null && networkInfo.getState() == State.CONNECTED) {
-            int newnet = networkInfo.getType();
 
             boolean pendingDisconnect = (network == connectState.PENDINGDISCONNECT);
             network = connectState.SHOULDBECONNECTED;
@@ -147,7 +132,6 @@ public class DeviceStateReceiver extends BroadcastReceiver implements OpenVPNMan
             /* Same network, connection still 'established' */
             if (pendingDisconnect && sameNetwork) {
                 mDisconnectHandler.removeCallbacks(mDelayDisconnectRunnable);
-                // Reprotect the sockets just be sure
                 mManagement.networkChange(true);
             } else {
                 /* Different network or connection not established anymore */
@@ -159,29 +143,27 @@ public class DeviceStateReceiver extends BroadcastReceiver implements OpenVPNMan
                     mDisconnectHandler.removeCallbacks(mDelayDisconnectRunnable);
 
                     if (pendingDisconnect || !sameNetwork)
-                        mManagement.networkChange(sameNetwork);
+                        mManagement.networkChange(false);
                     else
                         mManagement.resume();
                 }
 
-                lastNetwork = newnet;
                 lastConnectedNetwork = networkInfo;
             }
         } else if (networkInfo == null) {
-            // Not connected, stop openvpn, set last connected network to no network
-            lastNetwork = -1;
             network = connectState.PENDINGDISCONNECT;
+            // Time to wait after network disconnect to pause the VPN
+            int DISCONNECT_WAIT = 20;
             mDisconnectHandler.postDelayed(mDelayDisconnectRunnable, DISCONNECT_WAIT * 1000);
         }
 
         if (!netStateString.equals(lastStateMsg))
-            VpnStatus.logInfo(R.string.netstatus, netStateString);
+            VpnStatus.logInfo("Network Status: %s", 0, netStateString);
         VpnStatus.logDebug(String.format("Debug state info: %s, pause: %s, shouldbeconnected: %s, network: %s ",
                 netStateString, getPauseReason(), shouldBeConnected(), network));
         lastStateMsg = netStateString;
 
     }
-
 
     public boolean isUserPaused() {
         return userpause == connectState.DISCONNECTED;

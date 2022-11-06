@@ -1,23 +1,13 @@
-/*
- * Copyright (c) 2012-2016 Arne Schwabe
- * Distributed under the GNU GPL v2 with additional terms. For full terms see the file doc/LICENSE.txt
- */
-
 package de.blinkt.openvpn.core;
 
 import android.content.Context;
 import android.content.Intent;
-import android.content.res.Resources;
 import android.os.Build;
 import android.util.Log;
-
-import androidx.annotation.NonNull;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.FormatFlagsConversionMismatchException;
-import java.util.LinkedList;
-import java.util.ListIterator;
 import java.util.Locale;
 import java.util.UnknownFormatConversionException;
 import java.util.Vector;
@@ -26,7 +16,7 @@ import de.blinkt.openvpn.R;
 
 public class VpnStatus {
 
-    private static Vector<StateListener> stateListener;
+    private static final Vector<StateListener> stateListener;
 
     private static String mLaststatemsg = "";
 
@@ -42,9 +32,8 @@ public class VpnStatus {
 
     public static String getLastStateId(Context c) {
         String message = mLaststatemsg;
-        switch (mLastLevel) {
-            case LEVEL_CONNECTED:
-                String[] parts = mLaststatemsg.split(",");
+        if (mLastLevel == ConnectionStatus.LEVEL_CONNECTED) {
+            String[] parts = mLaststatemsg.split(",");
                 /*
                    (a) the integer unix date/time,
                    (b) the state name,
@@ -58,10 +47,9 @@ public class VpnStatus {
                    5 (h) optional local port, and
                    6 (i) optional TUN/TAP local IPv6 address.
 */
-                // Return only the assigned IP addresses in the UI
-                if (parts.length >= 7)
-                    message = String.format(Locale.US, "%s %s", parts[1], parts[6]);
-                break;
+            // Return only the assigned IP addresses in the UI
+            if (parts.length >= 7)
+                message = String.format(Locale.US, "%s %s", parts[1], parts[6]);
         }
 
         while (message.endsWith(","))
@@ -89,12 +77,6 @@ public class VpnStatus {
         for (StateListener sl : stateListener)
             sl.setConnectedVPN(uuid);
     }
-
-    // keytool -printcert -jarfile de.blinkt.openvpn_85.apk
-    static final byte[] officalkey = {-58, -42, -44, -106, 90, -88, -87, -88, -52, -124, 84, 117, 66, 79, -112, -111, -46, 86, -37, 109};
-    static final byte[] officaldebugkey = {-99, -69, 45, 71, 114, -116, 82, 66, -99, -122, 50, -70, -56, -111, 98, -35, -65, 105, 82, 43};
-    static final byte[] amazonkey = {-116, -115, -118, -89, -116, -112, 120, 55, 79, -8, -119, -23, 106, -114, -85, -56, -4, 105, 26, -57};
-    static final byte[] fdroidkey = {-92, 111, -42, -46, 123, -96, -60, 79, -27, -31, 49, 103, 11, -54, -68, -27, 17, 2, 121, 104};
 
     private static ConnectionStatus mLastLevel = ConnectionStatus.LEVEL_NOTCONNECTED;
 
@@ -221,12 +203,9 @@ public class VpnStatus {
     }
 
     public synchronized static void updateStateString(String state, String msg, int resid, ConnectionStatus level, Intent intent) {
-        // Workound for OpenVPN doing AUTH and wait and being connected
-        // Simply ignore these state
         if (mLastLevel == ConnectionStatus.LEVEL_CONNECTED &&
                 (state.equals("WAIT") || state.equals("AUTH"))) {
             logDebug(String.format("Ignoring OpenVPN Status in CONNECTED state (%s->%s): %s", state, level.toString(), msg));
-//            newLogItem(new LogItem((LogLevel.DEBUG), String.format("Ignoring OpenVPN Status in CONNECTED state (%s->%s): %s", state, level.toString(), msg)));
             return;
         }
 
@@ -252,7 +231,7 @@ public class VpnStatus {
                 return str;
             }
         } catch (UnknownFormatConversionException | FormatFlagsConversionMismatchException e) {
-            throw e;
+            return "";
         }
     }
 

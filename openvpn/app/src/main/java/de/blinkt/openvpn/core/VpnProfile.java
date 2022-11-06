@@ -1,11 +1,5 @@
-/*
- * Copyright (c) 2012-2022 Arne Schwabe
- * Distributed under the GNU GPL v2 with additional terms. For full terms see the file doc/LICENSE.txt
- */
-
 package de.blinkt.openvpn.core;
 
-import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -16,6 +10,8 @@ import android.preference.PreferenceManager;
 
 import android.text.TextUtils;
 
+import androidx.annotation.NonNull;
+
 import de.blinkt.openvpn.R;
 
 import java.io.File;
@@ -24,41 +20,19 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Serializable;
-import java.security.InvalidAlgorithmParameterException;
-import java.security.InvalidKeyException;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.security.PrivateKey;
-import java.security.Signature;
-import java.security.SignatureException;
-import java.security.interfaces.RSAPrivateKey;
-import java.security.spec.MGF1ParameterSpec;
-import java.security.spec.PSSParameterSpec;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.Vector;
 
-import javax.crypto.BadPaddingException;
-import javax.crypto.Cipher;
-import javax.crypto.IllegalBlockSizeException;
-import javax.crypto.NoSuchPaddingException;
-
 public class VpnProfile implements Serializable, Cloneable {
-    // Note that this class cannot be moved to core where it belongs since
-    // the profile loading depends on it being here
-    // The Serializable documentation mentions that class name change are possible
-    // but the how is unclear
-    //
-    transient public static final long MAX_EMBED_FILE_SIZE = 2048 * 1024; // 2048kB
-    // Don't change this, not all parts of the program use this constant
-    public static final String EXTRA_PROFILEUUID = "de.blinkt.openvpn.profileUUID";
+//    public static final String EXTRA_PROFILEUUID = "de.blinkt.openvpn.profileUUID";
     public static final String INLINE_TAG = "[[INLINE]]";
     public static final String DISPLAYNAME_TAG = "[[NAME]]";
     public static final int MAXLOGLEVEL = 4;
     public static final int CURRENT_PROFILE_VERSION = 10;
-    public static final int DEFAULT_MSSFIX_SIZE = 1280;
+//    public static final int DEFAULT_MSSFIX_SIZE = 1280;
     public static final int TYPE_CERTIFICATES = 0;
     public static final int TYPE_PKCS12 = 1;
     public static final int TYPE_KEYSTORE = 2;
@@ -75,18 +49,8 @@ public class VpnProfile implements Serializable, Cloneable {
     public static final int X509_VERIFY_TLSREMOTE_RDN_PREFIX = 4;
     public static final int AUTH_RETRY_NONE_FORGET = 0;
     public static final int AUTH_RETRY_NOINTERACT = 2;
-    private static final long serialVersionUID = 7085688938959334563L;
-    private static final int AUTH_RETRY_NONE_KEEP = 1;
-    private static final int AUTH_RETRY_INTERACT = 3;
-    private static final String EXTRA_RSA_PADDING_TYPE = "de.blinkt.openvpn.api.RSA_PADDING_TYPE";
-    private static final String EXTRA_SALTLEN = "de.blinkt.openvpn.api.SALTLEN";
-    private static final String EXTRA_NEEDS_DIGEST = "de.blinkt.openvpn.api.NEEDS_DIGEST";
-    private static final String EXTRA_DIGEST = "de.blinkt.openvpn.api.DIGEST";
     public static String DEFAULT_DNS1 = "9.9.9.9";
     public static String DEFAULT_DNS2 = "2620:fe::fe";
-    // variable named wrong and should haven beeen transient
-    // but needs to keep wrong name to guarante loading of old
-    // profiles
     public transient boolean profileDeleted = false;
     public int mAuthenticationType = TYPE_KEYSTORE;
     public String mName;
@@ -135,9 +99,8 @@ public class VpnProfile implements Serializable, Cloneable {
     public String mx509UsernameField = null;
     public boolean mAllowLocalLAN;
     public String mExcludedRoutes;
-    public String mExcludedRoutesv6;
     public int mMssFix = 0; // -1 is default,
-    public Connection[] mConnections = new Connection[0];
+    public Connection[] mConnections;
     public boolean mRemoteRandom = false;
     public HashSet<String> mAllowedAppsVpn = new HashSet<>();
     public boolean mAllowedAppsVpnAreDisallowed = true;
@@ -165,16 +128,11 @@ public class VpnProfile implements Serializable, Cloneable {
     public boolean mUseLegacyProvider = false;
     public String mTlSCertProfile = "";
 
-    private transient PrivateKey mPrivateKey;
-    // Public attributes, since I got mad with getter/setter
-    // set members to default values
     private UUID mUuid;
-    private int mProfileVersion;
 
     public VpnProfile(String name) {
         mUuid = UUID.randomUUID();
         mName = name;
-        mProfileVersion = CURRENT_PROFILE_VERSION;
 
         mConnections = new Connection[1];
         mConnections[0] = new Connection();
@@ -197,14 +155,14 @@ public class VpnProfile implements Serializable, Cloneable {
     }
 
     //! Put inline data inline and other data as normal escaped filename
-    public static String insertFileData(String cfgentry, String filedata) {
-        if (filedata == null) {
+    public static String insertFileData(String cfgentry, String fileData) {
+        if (fileData == null) {
             return String.format("%s %s\n", cfgentry, "file missing in config profile");
-        } else if (isEmbedded(filedata)) {
-            String dataWithOutHeader = getEmbeddedContent(filedata);
+        } else if (isEmbedded(fileData)) {
+            String dataWithOutHeader = getEmbeddedContent(fileData);
             return String.format(Locale.ENGLISH, "<%s>\n%s\n</%s>\n", cfgentry, dataWithOutHeader, cfgentry);
         } else {
-            return String.format(Locale.ENGLISH, "%s %s\n", cfgentry, openVpnEscape(filedata));
+            return String.format(Locale.ENGLISH, "%s %s\n", cfgentry, openVpnEscape(fileData));
         }
     }
 
@@ -225,10 +183,7 @@ public class VpnProfile implements Serializable, Cloneable {
     public static boolean isEmbedded(String data) {
         if (data == null)
             return false;
-        if (data.startsWith(INLINE_TAG) || data.startsWith(DISPLAYNAME_TAG))
-            return true;
-        else
-            return false;
+        return data.startsWith(INLINE_TAG) || data.startsWith(DISPLAYNAME_TAG);
     }
 
     static public String getVersionEnvString(Context c) {
@@ -267,78 +222,10 @@ public class VpnProfile implements Serializable, Cloneable {
         mNobind = false;
     }
 
-    public UUID getUUID() {
-        return mUuid;
-    }
-
-    // Only used for the special case of managed profiles
-    public void setUUID(UUID uuid) {
-        mUuid = uuid;
-    }
-
     public String getName() {
         if (TextUtils.isEmpty(mName))
             return "No profile name";
         return mName;
-    }
-
-    public void upgradeProfile() {
-
-        /* Fallthrough is intended here */
-        switch (mProfileVersion) {
-            case 0:
-            case 1:
-                /* default to the behaviour the OS used */
-                mAllowLocalLAN = Build.VERSION.SDK_INT < Build.VERSION_CODES.KITKAT;
-            case 2:
-            case 3:
-                moveOptionsToConnection();
-                mAllowedAppsVpnAreDisallowed = true;
-
-                if (mAllowedAppsVpn == null)
-                    mAllowedAppsVpn = new HashSet<>();
-
-                if (mConnections == null)
-                    mConnections = new Connection[0];
-            case 4:
-            case 5:
-
-                if (TextUtils.isEmpty(mProfileCreator))
-                    mUserEditable = true;
-            case 6:
-                for (Connection c : mConnections)
-                    if (c.mProxyType == null)
-                        c.mProxyType = Connection.ProxyType.NONE;
-            case 7:
-                if (mAllowAppVpnBypass)
-                    mBlockUnusedAddressFamilies = false;
-            case 8:
-                if (!TextUtils.isEmpty(mCipher) && !mCipher.equals("AES-256-GCM") && !mCipher.equals("AES-128-GCM") && !mCipher.equals("CHACHA20-POLY1305")) {
-                    mDataCiphers = "AES-256-GCM:AES-128-GCM:CHACHA20-POLY1305:" + mCipher;
-                }
-            case 9:
-                if (!TextUtils.isEmpty(mDataCiphers) &&
-                        mDataCiphers.toUpperCase(Locale.ROOT).contains("BF-CBC")) {
-                    mUseLegacyProvider = true;
-                }
-            default:
-        }
-
-        mProfileVersion = CURRENT_PROFILE_VERSION;
-
-    }
-
-    private void moveOptionsToConnection() {
-        mConnections = new Connection[1];
-        Connection conn = new Connection();
-
-        conn.mServerName = mServerName;
-        conn.mServerPort = mServerPort;
-        conn.mUseUdp = mUseUdp;
-        conn.mCustomConfiguration = "";
-
-        mConnections[0] = conn;
-
     }
 
     public String getConfigFile(Context context) {
@@ -524,17 +411,17 @@ public class VpnProfile implements Serializable, Cloneable {
         if (mUsePull && mRoutenopull)
             cfg.append("route-nopull\n");
 
-        String routes = "";
+        StringBuilder routes = new StringBuilder();
 
         if (mUseDefaultRoute)
-            routes += "route 0.0.0.0 0.0.0.0 vpn_gateway\n";
+            routes.append("route 0.0.0.0 0.0.0.0 vpn_gateway\n");
         else {
             for (String route : getCustomRoutes(mCustomRoutes)) {
-                routes += "route " + route + " vpn_gateway\n";
+                routes.append("route ").append(route).append(" vpn_gateway\n");
             }
 
             for (String route : getCustomRoutes(mExcludedRoutes)) {
-                routes += "route " + route + " net_gateway\n";
+                routes.append("route ").append(route).append(" net_gateway\n");
             }
         }
 
@@ -543,7 +430,7 @@ public class VpnProfile implements Serializable, Cloneable {
             cfg.append("route-ipv6 ::/0\n");
         else
             for (String route : getCustomRoutesv6(mCustomRoutesv6)) {
-                routes += "route-ipv6 " + route + "\n";
+                routes.append("route-ipv6 ").append(route).append("\n");
             }
 
         cfg.append(routes);
@@ -753,6 +640,7 @@ public class VpnProfile implements Serializable, Cloneable {
         return intent;
     }
 
+    @NonNull
     @Override
     protected VpnProfile clone() throws CloneNotSupportedException {
         VpnProfile copy = (VpnProfile) super.clone();
@@ -779,7 +667,7 @@ public class VpnProfile implements Serializable, Cloneable {
     }
 
     //! Return an error if something is wrong
-    public int checkProfile(Context context) {
+    public int checkProfile() {
         if (mAuthenticationType == TYPE_KEYSTORE || mAuthenticationType == TYPE_USERPASS_KEYSTORE || mAuthenticationType == TYPE_EXTERNAL_APP) {
             if (mAlias == null)
                 return R.string.no_keystore_cert_selected;
@@ -813,9 +701,10 @@ public class VpnProfile implements Serializable, Cloneable {
 
         boolean noRemoteEnabled = true;
         for (Connection c : mConnections) {
-            if (c.mEnabled)
+            if (c.mEnabled) {
                 noRemoteEnabled = false;
-
+                break;
+            }
         }
         if (noRemoteEnabled)
             return R.string.remote_no_server_selected;
@@ -861,9 +750,9 @@ public class VpnProfile implements Serializable, Cloneable {
     public boolean requireTLSKeyPassword() {
         if (TextUtils.isEmpty(mClientKeyFilename))
             return false;
-        String data = "";
+        StringBuilder data = new StringBuilder();
         if (isEmbedded(mClientKeyFilename))
-            data = mClientKeyFilename;
+            data = new StringBuilder(mClientKeyFilename);
         else {
             char[] buf = new char[2048];
             FileReader fr;
@@ -871,7 +760,7 @@ public class VpnProfile implements Serializable, Cloneable {
                 fr = new FileReader(mClientKeyFilename);
                 int len = fr.read(buf);
                 while (len > 0) {
-                    data += new String(buf, 0, len);
+                    data.append(new String(buf, 0, len));
                     len = fr.read(buf);
                 }
                 fr.close();
@@ -880,12 +769,9 @@ public class VpnProfile implements Serializable, Cloneable {
             }
         }
 
-        if (data.contains("Proc-Type: 4,ENCRYPTED"))
+        if (data.toString().contains("Proc-Type: 4,ENCRYPTED"))
             return true;
-        else if (data.contains("-----BEGIN ENCRYPTED PRIVATE KEY-----"))
-            return true;
-        else
-            return false;
+        else return data.toString().contains("-----BEGIN ENCRYPTED PRIVATE KEY-----");
     }
 
     public int needUserPWInput(String transientCertOrPkcs12PW, String mTransientAuthPW) {
@@ -909,7 +795,7 @@ public class VpnProfile implements Serializable, Cloneable {
         return 0;
     }
 
-    // Used by the Array Adapter
+    @NonNull
     @Override
     public String toString() {
         return mName;
@@ -919,131 +805,6 @@ public class VpnProfile implements Serializable, Cloneable {
         return mUuid.toString().toLowerCase(Locale.ENGLISH);
     }
 
-    public PrivateKey getKeystoreKey() {
-        return mPrivateKey;
-    }
-
-    private byte[] getKeyChainSignedData(byte[] data, OpenVPNManagement.SignaturePadding padding, String saltlen, String hashalg, boolean needDigest) {
-        PrivateKey privkey = getKeystoreKey();
-        try {
-            @SuppressLint("GetInstance")
-            String keyalgorithm = privkey.getAlgorithm();
-
-            byte[] signed_bytes;
-            if (needDigest || keyalgorithm.equals("EC")) {
-                return doDigestSign(privkey, data, padding, hashalg, saltlen);
-            } else {
-             /* ECB is perfectly fine in this special case, since we are using it for
-                the public/private part in the TLS exchange */
-                Cipher signer = null;
-                switch (padding) {
-                    case RSA_PKCS1_PADDING:
-                        signer = Cipher.getInstance("RSA/ECB/PKCS1PADDING");
-                        break;
-                    case NO_PADDING:
-                        signer = Cipher.getInstance("RSA/ECB/NoPadding");
-                        break;
-                    case RSA_PKCS1_PSS_PADDING:
-                        throw new NoSuchPaddingException("Cannot do PKCS1 PSS padding without also doing the digest");
-                }
-
-                signer.init(Cipher.ENCRYPT_MODE, privkey);
-
-                signed_bytes = signer.doFinal(data);
-
-                return signed_bytes;
-            }
-        } catch
-        (NoSuchAlgorithmException | InvalidKeyException | IllegalBlockSizeException | BadPaddingException | NoSuchPaddingException | SignatureException | InvalidAlgorithmParameterException
-                        e) {
-            VpnStatus.logError(R.string.error_rsa_sign, e.getClass().toString(), e.getLocalizedMessage());
-            return null;
-        }
-    }
-
-    private byte[] addPSSPadding(PrivateKey privkey, String digest, byte[] data) throws NoSuchAlgorithmException {
-        /* For < API 23, add padding ourselves */
-        int hashtype = getHashtype(digest);
-
-        MessageDigest msgDigest = MessageDigest.getInstance(digest);
-        byte[] hash = msgDigest.digest(data);
-
-        /*  MSBits = (BN_num_bits(rsa->n) - 1) & 0x7; */
-        int numbits = ((RSAPrivateKey) privkey).getModulus().bitLength();
-
-        int MSBits = (numbits - 1) & 0x7;
-
-        return NativeUtils.addRssPssPadding(hashtype, MSBits, numbits / 8, hash);
-    }
-
-    private int getHashtype(String digest) throws NoSuchAlgorithmException {
-        int hashtype = 0;
-        switch (digest) {
-            case "SHA1":
-                hashtype = 1;
-                break;
-            case "SHA224":
-                hashtype = 2;
-                break;
-            case "SHA256":
-                hashtype = 3;
-                break;
-            case "SHA384":
-                hashtype = 4;
-                break;
-            case "SHA512":
-                hashtype = 5;
-                break;
-            default:
-                throw new NoSuchAlgorithmException("Unknown digest algorithm: " + digest);
-        }
-        return hashtype;
-    }
-
-    private byte[] doDigestSign(PrivateKey privkey, byte[] data, OpenVPNManagement.SignaturePadding padding, String hashalg, String saltlen) throws SignatureException, NoSuchAlgorithmException, InvalidKeyException, InvalidAlgorithmParameterException {
-        /* RSA */
-        Signature sig = null;
-
-        if (privkey.getAlgorithm().equals("EC")) {
-            if (hashalg.equals(""))
-                hashalg = "NONE";
-            /* e.g. SHA512withECDSA */
-            hashalg = hashalg + "withECDSA";
-            sig = Signature.getInstance(hashalg.toUpperCase(Locale.ROOT));
-        } else if (padding == OpenVPNManagement.SignaturePadding.RSA_PKCS1_PSS_PADDING) {
-            /* https://developer.android.com/training/articles/keystore#SupportedSignatures */
-            if (!"digest".equals(saltlen))
-                throw new SignatureException("PSS signing requires saltlen=digest");
-
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
-                data = addPSSPadding(privkey, hashalg, data);
-                return getKeyChainSignedData(data, OpenVPNManagement.SignaturePadding.NO_PADDING, "none", "none", false);
-            }
-
-            sig = Signature.getInstance(hashalg + "withRSA/PSS");
-
-            PSSParameterSpec pssspec = null;
-            switch (hashalg) {
-                case "SHA256":
-                    pssspec = new PSSParameterSpec("SHA-256", "MGF1", MGF1ParameterSpec.SHA256, 32, 1);
-                    break;
-                case "SHA512":
-                    pssspec = new PSSParameterSpec("SHA-512", "MGF1", MGF1ParameterSpec.SHA512, 64, 1);
-                    break;
-                case "SHA384":
-                    pssspec = new PSSParameterSpec("SHA-384", "MGF1", MGF1ParameterSpec.SHA384, 48, 1);
-                    break;
-            }
-            sig.setParameter(pssspec);
-        } else if (padding == OpenVPNManagement.SignaturePadding.RSA_PKCS1_PADDING) {
-            sig = Signature.getInstance(hashalg + "withRSA");
-        }
-
-        sig.initSign(privkey);
-        sig.update(data);
-        return sig.sign();
-    }
-
     private boolean usesExtraProxyOptions() {
         if (mUseCustomConfig && mCustomConfigOptions != null && mCustomConfigOptions.contains("http-proxy-option "))
             return true;
@@ -1051,21 +812,6 @@ public class VpnProfile implements Serializable, Cloneable {
             if (c.usesExtraProxyOptions())
                 return true;
         return false;
-    }
-
-    /**
-     * The order of elements is important!
-     */
-    private enum RsaPaddingType {
-        NO_PADDING,
-        PKCS1_PADDING,
-        RSAPSS_PADDING
-    }
-
-    static class NoCertReturnedException extends Exception {
-        public NoCertReturnedException(String msg) {
-            super(msg);
-        }
     }
 }
 

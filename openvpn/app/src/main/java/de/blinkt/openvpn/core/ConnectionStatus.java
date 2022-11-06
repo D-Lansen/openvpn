@@ -10,5 +10,5 @@ public enum ConnectionStatus {
     LEVEL_START,
     LEVEL_AUTH_FAILED,
     LEVEL_WAITING_FOR_USER_INPUT,
-    UNKNOWN_LEVEL;
+    UNKNOWN_LEVEL
 }
