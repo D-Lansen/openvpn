@@ -31,8 +31,6 @@ public class Connection implements Serializable, Cloneable {
         ORBOT
     }
 
-    private static final long serialVersionUID = 92031902903829089L;
-
     public String getConnectionBlock() {
         String cfg = "";
 

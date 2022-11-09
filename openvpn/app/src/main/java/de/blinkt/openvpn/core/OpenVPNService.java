@@ -255,7 +255,10 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
 
         nbuilder.setSmallIcon(icon);
         if (status == LEVEL_WAITING_FOR_USER_INPUT) {
-            PendingIntent pIntent = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_IMMUTABLE);
+            PendingIntent pIntent = null;
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                pIntent = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_IMMUTABLE);
+            }
             nbuilder.setContentIntent(pIntent);
         } else {
             nbuilder.setContentIntent(getGraphPendingIntent());
@@ -340,7 +343,10 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
 
         intent.putExtra("PAGE", "graph");
         intent.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
-        PendingIntent startLW = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_IMMUTABLE);
+        PendingIntent startLW = null;
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+            startLW = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_IMMUTABLE);
+        }
         intent.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
         return startLW;
 
@@ -678,7 +684,9 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
         }
         setAllowedVpnPackages(builder);
         // VPN always uses the default network
-        builder.setUnderlyingNetworks(null);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
+            builder.setUnderlyingNetworks(null);
+        }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             // Setting this false, will cause the VPN to inherit the underlying network metered
@@ -836,13 +844,13 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
             }
         }
 
-        for (String pkg : mProfile.mAllowedAppsVpn) {
+        for (Object pkg : mProfile.mAllowedAppsVpn) {
             try {
                 if (mProfile.mAllowedAppsVpnAreDisallowed) {
-                    builder.addDisallowedApplication(pkg);
+                    builder.addDisallowedApplication((String) pkg);
                 } else {
                     if (!(profileUsesOrBot && pkg.equals(ORBOT_PACKAGE_NAME))) {
-                        builder.addAllowedApplication(pkg);
+                        builder.addAllowedApplication((String) pkg);
                         atLeastOneAllowedApp = true;
                     }
                 }
@@ -1071,11 +1079,6 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
         } else {
             return "OPEN_BEFORE_CLOSE";
         }
-    }
-
-    public void requestInputFromUser(int resid, String needed) {
-        VpnStatus.updateStateString("NEED", "need " + needed, resid, LEVEL_WAITING_FOR_USER_INPUT);
-        showNotification(getString(resid), getString(resid), NOTIFICATION_CHANNEL_NEWSTATUS_ID, LEVEL_WAITING_FOR_USER_INPUT, null);
     }
 
 }

@@ -2,11 +2,9 @@ package de.blinkt.openvpn.core;
 
 import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.os.Build;
-import android.preference.PreferenceManager;
 
 import android.text.TextUtils;
 
@@ -102,7 +100,7 @@ public class VpnProfile implements Serializable, Cloneable {
     public int mMssFix = 0; // -1 is default,
     public Connection[] mConnections;
     public boolean mRemoteRandom = false;
-    public HashSet<String> mAllowedAppsVpn = new HashSet<>();
+    public HashSet mAllowedAppsVpn = new HashSet<>();
     public boolean mAllowedAppsVpnAreDisallowed = true;
     public boolean mAllowAppVpnBypass = false;
     public String mCrlFilename;
@@ -186,15 +184,8 @@ public class VpnProfile implements Serializable, Cloneable {
         return data.startsWith(INLINE_TAG) || data.startsWith(DISPLAYNAME_TAG);
     }
 
-    static public String getVersionEnvString(Context c) {
-        String version = "unknown";
-        try {
-            PackageInfo packageinfo = c.getPackageManager().getPackageInfo(c.getPackageName(), 0);
-            version = packageinfo.versionName;
-        } catch (PackageManager.NameNotFoundException e) {
-            VpnStatus.logException(e);
-        }
-        return String.format(Locale.US, "%s %s", c.getPackageName(), version);
+    static public String getEnvString(Context c) {
+        return c.getPackageName();
     }
 
     @Override
@@ -246,7 +237,7 @@ public class VpnProfile implements Serializable, Cloneable {
         cfg.append("management-query-passwords\n");
         cfg.append("management-hold\n\n");
 
-        cfg.append(String.format("setenv IV_GUI_VER %s \n", openVpnEscape(getVersionEnvString(context))));
+        cfg.append(String.format("setenv IV_GUI_VER %s \n", openVpnEscape(getEnvString(context))));
         cfg.append("setenv IV_SSO openurl,webauth,crtext\n");
         String versionString = getPlatformVersionEnvString();
         cfg.append(String.format("setenv IV_PLAT_VER %s\n", openVpnEscape(versionString)));
@@ -532,13 +523,10 @@ public class VpnProfile implements Serializable, Cloneable {
         if (mPushPeerInfo)
             cfg.append("push-peer-info\n");
 
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
-        boolean usesystemproxy = prefs.getBoolean("usesystemproxy", true);
-        if (usesystemproxy && !usesExtraProxyOptions()) {
+        if (!usesExtraProxyOptions()) {
             cfg.append("# Use system proxy setting\n");
             cfg.append("management-query-proxy\n");
         }
-
 
         if (mUseCustomConfig) {
             cfg.append("# Custom configuration options\n");
@@ -650,7 +638,7 @@ public class VpnProfile implements Serializable, Cloneable {
         for (Connection conn : mConnections) {
             copy.mConnections[i++] = conn.clone();
         }
-        copy.mAllowedAppsVpn = (HashSet<String>) mAllowedAppsVpn.clone();
+        copy.mAllowedAppsVpn = (HashSet)mAllowedAppsVpn.clone();
         return copy;
     }
 
