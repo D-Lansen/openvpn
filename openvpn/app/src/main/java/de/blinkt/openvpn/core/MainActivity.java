@@ -175,7 +175,7 @@ public class MainActivity extends Activity {
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         if (resultCode == Activity.RESULT_OK) {
             if (requestCode == START_PROFILE) {
-                startVpn("lichen03.ovpn");
+                startVpn("client.ovpn");
             }
         }
     }

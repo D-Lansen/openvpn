@@ -26,8 +26,7 @@ import java.util.Vector;
 import de.blinkt.openvpn.R;
 
 public class OpenVpnManagementThread implements Runnable, OpenVPNManagement {
-
-    //    public static final int ORBOT_TIMEOUT_MS = 20 * 1000;
+    //public static final int ORBOT_TIMEOUT_MS = 20 * 1000;
     private static final String TAG = "openvpn";
     private static final Vector<OpenVpnManagementThread> active = new Vector<>();
     private final Handler mResumeHandler;
@@ -87,7 +86,6 @@ public class OpenVpnManagementThread implements Runnable, OpenVPNManagement {
                     Thread.sleep(300);
                 } catch (InterruptedException ignored) {
                 }
-
             }
             tries--;
         }
@@ -166,6 +164,7 @@ public class OpenVpnManagementThread implements Runnable, OpenVPNManagement {
                 pendingInput += input;
 
                 pendingInput = processInput(pendingInput);
+
             }
         } catch (IOException e) {
             if (!Objects.equals(e.getMessage(), "socket closed") &&
@@ -209,8 +208,6 @@ public class OpenVpnManagementThread implements Runnable, OpenVPNManagement {
     }
 
     private String processInput(String pendingInput) {
-
-
         while (pendingInput.contains("\n")) {
             String[] tokens = pendingInput.split("\\r?\\n", 2);
             processCommand(tokens[0]);
@@ -224,7 +221,7 @@ public class OpenVpnManagementThread implements Runnable, OpenVPNManagement {
     }
 
     private void processCommand(String command) {
-        //Log.i(TAG, "Line from managment" + command);
+
         if (command.startsWith(">") && command.contains(":")) {
             String[] parts = command.split(":", 2);
             String cmd = parts[0].substring(1);
@@ -233,17 +230,11 @@ public class OpenVpnManagementThread implements Runnable, OpenVPNManagement {
                 case "INFO":
                     /* Ignore greeting from management */
                     return;
-                case "PASSWORD":
-//                    processPWCommand(argument);
-                    break;
                 case "HOLD":
                     handleHold(argument);
                     break;
                 case "NEED-OK":
                     processNeedCommand(argument);
-                    break;
-                case "BYTECOUNT":
-                    //processByteCount(argument);
                     break;
                 case "STATE":
                     if (!mShuttingDown)
@@ -251,16 +242,12 @@ public class OpenVpnManagementThread implements Runnable, OpenVPNManagement {
                     break;
                 case "PROXY":
                     managmentCommand("proxy NONE\n");
-//                    processProxyCMD(argument);
                     break;
+                case "PASSWORD":
                 case "LOG":
-//                    processLogMessage(argument);
-                    break;
+                case "BYTECOUNT":
                 case "PK_SIGN":
-//                    processSignCommand(argument);
-                    break;
                 case "INFOMSG":
-//                    processInfoMessage(argument);
                     break;
                 default:
                     VpnStatus.logWarning("MGMT: Got unrecognized command" + command);
@@ -311,7 +298,6 @@ public class OpenVpnManagementThread implements Runnable, OpenVPNManagement {
                 Thread.sleep(3000);
             } catch (InterruptedException ignored) {
             }
-
         }
         mWaitingForRelease = false;
         mLastHoldRelease = System.currentTimeMillis();

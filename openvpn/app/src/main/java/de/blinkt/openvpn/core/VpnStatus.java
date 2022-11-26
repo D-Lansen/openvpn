@@ -87,7 +87,6 @@ public class VpnStatus {
 
     public interface StateListener {
         void updateState(String state, String logMessage, int localizedResId, ConnectionStatus level, Intent Intent);
-
         void setConnectedVPN(String uuid);
     }
 
