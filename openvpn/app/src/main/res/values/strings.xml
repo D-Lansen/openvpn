@@ -3,7 +3,7 @@
   ~ Distributed under the GNU GPL v2 with additional terms. For full terms see the file doc/LICENSE.txt
   -->
 <resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation" >
-    <string name="app_name">OpenVPN Remote</string>
+    <string name="app_name">OpenVpn</string>
     <string name="hello_world">Hello world!</string>
     <string name="action_settings">Settings</string>
     <string name="no_status_yet">No Status yet</string>
