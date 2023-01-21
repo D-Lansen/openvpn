@@ -15,12 +15,7 @@ git branch -M master 修改分支名称
 git status
 git add .
 git commit -m 'xx'
-git pull
 git push
-
-git diff --cached
-
-git checkout
 
 
 远程登录
