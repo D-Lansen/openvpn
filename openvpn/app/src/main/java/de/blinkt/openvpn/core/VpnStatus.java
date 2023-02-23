@@ -30,6 +30,51 @@ public class VpnStatus {
         return mLastLevel != ConnectionStatus.LEVEL_AUTH_FAILED && !(mLastLevel == ConnectionStatus.LEVEL_NOTCONNECTED);
     }
 
+    public static String getLastCleanLogMessage(Context c) {
+        String message = mLaststatemsg;
+        switch (mLastLevel) {
+            case LEVEL_CONNECTED:
+                String[] parts = mLaststatemsg.split(",");
+                /*
+                   (a) the integer unix date/time,
+                   (b) the state name,
+                   0 (c) optional descriptive string (used mostly on RECONNECTING
+                    and EXITING to show the reason for the disconnect),
+
+                    1 (d) optional TUN/TAP local IPv4 address
+                   2 (e) optional address of remote server,
+                   3 (f) optional port of remote server,
+                   4 (g) optional local address,
+                   5 (h) optional local port, and
+                   6 (i) optional TUN/TAP local IPv6 address.
+*/
+                // Return only the assigned IP addresses in the UI
+                if (parts.length >= 7)
+                    message = String.format(Locale.US, "%s %s", parts[1], parts[6]);
+                break;
+        }
+
+        while (message.endsWith(","))
+            message = message.substring(0, message.length() - 1);
+
+        String status = mLaststate;
+        if (status.equals("NOPROCESS"))
+            return message;
+
+        if (mLastStateresid == R.string.state_waitconnectretry) {
+            return c.getString(R.string.state_waitconnectretry, mLaststatemsg);
+        }
+
+        String prefix = c.getString(mLastStateresid);
+        if (mLastStateresid == R.string.unknown_state)
+            message = status + message;
+        if (message.length() > 0)
+            prefix += ": ";
+
+        return prefix + message;
+
+    }
+
     public static String getLastStateId(Context c) {
         String message = mLaststatemsg;
         if (mLastLevel == ConnectionStatus.LEVEL_CONNECTED) {
