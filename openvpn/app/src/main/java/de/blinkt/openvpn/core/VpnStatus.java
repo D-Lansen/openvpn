@@ -118,11 +118,6 @@ public class VpnStatus {
 
     }
 
-    public synchronized static void setConnectedVPNProfile(String uuid) {
-        for (StateListener sl : stateListener)
-            sl.setConnectedVPN(uuid);
-    }
-
     private static ConnectionStatus mLastLevel = ConnectionStatus.LEVEL_NOTCONNECTED;
 
     static {
@@ -132,7 +127,6 @@ public class VpnStatus {
 
     public interface StateListener {
         void updateState(String state, String logMessage, int localizedResId, ConnectionStatus level, Intent Intent);
-        void setConnectedVPN(String uuid);
     }
 
     private static void apiInformation() {

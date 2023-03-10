@@ -2,6 +2,7 @@ package de.blinkt.openvpn.core;
 
 import android.content.Context;
 import android.os.Build;
+import android.util.Log;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -105,9 +106,9 @@ public class OpenVPNThread implements Runnable {
 
     }
 
-    public OpenVPNThread(OpenVPNService service, String nativelibdir, String tmpdir) {
+    public OpenVPNThread(OpenVPNService service, String nativeLibraryDir, String tmpdir) {
         mArgv = buildOpenvpnArgv(service);
-        mNativeDir = nativelibdir;
+        mNativeDir = nativeLibraryDir;
         mTmpDir = tmpdir;
         mService = service;
         mStreamFuture = new FutureTask<>(() -> mOutputStream);
@@ -128,7 +129,7 @@ public class OpenVPNThread implements Runnable {
         } catch (Exception e) {
             VpnStatus.logException("Starting OpenVPN Thread", e);
         } finally {
-            int exitValue = 0;
+          int exitValue = 0;
             try {
                 if (mProcess != null)
                     exitValue = mProcess.waitFor();
@@ -147,7 +148,6 @@ public class OpenVPNThread implements Runnable {
             if (mDumpPath != null) {
                 VpnStatus.logError(R.string.minidump_generated);
             }
-
             if (!mNoProcessExitStatus)
                 mService.openvpnStopped();
         }
@@ -162,7 +162,7 @@ public class OpenVPNThread implements Runnable {
         ProcessBuilder pb = new ProcessBuilder(argvList);
         // Hack O rama
 
-        String lbPath = genLibraryPath(argv, pb);
+        String lbPath = getLibraryPath(argv, pb);
 
         pb.environment().put("LD_LIBRARY_PATH", lbPath);
         pb.environment().put("TMPDIR", mTmpDir);
@@ -180,14 +180,15 @@ public class OpenVPNThread implements Runnable {
             mStreamFuture.run();
 
             while (true) {
-                String logline = br.readLine();
-                if (logline == null)
+                String line = br.readLine();
+                if (line == null)
                     return;
 
-                if (logline.startsWith(DUMP_PATH_STRING))
-                    mDumpPath = logline.substring(DUMP_PATH_STRING.length());
+                if (line.startsWith(DUMP_PATH_STRING))
+                    mDumpPath = line.substring(DUMP_PATH_STRING.length());
 
                 if (Thread.interrupted()) {
+                    Log.e("lichen.interrupted", "Thread.interrupted");
                     throw new InterruptedException("OpenVpn process was killed form java code");
                 }
             }
@@ -199,7 +200,7 @@ public class OpenVPNThread implements Runnable {
 
     }
 
-    private String genLibraryPath(String[] argv, ProcessBuilder pb) {
+    private String getLibraryPath(String[] argv, ProcessBuilder pb) {
         // Hack until I find a good way to get the real library path
         String appLibPath = argv[0].replaceFirst("/cache/.*$", "/lib");
 

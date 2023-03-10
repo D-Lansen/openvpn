@@ -106,7 +106,6 @@ public class MainActivity extends Activity {
         }
     }
 
-    @SuppressLint("SetTextI18n")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -127,9 +126,7 @@ public class MainActivity extends Activity {
             @Override
             public void run() {
                 try {
-                    String myip = getMyOwnIP();
-                    Message msg = Message.obtain(mHandler, MSG_UPDATE_MYIP, myip);
-                    msg.sendToTarget();
+                    Message.obtain(mHandler, MSG_UPDATE_MYIP, getMyOwnIP()).sendToTarget();
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
@@ -181,11 +178,11 @@ public class MainActivity extends Activity {
     }
 
     private void prepareStartProfile() throws RemoteException {
-        Intent requestpermission = VpnService.prepare(getBaseContext());
-        if (requestpermission == null) {
+        Intent requestPermission = VpnService.prepare(getBaseContext());
+        if (requestPermission == null) {
             onActivityResult(START_PROFILE, Activity.RESULT_OK, null);
         } else {
-            startActivityForResult(requestpermission, START_PROFILE);
+            startActivityForResult(requestPermission, START_PROFILE);
         }
     }
 

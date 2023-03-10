@@ -22,7 +22,7 @@ public class DeviceStateReceiver extends BroadcastReceiver implements OpenVPNMan
 
     connectState network = connectState.DISCONNECTED;
     connectState screen = connectState.SHOULDBECONNECTED;
-    connectState userpause = connectState.SHOULDBECONNECTED;
+    connectState userPause = connectState.SHOULDBECONNECTED;
 
     private String lastStateMsg = null;
     private final java.lang.Runnable mDelayDisconnectRunnable = new Runnable() {
@@ -55,12 +55,12 @@ public class DeviceStateReceiver extends BroadcastReceiver implements OpenVPNMan
 
     public void userPause(boolean pause) {
         if (pause) {
-            userpause = connectState.DISCONNECTED;
+            userPause = connectState.DISCONNECTED;
             // Check if we should disconnect
             mManagement.pause(getPauseReason());
         } else {
             boolean wereConnected = shouldBeConnected();
-            userpause = connectState.SHOULDBECONNECTED;
+            userPause = connectState.SHOULDBECONNECTED;
             if (shouldBeConnected() && !wereConnected)
                 mManagement.resume();
             else
@@ -87,7 +87,6 @@ public class DeviceStateReceiver extends BroadcastReceiver implements OpenVPNMan
             // Network was disabled because screen off
             boolean connected = shouldBeConnected();
             screen = connectState.SHOULDBECONNECTED;
-
             /* We should connect now, cancel any outstanding disconnect timer */
             mDisconnectHandler.removeCallbacks(mDelayDisconnectRunnable);
             /* should be connected has changed because the screen is on now, connect the VPN */
@@ -166,16 +165,16 @@ public class DeviceStateReceiver extends BroadcastReceiver implements OpenVPNMan
     }
 
     public boolean isUserPaused() {
-        return userpause == connectState.DISCONNECTED;
+        return userPause == connectState.DISCONNECTED;
     }
 
     private boolean shouldBeConnected() {
-        return (screen == connectState.SHOULDBECONNECTED && userpause == connectState.SHOULDBECONNECTED &&
+        return (screen == connectState.SHOULDBECONNECTED && userPause == connectState.SHOULDBECONNECTED &&
                 network == connectState.SHOULDBECONNECTED);
     }
 
     private pauseReason getPauseReason() {
-        if (userpause == connectState.DISCONNECTED)
+        if (userPause == connectState.DISCONNECTED)
             return pauseReason.userPause;
 
         if (screen == connectState.DISCONNECTED)
