@@ -41,36 +41,6 @@ client
 scp -r root@116.205.143.112: /home/client.ovpn /Users/lichen/Desktop/openvpn-install/
 
 
-阿里云帐号:13347710373
-登录:lc13347710373
-登录:lichen9998
-登录:lichen198511
-密码:lc84460180
-
-阿里云帐号:  
-登录:lichen1986
-密码:lc84460180
-
-
-腾讯云
-帐号:lichen198611@163.com
-密码:.a123456
-已使用
-
-华为云
-帐号:lichen198611
-密码:Lc84460180
-
-华为云
-帐号:13140723028
-密码:.a123456
-已使用
-
-移动云
-帐号:13347710373
-密码:lc84460180
-
-
 GitHub
 
 brew install git  安装git

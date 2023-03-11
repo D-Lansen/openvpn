@@ -106,7 +106,7 @@ public class VpnStatus {
 
     }
 
-    static void updateStateString(String state, String msg) {
+    public synchronized static void updateStateString(String state, String msg) {
         // We want to skip announcing that we are trying to get the configuration since
         // this is just polling until the user input has finished.be
         if (mLastLevel == ConnectionStatus.LEVEL_WAITING_FOR_USER_INPUT && state.equals("GET_CONFIG"))
