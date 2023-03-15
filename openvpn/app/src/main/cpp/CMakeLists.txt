@@ -24,7 +24,6 @@ SET(OPENSSL_PATH "openssl")
 
 set(CMAKE_CXX_STANDARD 17)
 
-#add_subdirectory(lzo)
 include(tools.cmake)
 include(lzo.cmake)
 include(lz4.cmake)

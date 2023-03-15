@@ -41,7 +41,7 @@
 
 #include "lzo_conf.h"
 #if !defined(__LZO_IN_MINILZO)
-#include <lzo/lzo1x.h>
+#include "../include/lzo/lzo1x.h"
 #endif
 
 

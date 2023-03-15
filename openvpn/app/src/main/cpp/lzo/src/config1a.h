@@ -36,7 +36,7 @@
 #define __LZO_CONFIG1A_H 1
 
 #include "lzo_conf.h"
-#include <lzo/lzo1a.h>
+#include "../include/lzo/lzo1a.h"
 
 #undef LZO_COLLECT_STATS    /* no support for stats here */
 

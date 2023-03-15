@@ -36,7 +36,7 @@
 #define __LZO_CONFIG1F_H 1
 
 #include "lzo_conf.h"
-#include <lzo/lzo1f.h>
+#include "../include/lzo/lzo1f.h"
 
 
 /***********************************************************************

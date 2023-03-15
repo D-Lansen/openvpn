@@ -59,7 +59,7 @@
   /* #define __LZO_EXPORT1 __attribute__((__visibility__("default"))) */
   /* #define __LZO_EXPORT1 __declspec(dllexport) */
 #endif
-#include <lzo/lzoconf.h>
+#include "../include/lzo/lzoconf.h"
 #if defined(LZO_CFG_EXTRA_CONFIG_HEADER2)
 #  include LZO_CFG_EXTRA_CONFIG_HEADER2
 #endif
