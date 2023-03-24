@@ -1,5 +1,3 @@
-#include <config-msvc-version.h>
-
 #define CONFIGURE_DEFINES "N/A"
 
 #define ENABLE_PF 1
