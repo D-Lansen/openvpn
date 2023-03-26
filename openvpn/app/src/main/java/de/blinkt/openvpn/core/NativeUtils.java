@@ -3,7 +3,7 @@ package de.blinkt.openvpn.core;
 public class NativeUtils {
 
     static {
-        System.loadLibrary("ovpnutil");
+        System.loadLibrary("openvpn");
     }
 
     private static native String getJNIAPI();

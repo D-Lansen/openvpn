@@ -1,4 +1,9 @@
+include(lzo.cmake)
+include(lz4.cmake)
+include(openssl.cmake)
+
 set(openvpn_srcs
+        openvpn/native.c
         openvpn/src/compat/compat-basename.c
         openvpn/src/compat/compat-daemon.c
         openvpn/src/compat/compat-dirname.c
@@ -88,7 +93,6 @@ add_library(openvpn SHARED ${openvpn_srcs})
 
 target_include_directories(openvpn PRIVATE
         openvpn/src/compat
-        openvpn/include
         lzo/include
         openvpn
         )

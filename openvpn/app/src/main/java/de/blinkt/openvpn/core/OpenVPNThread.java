@@ -42,8 +42,9 @@ public class OpenVPNThread implements Runnable {
     private static String writeMiniVPN(Context context) {
         String nativeAPI = NativeUtils.getNativeAPI();
         /* Q does not allow executing binaries written in temp directory anymore */
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P){
             return new File(context.getApplicationInfo().nativeLibraryDir, "libovpnexec.so").getPath();
+        }
 
         String[] abis = Build.SUPPORTED_ABIS;
 
@@ -53,7 +54,6 @@ public class OpenVPNThread implements Runnable {
         }
 
         for (String abi : abis) {
-
             File vpnExecutable = new File(context.getCacheDir(), "c_" + MINIPIEVPN + "." + abi);
             if ((vpnExecutable.exists() && vpnExecutable.canExecute()) || writeMiniVPNBinary(context, abi, vpnExecutable)) {
                 return vpnExecutable.getPath();
@@ -66,6 +66,7 @@ public class OpenVPNThread implements Runnable {
     public static String[] buildOpenvpnArgv(Context c) {
         Vector<String> args = new Vector<>();
         String binaryName = writeMiniVPN(c);
+        Log.e("miniVpn:", binaryName);
         args.add(binaryName);
         args.add("--config");
         args.add("stdin");
