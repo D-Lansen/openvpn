@@ -1,6 +1,5 @@
 package de.blinkt.openvpn.core;
 
-import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.ComponentName;
 import android.content.Context;
@@ -172,7 +171,7 @@ public class MainActivity extends Activity {
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         if (resultCode == Activity.RESULT_OK) {
             if (requestCode == START_PROFILE) {
-                startVpn("lichen.ovpn");
+                startVpn("client.ovpn");
             }
         }
     }

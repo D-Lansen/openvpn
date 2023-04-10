@@ -5,6 +5,24 @@
 # Copyright (c) 2013 Nyr. Released under the MIT License.
 
 
+#   cd /home/lichen/Downloads/openvpn-master
+#  autoreconf -vi
+#  ./configure
+#  make 
+
+#  systemctl is-enabled openvpn-server@server.service
+
+#  sudo vi /usr/lib/systemd/system/openvpn-client@.service
+#  sudo vi /usr/lib/systemd/system/openvpn-server@.service
+#  sudo vi /usr/lib/systemd/system/openvpn@.service
+
+#  sudo systemctl stop openvpn-server@server.service
+#  sudo systemctl start openvpn-server@server.service
+#  sudo systemctl status openvpn-server@server.service
+#  sudo systemctl enable openvpn-server@server.service
+
+
+
 # Detect Debian users running the script with "sh" instead of bash
 if readlink /proc/$$/exe | grep -q "dash"; then
 	echo 'This installer needs to be run with "bash", not "sh".'

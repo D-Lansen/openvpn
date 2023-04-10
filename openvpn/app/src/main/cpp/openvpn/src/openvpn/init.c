@@ -57,9 +57,6 @@
 #include "mudp.h"
 #include "dco.h"
 
-#include "memdbg.h"
-
-
 static struct context *static_context; /* GLOBAL */
 static const char *saved_pid_file_name; /* GLOBAL */
 
@@ -760,7 +757,6 @@ init_static(void)
 #if defined(DMALLOC)
     crypto_init_dmalloc();
 #endif
-
 
     /*
      * Initialize random number seed.  random() is only used
