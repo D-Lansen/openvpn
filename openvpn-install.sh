@@ -20,6 +20,7 @@
 #  sudo systemctl start openvpn-server@server.service
 #  sudo systemctl status openvpn-server@server.service
 #  sudo systemctl enable openvpn-server@server.service
+#  systemctl daemon-reload
 
 
 

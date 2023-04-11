@@ -59,3 +59,16 @@ git pull
 git push
 
 git diff --cached
+
+
+
+# easy-rsa
+关键字:easy-rsa vars
+/home/lichen/Desktop/github/openvpn/server/bin/easy-rsa/vars
+set_var EASYRSA_REQ_COUNTRY     "US"
+set_var EASYRSA_REQ_PROVINCE    "California"
+set_var EASYRSA_REQ_CITY        "San Francisco"
+set_var EASYRSA_REQ_ORG "Copyleft Certificate Co"
+set_var EASYRSA_REQ_EMAIL       "me@example.net"
+set_var EASYRSA_REQ_OU          "My Organizational Unit"
+
