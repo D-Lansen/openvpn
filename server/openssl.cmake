@@ -1139,12 +1139,6 @@ add_library(openssl
         openssl/providers/common/securitycheck.c
         openssl/providers/common/securitycheck_default.c
         openssl/providers/common/securitycheck_fips.c
-        openssl/providers/fips/fips_entry.c
-        openssl/providers/fips/fipsprov.c
-        openssl/providers/fips/self_test.c
-        openssl/providers/fips/self_test.h
-        openssl/providers/fips/self_test_data.inc
-        openssl/providers/fips/self_test_kats.c
         openssl/providers/implementations/asymciphers/rsa_enc.c
         openssl/providers/implementations/asymciphers/sm2_enc.c
         openssl/providers/implementations/ciphers/cipher_aes.c
