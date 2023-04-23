@@ -17,6 +17,35 @@ if [[ "$EUID" -ne 0 ]]; then
 	exit
 fi
 
+# Detect OS
+# $os_version variables aren't always in use, but are kept here for convenience
+if grep -qs "ubuntu" /etc/os-release; then
+	os="ubuntu"
+	os_version=$(grep 'VERSION_ID' /etc/os-release | cut -d '"' -f 2 | tr -d '.')
+	group_name="nogroup"
+	if [[ "$os" == "ubuntu" && "$os_version" -lt 1804 ]]; then
+		echo "Ubuntu 18.04 or higher is required to use this installer. This version of Ubuntu is too old and unsupported."
+	exit
+	fi
+elif [[ -e /etc/debian_version ]]; then
+	os="debian"
+	os_version=$(grep -oE '[0-9]+' /etc/debian_version | head -1)
+	group_name="nogroup"
+elif [[ -e /etc/almalinux-release || -e /etc/rocky-release || -e /etc/centos-release ]]; then
+	os="centos"
+	os_version=$(grep -shoE '[0-9]+' /etc/almalinux-release /etc/rocky-release /etc/centos-release | head -1)
+	group_name="nobody"
+elif [[ -e /etc/fedora-release ]]; then
+	os="fedora"
+	os_version=$(grep -oE '[0-9]+' /etc/fedora-release | head -1)
+	group_name="nobody"
+else
+	echo "This installer seems to be running on an unsupported distribution.
+Supported distros are Ubuntu, Debian, AlmaLinux, Rocky Linux, CentOS and Fedora."
+	exit
+fi
+
+
 echo "OpenVPN installation is ready to begin"
 
 client="client"
@@ -43,6 +72,7 @@ if [[ ! -e $rsa_path ]]; then
 	{ wget -qO- "$easy_rsa_url" 2>/dev/null || curl -sL "$easy_rsa_url" ; } | tar xz -C $rsa_path --strip-components 1
 	chmod +777 -R $rsa_path
 fi
+
 
 if [[ ! -e $conf_dir/server.conf ]]; then
 	echo "Create the PKI, set up the CA and the server and client certificates"
@@ -105,7 +135,7 @@ done
 echo "keepalive 10 120
 cipher AES-256-CBC
 user nobody
-group nogroup
+group $group_name
 persist-key
 persist-tun
 verb 3

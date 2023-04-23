@@ -1,0 +1,1 @@
+/usr/bin/cc -g CMakeFiles/mpp.dir/openvpn/main.c.o -o mpp 
