@@ -5,12 +5,12 @@
 # sudo /usr/sbin/openvpn --config '/home/lichen/Desktop/github/openvpn/server/bin/server/server.conf'
 
 
-
 # Detect OS
 if [ "$(uname)" = "Darwin" ]; then
-  os="mac"
+	os="mac"
+	group_name="nobody"
 else
-	echo "This installer seems to be running on an unsupported distribution. Only Supported for MacOS"
+	echo "This installer supported distros are ubuntu and macos"
 	exit
 fi
 
@@ -52,6 +52,13 @@ if [[ ! -e $conf_dir/server.crt ]]; then
 	cp pki/crl.pem "$conf_dir"
 	rm -rf "${rsa_path}/pki"
 fi
+
+
+if [ "$os" == "ubuntu" ]; then
+	echo "exit"
+	exit
+fi
+
 
 # ip=$(ip -4 addr | grep inet | grep -vE '127(\.[0-9]{1,3}){3}' | cut -d '/' -f 1 | grep -oE '[0-9]{1,3}(\.[0-9]{1,3}){3}' | sed -n 1p)
 
@@ -105,7 +112,7 @@ done
 echo "keepalive 10 120
 cipher AES-256-CBC
 user nobody
-group nobody
+group $group_name
 persist-key
 persist-tun
 verb 3
@@ -148,10 +155,3 @@ sudo echo 'net.inet.ip.forwarding=1' > /etc/sysctl.conf
 # Enable without waiting for a reboot or service restart
 sudo sysctl -w net.inet.ip.forwarding=1
 sudo sysctl -a | grep "net.inet.ip.forwarding"
-
-
-# https://blog.51cto.com/swenzhao/1582585
-# https://qastack.cn/superuser/468919/prevent-outgoing-traffic-unless-openvpn-connection-is-active-using-pfconf-on-mac-os-x
-# https://github.com/essandess/macos-openvpn-server/blob/master/pf.conf
-# https://openvpn.net/cloud-docs/owner/networks-and-gateways/networks/enabling-routing-and-nat-on-macos.html
-
