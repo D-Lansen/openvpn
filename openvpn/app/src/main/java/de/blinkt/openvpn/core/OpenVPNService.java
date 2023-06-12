@@ -432,6 +432,7 @@ public class OpenVPNService extends VpnService implements Callback {
             // OpenVPN3 manages excluded local networks by callback
             addLocalNetworksToRoutes();
             try {
+                Log.e("lc", "addAddress:"+mLocalIP.mIp+":"+mLocalIP.len);
                 builder.addAddress(mLocalIP.mIp, mLocalIP.len);
             } catch (IllegalArgumentException iae) {
                 VpnStatus.logError(R.string.dns_add_error, mLocalIP, iae.getLocalizedMessage());
@@ -451,12 +452,14 @@ public class OpenVPNService extends VpnService implements Callback {
 
         for (String dns : mDnslist) {
             try {
+                Log.e("lc", "addDnsServer:"+dns);
                 builder.addDnsServer(dns);
             } catch (IllegalArgumentException iae) {
                 VpnStatus.logError(R.string.dns_add_error, dns, iae.getLocalizedMessage());
             }
         }
 
+        Log.e("lc", "setMtu:"+mMtu);
         builder.setMtu(mMtu);
 
         Collection<IpAddress> positiveIPv4Routes = mRoutes.getPositiveIPList();

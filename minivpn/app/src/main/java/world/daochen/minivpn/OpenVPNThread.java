@@ -6,14 +6,11 @@ import android.util.Log;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
-import java.util.Arrays;
 import java.util.Vector;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
 
@@ -26,10 +23,15 @@ public class OpenVPNThread extends Thread {
     private String mDumpPath;
     private OutputStream mOutputStream;
     private final FutureTask<OutputStream> mStreamFuture;
+    private boolean mNoProcessExitStatus = false;
 
     public OpenVPNThread(OpenVPNService service) {
         this.mService = service;
         mStreamFuture = new FutureTask<>(() -> mOutputStream);
+    }
+
+    public void setReplaceConnection() {
+        this.mNoProcessExitStatus = true;
     }
 
     @Override
@@ -55,7 +57,9 @@ public class OpenVPNThread extends Thread {
                 Log.e(TAG, "Crashed unexpectedly. Please consider using the send Minidump option in the main menu");
             }
             Log.i(TAG, "No process running.");
-            mService.openvpnStopped();
+            if (!mNoProcessExitStatus){
+                mService.openvpnStopped();
+            }
         }
     }
 
@@ -118,6 +122,8 @@ public class OpenVPNThread extends Thread {
 
             mOutputStream = out;
             mStreamFuture.run();
+
+            Log.i(TAG, "startOpenVPNThread");
 
             while (true) {
                 String line = br.readLine();
