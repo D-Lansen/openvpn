@@ -5,7 +5,7 @@
  *             packet encryption, packet authentication, and
  *             packet compression.
  *
- *  Copyright (C) 2002-2023 OpenVPN Inc <sales@openvpn.net>
+ *  Copyright (C) 2002-2022 OpenVPN Inc <sales@openvpn.net>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2
@@ -42,8 +42,6 @@
 #include "ssl.h"
 #include "common.h"
 #include "manage.h"
-#include "openvpn.h"
-#include "dco.h"
 
 #include "memdbg.h"
 
@@ -96,8 +94,6 @@ man_help(void)
     msg(M_CLIENT, "net                    : (Windows only) Show network info and routing table.");
     msg(M_CLIENT, "password type p        : Enter password p for a queried OpenVPN password.");
     msg(M_CLIENT, "remote type [host port] : Override remote directive, type=ACCEPT|MOD|SKIP.");
-    msg(M_CLIENT, "remote-entry-count     : Get number of available remote entries.");
-    msg(M_CLIENT, "remote-entry-get  i|all [j]: Get remote entry at index = i to to j-1 or all.");
     msg(M_CLIENT, "proxy type [host port flags] : Enter dynamic proxy server info.");
     msg(M_CLIENT, "pid                    : Show process ID of the current OpenVPN process.");
 #ifdef ENABLE_PKCS11
@@ -200,12 +196,7 @@ man_check_password(struct management *man, const char *line)
 {
     if (man_password_needed(man))
     {
-        /* This comparison is not fixed time but since strlen(time) is based on
-         * the attacker choice, it should not give any indication of the real
-         * password length, use + 1 to include the NUL byte that terminates the
-         * string*/
-        size_t compare_len = min_uint(strlen(line) + 1, sizeof(man->settings.up.password));
-        if (memcmp_constant_time(line, man->settings.up.password, compare_len) == 0)
+        if (streq(line, man->settings.up.password))
         {
             man->connection.password_verified = true;
             msg(M_CLIENT, "SUCCESS: password is correct");
@@ -454,12 +445,6 @@ man_signal(struct management *man, const char *name)
 }
 
 static void
-man_command_unsupported(const char *command_name)
-{
-    msg(M_CLIENT, "ERROR: The '%s' command is not supported by the current daemon mode", command_name);
-}
-
-static void
 man_status(struct management *man, const int version, struct status_output *so)
 {
     if (man->persist.callback.status)
@@ -468,44 +453,39 @@ man_status(struct management *man, const int version, struct status_output *so)
     }
     else
     {
-        man_command_unsupported("status");
+        msg(M_CLIENT, "ERROR: The 'status' command is not supported by the current daemon mode");
     }
 }
 
 static void
 man_bytecount(struct management *man, const int update_seconds)
 {
-    if (update_seconds > 0)
+    if (update_seconds >= 0)
     {
         man->connection.bytecount_update_seconds = update_seconds;
-        event_timeout_init(&man->connection.bytecount_update_interval,
-                           man->connection.bytecount_update_seconds,
-                           now);
     }
     else
     {
         man->connection.bytecount_update_seconds = 0;
-        event_timeout_clear(&man->connection.bytecount_update_interval);
     }
     msg(M_CLIENT, "SUCCESS: bytecount interval changed");
 }
 
-static void
-man_bytecount_output_client(struct management *man,
-                            counter_type dco_read_bytes,
-                            counter_type dco_write_bytes)
+void
+man_bytecount_output_client(struct management *man)
 {
     char in[32];
     char out[32];
-
     /* do in a roundabout way to work around possible mingw or mingw-glibc bug */
-    openvpn_snprintf(in, sizeof(in), counter_format, man->persist.bytes_in + dco_read_bytes);
-    openvpn_snprintf(out, sizeof(out), counter_format, man->persist.bytes_out + dco_write_bytes);
+    openvpn_snprintf(in, sizeof(in), counter_format, man->persist.bytes_in);
+    openvpn_snprintf(out, sizeof(out), counter_format, man->persist.bytes_out);
     msg(M_CLIENT, ">BYTECOUNT:%s,%s", in, out);
+    man->connection.bytecount_last_update = now;
 }
 
 void
-man_bytecount_output_server(const counter_type *bytes_in_total,
+man_bytecount_output_server(struct management *man,
+                            const counter_type *bytes_in_total,
                             const counter_type *bytes_out_total,
                             struct man_def_auth_context *mdac)
 {
@@ -589,7 +569,7 @@ man_kill(struct management *man, const char *victim)
     }
     else
     {
-        man_command_unsupported("kill");
+        msg(M_CLIENT, "ERROR: The 'kill' command is not supported by the current daemon mode");
     }
 
     gc_free(&gc);
@@ -782,7 +762,6 @@ static void
 man_forget_passwords(struct management *man)
 {
     ssl_purge_auth(false);
-    (void)ssl_clean_auth_token();
     msg(M_CLIENT, "SUCCESS: Passwords were forgotten");
 }
 
@@ -795,7 +774,7 @@ man_net(struct management *man)
     }
     else
     {
-        man_command_unsupported("net");
+        msg(M_CLIENT, "ERROR: The 'net' command is not supported by the current daemon mode");
     }
 }
 
@@ -817,7 +796,7 @@ man_send_cc_message(struct management *man, const char *message, const char *par
     }
     else
     {
-        man_command_unsupported("cr-repsonse");
+        msg(M_CLIENT, "ERROR: This command is not supported by the current daemon mode");
     }
 }
 #ifdef ENABLE_PKCS11
@@ -848,59 +827,6 @@ man_pkcs11_id_get(struct management *man, const int index)
 }
 
 #endif /* ifdef ENABLE_PKCS11 */
-
-static void
-man_remote_entry_count(struct management *man)
-{
-    unsigned count = 0;
-    if (man->persist.callback.remote_entry_count)
-    {
-        count = (*man->persist.callback.remote_entry_count)(man->persist.callback.arg);
-        msg(M_CLIENT, "%u", count);
-        msg(M_CLIENT, "END");
-    }
-    else
-    {
-        man_command_unsupported("remote-entry-count");
-    }
-}
-
-static void
-man_remote_entry_get(struct management *man, const char *p1, const char *p2)
-{
-    ASSERT(p1);
-
-    if (man->persist.callback.remote_entry_get
-        && man->persist.callback.remote_entry_count)
-    {
-        unsigned int count = (*man->persist.callback.remote_entry_count)(man->persist.callback.arg);
-
-        unsigned int from = (unsigned int) atoi(p1);
-        unsigned int to = p2 ? (unsigned int) atoi(p2) : from + 1;
-
-        if (!strcmp(p1, "all"))
-        {
-            from = 0;
-            to = count;
-        }
-
-        for (unsigned int i = from; i < min_uint(to, count); i++)
-        {
-            char *remote = NULL;
-            bool res = (*man->persist.callback.remote_entry_get)(man->persist.callback.arg, i, &remote);
-            if (res && remote)
-            {
-                msg(M_CLIENT, "%u,%s", i, remote);
-            }
-            free(remote);
-        }
-        msg(M_CLIENT, "END");
-    }
-    else
-    {
-        man_command_unsupported("remote-entry-get");
-    }
-}
 
 static void
 man_hold(struct management *man, const char *cmd)
@@ -987,7 +913,7 @@ in_extra_dispatch(struct management *man)
             }
             else
             {
-                man_command_unsupported("client-auth");
+                msg(M_CLIENT, "ERROR: The client-auth command is not supported by the current daemon mode");
             }
             break;
 
@@ -1042,25 +968,22 @@ parse_uint(const char *str, const char *what, unsigned int *uint)
  *
  * @param man           The management interface struct
  * @param cid_str       The CID in string form
- * @param kid_str       The key ID in string form
  * @param extra         The string to be send to the client containing
  *                      the information of the additional steps
  */
 static void
 man_client_pending_auth(struct management *man, const char *cid_str,
-                        const char *kid_str, const char *extra,
-                        const char *timeout_str)
+                        const char *extra, const char *timeout_str)
 {
     unsigned long cid = 0;
-    unsigned int kid = 0;
     unsigned int timeout = 0;
-    if (parse_cid(cid_str, &cid) && parse_uint(kid_str, "KID", &kid)
+    if (parse_cid(cid_str, &cid)
         && parse_uint(timeout_str, "TIMEOUT", &timeout))
     {
         if (man->persist.callback.client_pending_auth)
         {
             bool ret = (*man->persist.callback.client_pending_auth)
-                           (man->persist.callback.arg, cid, kid, extra, timeout);
+                           (man->persist.callback.arg, cid, extra, timeout);
 
             if (ret)
             {
@@ -1074,7 +997,7 @@ man_client_pending_auth(struct management *man, const char *cid_str,
         }
         else
         {
-            man_command_unsupported("client-pending-auth");
+            msg(M_CLIENT, "ERROR: The client-pending-auth command is not supported by the current daemon mode");
         }
     }
 }
@@ -1125,7 +1048,7 @@ man_client_deny(struct management *man, const char *cid_str, const char *kid_str
         }
         else
         {
-            man_command_unsupported("client-deny");
+            msg(M_CLIENT, "ERROR: The client-deny command is not supported by the current daemon mode");
         }
     }
 }
@@ -1150,7 +1073,7 @@ man_client_kill(struct management *man, const char *cid_str, const char *kill_ms
         }
         else
         {
-            man_command_unsupported("client-kill");
+            msg(M_CLIENT, "ERROR: The client-kill command is not supported by the current daemon mode");
         }
     }
 }
@@ -1165,7 +1088,7 @@ man_client_n_clients(struct management *man)
     }
     else
     {
-        man_command_unsupported("nclients");
+        msg(M_CLIENT, "ERROR: The nclients command is not supported by the current daemon mode");
     }
 }
 
@@ -1273,7 +1196,7 @@ man_proxy(struct management *man, const char **p)
     }
     else
     {
-        man_command_unsupported("proxy");
+        msg(M_CLIENT, "ERROR: The proxy command is not supported by the current daemon mode");
     }
 }
 
@@ -1294,7 +1217,7 @@ man_remote(struct management *man, const char **p)
     }
     else
     {
-        man_command_unsupported("remote");
+        msg(M_CLIENT, "ERROR: The remote command is not supported by the current daemon mode");
     }
 }
 
@@ -1597,9 +1520,9 @@ man_dispatch_command(struct management *man, struct status_output *so, const cha
     }
     else if (streq(p[0], "client-pending-auth"))
     {
-        if (man_need(man, p, 4, 0))
+        if (man_need(man, p, 3, 0))
         {
-            man_client_pending_auth(man, p[1], p[2], p[3], p[4]);
+            man_client_pending_auth(man, p[1], p[2], p[3]);
         }
     }
     else if (streq(p[0], "rsa-sig"))
@@ -1627,17 +1550,6 @@ man_dispatch_command(struct management *man, struct status_output *so, const cha
         }
     }
 #endif
-    else if (streq(p[0], "remote-entry-count"))
-    {
-        man_remote_entry_count(man);
-    }
-    else if (streq(p[0], "remote-entry-get"))
-    {
-        if (man_need(man, p, 1, MN_AT_LEAST))
-        {
-            man_remote_entry_get(man, p[1], p[2]);
-        }
-    }
     else if (streq(p[0], "proxy"))
     {
         if (man_need(man, p, 1, MN_AT_LEAST))
@@ -2010,7 +1922,6 @@ man_reset_client_socket(struct management *man, const bool exiting)
         if (man->settings.flags & MF_FORGET_DISCONNECT)
         {
             ssl_purge_auth(false);
-            (void)ssl_clean_auth_token();
         }
 
         if (man->settings.flags & MF_SIGNAL)
@@ -2195,10 +2106,6 @@ man_recv_with_fd(int fd, void *ptr, size_t nbytes, int flags, int *recvfd)
 bool
 management_android_control(struct management *man, const char *command, const char *msg)
 {
-    if (!man)
-    {
-        msg(M_FATAL, "Required management interface not available.");
-    }
     struct user_pass up;
     CLEAR(up);
     strncpy(up.username, msg, sizeof(up.username)-1);
@@ -2258,7 +2165,7 @@ man_read(struct management *man)
         man->connection.lastfdreceived = fd;
     }
 #else  /* ifdef TARGET_ANDROID */
-    len = recv(man->connection.sd_cli, (void *)buf, sizeof(buf), MSG_NOSIGNAL);
+    len = recv(man->connection.sd_cli, buf, sizeof(buf), MSG_NOSIGNAL);
 #endif
 
     if (len == 0)
@@ -2355,7 +2262,7 @@ man_write(struct management *man)
         }
         else
 #endif
-        sent = send(man->connection.sd_cli, (const void *)BPTR(buf), len, MSG_NOSIGNAL);
+        sent = send(man->connection.sd_cli, BPTR(buf), len, MSG_NOSIGNAL);
         if (sent >= 0)
         {
             buffer_list_advance(man->connection.out, sent);
@@ -2632,8 +2539,6 @@ man_connection_close(struct management *man)
 
     command_line_free(mc->in);
     buffer_list_free(mc->out);
-
-    event_timeout_clear(&mc->bytecount_update_interval);
 
     in_extra_reset(&man->connection, IER_RESET);
     buffer_list_free(mc->ext_key_input);
@@ -4124,68 +4029,21 @@ management_sleep(const int n)
     {
         management_event_loop_n_seconds(management, n);
     }
-    else
+    else if (n > 0)
     {
-#ifdef _WIN32
-        win32_sleep(n);
-#else
-        if (n > 0)
-        {
-            sleep(n);
-        }
-#endif
-    }
-}
-
-void
-management_check_bytecount(struct context *c, struct management *man, struct timeval *timeval)
-{
-    if (event_timeout_trigger(&man->connection.bytecount_update_interval,
-                              timeval, ETT_DEFAULT))
-    {
-        counter_type dco_read_bytes = 0;
-        counter_type dco_write_bytes = 0;
-
-        if (dco_enabled(&c->options) && (dco_get_peer_stats(c) == 0))
-        {
-            dco_read_bytes = c->c2.dco_read_bytes;
-            dco_write_bytes = c->c2.dco_write_bytes;
-        }
-
-        if (!(man->persist.callback.flags & MCF_SERVER))
-        {
-            man_bytecount_output_client(man, dco_read_bytes, dco_write_bytes);
-        }
-    }
-}
-
-/* DCO resets stats on reconnect. Since client expects stats
- * to be preserved across reconnects, we need to save DCO
- * stats before tearing the tunnel down.
- */
-void
-man_persist_client_stats(struct management *man, struct context *c)
-{
-    if (dco_enabled(&c->options) && (dco_get_peer_stats(c) == 0))
-    {
-        management_bytes_client(man, c->c2.dco_read_bytes, c->c2.dco_write_bytes);
+        sleep(n);
     }
 }
 
 #else  /* ifdef ENABLE_MANAGEMENT */
 
-#include "win32.h"
 void
 management_sleep(const int n)
 {
-#ifdef _WIN32
-    win32_sleep(n);
-#else
     if (n > 0)
     {
         sleep(n);
     }
-#endif /* ifdef _WIN32 */
 }
 
 #endif /* ENABLE_MANAGEMENT */

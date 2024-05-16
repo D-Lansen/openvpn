@@ -1,7 +1,0 @@
-/home/lichen/Desktop/github/openvpn/minivpn/app/src/main/mpp/cmake-build-debug/CMakeFiles/edit_cache.dir
-/home/lichen/Desktop/github/openvpn/minivpn/app/src/main/mpp/cmake-build-debug/CMakeFiles/openvpn.dir
-/home/lichen/Desktop/github/openvpn/minivpn/app/src/main/mpp/cmake-build-debug/CMakeFiles/openssl.dir
-/home/lichen/Desktop/github/openvpn/minivpn/app/src/main/mpp/cmake-build-debug/CMakeFiles/lzo.dir
-/home/lichen/Desktop/github/openvpn/minivpn/app/src/main/mpp/cmake-build-debug/CMakeFiles/lz4.dir
-/home/lichen/Desktop/github/openvpn/minivpn/app/src/main/mpp/cmake-build-debug/CMakeFiles/rebuild_cache.dir
-/home/lichen/Desktop/github/openvpn/minivpn/app/src/main/mpp/cmake-build-debug/CMakeFiles/libnl.dir

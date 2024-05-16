@@ -7,7 +7,7 @@
  * https://www.openssl.org/source/license.html
  */
 
-#include "internal/e_os.h"
+#include "e_os.h"
 #include "internal/cryptlib.h"
 #include "crypto/cryptlib.h"
 #include <stdio.h>
@@ -285,12 +285,12 @@ int CRYPTO_set_mem_debug(int flag)
 int CRYPTO_mem_debug_push(const char *info, const char *file, int line)
 {
     (void)info; (void)file; (void)line;
-    return 0;
+    return -1;
 }
 
 int CRYPTO_mem_debug_pop(void)
 {
-    return 0;
+    return -1;
 }
 
 void CRYPTO_mem_debug_malloc(void *addr, size_t num, int flag,

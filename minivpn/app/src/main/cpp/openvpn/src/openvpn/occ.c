@@ -5,7 +5,7 @@
  *             packet encryption, packet authentication, and
  *             packet compression.
  *
- *  Copyright (C) 2002-2023 OpenVPN Inc <sales@openvpn.net>
+ *  Copyright (C) 2002-2022 OpenVPN Inc <sales@openvpn.net>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2
@@ -305,7 +305,8 @@ check_send_occ_msg_dowork(struct context *c)
             const struct key_type *kt = &c->c1.ks.key_type;
 
             /* OCC message have comp/fragment headers but not ethernet headers */
-            payload_hdr = frame_calculate_payload_overhead(0, &c->options, kt);
+            payload_hdr = frame_calculate_payload_overhead(&c->c2.frame, &c->options,
+                                                           kt, false);
 
             /* Since we do not know the payload size we just pass 0 as size here */
             proto_hdr = frame_calculate_protocol_header_size(kt, &c->options, false);
@@ -430,7 +431,8 @@ process_received_occ_msg(struct context *c)
 
         case OCC_EXIT:
             dmsg(D_PACKET_CONTENT, "RECEIVED OCC_EXIT");
-            register_signal(c->sig, SIGUSR1, "remote-exit");
+            c->sig->signal_received = SIGTERM;
+            c->sig->signal_text = "remote-exit";
             break;
     }
     c->c2.buf.len = 0; /* don't pass packet on */

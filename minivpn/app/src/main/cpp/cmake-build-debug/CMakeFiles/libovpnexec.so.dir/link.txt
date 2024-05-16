@@ -1,1 +1,0 @@
-/usr/bin/cc -g CMakeFiles/libovpnexec.so.dir/minivpn/minivpn.c.o -o libovpnexec.so  -Wl,-rpath,/home/lichen/Desktop/github/openvpn/minivpn/app/src/main/mpp/cmake-build-debug libopenvpn.so -fPIE -pie liblzo.a liblz4.a 

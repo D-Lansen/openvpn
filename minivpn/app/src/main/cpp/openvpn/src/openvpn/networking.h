@@ -1,7 +1,7 @@
 /*
  *  Generic interface to platform specific networking code
  *
- *  Copyright (C) 2016-2023 Antonio Quartulli <a@unstable.cc>
+ *  Copyright (C) 2016-2022 Antonio Quartulli <a@unstable.cc>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2
@@ -31,10 +31,7 @@ struct context;
 #include "networking_sitnl.h"
 #elif ENABLE_IPROUTE
 #include "networking_iproute2.h"
-#elif defined(TARGET_FREEBSD)
-typedef void *openvpn_net_ctx_t;
-typedef char openvpn_net_iface_t;
-#else  /* ifdef ENABLE_SITNL */
+#else
 /* define mock types to ensure code builds on any platform */
 typedef void *openvpn_net_ctx_t;
 typedef void *openvpn_net_iface_t;
@@ -241,9 +238,7 @@ int net_addr_ptp_v4_del(openvpn_net_ctx_t *ctx,
                         const openvpn_net_iface_t *iface,
                         const in_addr_t *local, const in_addr_t *remote);
 
-#endif /* ENABLE_SITNL || ENABLE_IPROUTE */
 
-#if defined(ENABLE_SITNL) || defined(ENABLE_IPROUTE) || defined(TARGET_FREEBSD)
 /**
  * Add a route for an IPv4 address/network
  *
@@ -319,10 +314,6 @@ int net_route_v6_del(openvpn_net_ctx_t *ctx, const struct in6_addr *dst,
                      int prefixlen, const struct in6_addr *gw,
                      const openvpn_net_iface_t *iface,
                      uint32_t table, int metric);
-
-#endif /* ENABLE_SITNL || ENABLE_IPROUTE || TARGET_FREEBSD */
-
-#if defined(ENABLE_SITNL) || defined(ENABLE_IPROUTE)
 
 /**
  * Retrieve the gateway and outgoing interface for the specified IPv4

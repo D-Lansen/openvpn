@@ -5,9 +5,9 @@
  *             packet encryption, packet authentication, and
  *             packet compression.
  *
- *  Copyright (C) 2021-2023 Arne Schwabe <arne@rfc2549.org>
- *  Copyright (C) 2021-2023 Antonio Quartulli <a@unstable.cc>
- *  Copyright (C) 2021-2023 OpenVPN Inc <sales@openvpn.net>
+ *  Copyright (C) 2021-2022 Arne Schwabe <arne@rfc2549.org>
+ *  Copyright (C) 2021-2022 Antonio Quartulli <a@unstable.cc>
+ *  Copyright (C) 2021-2022 OpenVPN Inc <sales@openvpn.net>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2
@@ -58,15 +58,6 @@ struct tuntap;
  */
 bool dco_available(int msglevel);
 
-
-/**
- * Return a human readable string representing the DCO version
- *
- * @param gc    the garbage collector to use for any dynamic allocation
- * @return      a pointer to the string (allocated via gc) containing the string
- */
-const char *dco_version_string(struct gc_arena *gc);
-
 /**
  * Check whether the options struct has any option that is not supported by
  * our current dco implementation. If so print a warning at warning level
@@ -76,19 +67,7 @@ const char *dco_version_string(struct gc_arena *gc);
  * @param o         the options struct that hold the options
  * @return          true if no conflict was detected, false otherwise
  */
-bool dco_check_option(int msglevel, const struct options *o);
-
-/**
- * Check whether the options struct has any further option that is not supported
- * by our current dco implementation during early startup.
- * If so print a warning at warning level for the first conflicting option
- * found and return false.
- *
- * @param msglevel  the msg level to use to print the warnings
- * @param o         the options struct that hold the options
- * @return          true if no conflict was detected, false otherwise
- */
-bool dco_check_startup_option(int msglevel, const struct options *o);
+bool dco_check_option_conflict(int msglevel, const struct options *o);
 
 /**
  * Check whether any of the options pushed by the server is not supported by
@@ -137,6 +116,15 @@ void close_tun_dco(struct tuntap *tt, openvpn_net_ctx_t *ctx);
 int dco_do_read(dco_context_t *dco);
 
 /**
+ * Write data to the DCO communication channel (control packet expected)
+ *
+ * @param dco       the DCO context
+ * @param peer_id   the ID of the peer to send the data to
+ * @param buf       the buffer containing the data to send
+ */
+int dco_do_write(dco_context_t *dco, int peer_id, struct buffer *buf);
+
+/**
  * Install a DCO in the main event loop
  */
 void dco_event_set(dco_context_t *dco, struct event_set *es, void *arg);
@@ -164,11 +152,9 @@ int init_key_dco_bi(struct tls_multi *multi, struct key_state *ks,
  *
  * @param dco           DCO device context
  * @param multi         TLS multi instance
- *
- * @return              returns false if an error occurred that is not
- *                      recoverable and should reset the connection
  */
-bool dco_update_keys(dco_context_t *dco, struct tls_multi *multi);
+void dco_update_keys(dco_context_t *dco, struct tls_multi *multi);
+
 /**
  * Install a new peer in DCO - to be called by a CLIENT (or P2P) instance
  *
@@ -228,21 +214,6 @@ void dco_install_iroute(struct multi_context *m, struct multi_instance *mi,
 void dco_delete_iroutes(struct multi_context *m, struct multi_instance *mi);
 
 /**
- * Update traffic statistics for all peers
- *
- * @param dco   DCO device context
- * @param m     the server context
- **/
-int dco_get_peer_stats_multi(dco_context_t *dco, struct multi_context *m);
-
-/**
- * Update traffic statistics for single peer
- *
- * @param c   instance context of the peer
- **/
-int dco_get_peer_stats(struct context *c);
-
-/**
  * Retrieve the list of ciphers supported by the current platform
  *
  * @return                   list of colon-separated ciphers
@@ -259,20 +230,8 @@ dco_available(int msglevel)
     return false;
 }
 
-static inline const char *
-dco_version_string(struct gc_arena *gc)
-{
-    return "not-compiled";
-}
-
 static inline bool
-dco_check_option(int msglevel, const struct options *o)
-{
-    return false;
-}
-
-static inline bool
-dco_check_startup_option(int msglevel, const struct options *o)
+dco_check_option_conflict(int msglevel, const struct options *o)
 {
     return false;
 }
@@ -307,6 +266,13 @@ dco_do_read(dco_context_t *dco)
     return 0;
 }
 
+static inline int
+dco_do_write(dco_context_t *dco, int peer_id, struct buffer *buf)
+{
+    ASSERT(false);
+    return 0;
+}
+
 static inline void
 dco_event_set(dco_context_t *dco, struct event_set *es, void *arg)
 {
@@ -320,17 +286,16 @@ init_key_dco_bi(struct tls_multi *multi, struct key_state *ks,
     return 0;
 }
 
-static inline bool
+static inline void
 dco_update_keys(dco_context_t *dco, struct tls_multi *multi)
 {
     ASSERT(false);
-    return false;
 }
 
-static inline int
+static inline bool
 dco_p2p_add_new_peer(struct context *c)
 {
-    return 0;
+    return true;
 }
 
 static inline int
@@ -345,10 +310,10 @@ dco_remove_peer(struct context *c)
 {
 }
 
-static inline int
+static inline bool
 dco_multi_add_new_peer(struct multi_context *m, struct multi_instance *mi)
 {
-    return 0;
+    return true;
 }
 
 static inline void
@@ -360,18 +325,6 @@ dco_install_iroute(struct multi_context *m, struct multi_instance *mi,
 static inline void
 dco_delete_iroutes(struct multi_context *m, struct multi_instance *mi)
 {
-}
-
-static inline int
-dco_get_peer_stats_multi(dco_context_t *dco, struct multi_context *m)
-{
-    return 0;
-}
-
-static inline int
-dco_get_peer_stats(struct context *c)
-{
-    return 0;
 }
 
 static inline const char *

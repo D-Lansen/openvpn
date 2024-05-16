@@ -12,7 +12,7 @@
 #ifndef OSSL_SSL_LOCAL_H
 # define OSSL_SSL_LOCAL_H
 
-# include "internal/e_os.h"              /* struct timeval for DTLS */
+# include "e_os.h"              /* struct timeval for DTLS */
 # include <stdlib.h>
 # include <time.h>
 # include <string.h>
@@ -772,9 +772,9 @@ typedef enum tlsext_index_en {
     TLSEXT_IDX_num_builtins
 } TLSEXT_INDEX;
 
-DEFINE_LHASH_OF_EX(SSL_SESSION);
+DEFINE_LHASH_OF(SSL_SESSION);
 /* Needed in ssl_cert.c */
-DEFINE_LHASH_OF_EX(X509_NAME);
+DEFINE_LHASH_OF(X509_NAME);
 
 # define TLSEXT_KEYNAME_LENGTH  16
 # define TLSEXT_TICK_KEY_LENGTH 32
@@ -2752,9 +2752,7 @@ __owur int ssl_log_secret(SSL *ssl, const char *label,
 #define CLIENT_HANDSHAKE_LABEL "CLIENT_HANDSHAKE_TRAFFIC_SECRET"
 #define SERVER_HANDSHAKE_LABEL "SERVER_HANDSHAKE_TRAFFIC_SECRET"
 #define CLIENT_APPLICATION_LABEL "CLIENT_TRAFFIC_SECRET_0"
-#define CLIENT_APPLICATION_N_LABEL "CLIENT_TRAFFIC_SECRET_N"
 #define SERVER_APPLICATION_LABEL "SERVER_TRAFFIC_SECRET_0"
-#define SERVER_APPLICATION_N_LABEL "SERVER_TRAFFIC_SECRET_N"
 #define EARLY_EXPORTER_SECRET_LABEL "EARLY_EXPORTER_SECRET"
 #define EXPORTER_SECRET_LABEL "EXPORTER_SECRET"
 

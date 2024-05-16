@@ -5,7 +5,7 @@
  *             packet encryption, packet authentication, and
  *             packet compression.
  *
- *  Copyright (C) 2002-2023 OpenVPN Inc <sales@openvpn.net>
+ *  Copyright (C) 2002-2022 OpenVPN Inc <sales@openvpn.net>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2
@@ -82,16 +82,6 @@ do_pre_decrypt_check(struct multi_context *m,
     struct openvpn_sockaddr *from = &m->top.c2.from.dest;
     int handwindow = m->top.options.handshake_window;
 
-    if (verdict == VERDICT_VALID_RESET_V3 || verdict == VERDICT_VALID_RESET_V2)
-    {
-        /* Check if we are still below our limit for sending out
-         * responses */
-        if (!reflect_filter_rate_limit_check(m->initial_rate_limiter))
-        {
-            return false;
-        }
-    }
-
     if (verdict == VERDICT_VALID_RESET_V3)
     {
         /* Extract the packet id to check if it has the special format that
@@ -102,7 +92,7 @@ do_pre_decrypt_check(struct multi_context *m,
         ASSERT(packet_id_read(&pin, &tmp, true));
 
         /* The most significant byte is 0x0f if early negotiation is supported */
-        bool early_neg_support = ((pin.id & EARLY_NEG_MASK) & EARLY_NEG_START) == EARLY_NEG_START;
+        bool early_neg_support = (pin.id & EARLY_NEG_MASK) == EARLY_NEG_START;
 
         /* All clients that support early negotiation and tls-crypt are assumed
          * to also support resending the WKc in the 2nd packet */
@@ -158,18 +148,14 @@ do_pre_decrypt_check(struct multi_context *m,
         bool ret = check_session_id_hmac(state, from, hmac, handwindow);
 
         const char *peer = print_link_socket_actual(&m->top.c2.from, &gc);
-        uint8_t pkt_firstbyte = *BPTR( &m->top.c2.buf);
-        int op = pkt_firstbyte >> P_OPCODE_SHIFT;
-
         if (!ret)
         {
-            msg(D_MULTI_MEDIUM, "Packet (%s) with invalid or missing SID from %s",
-                packet_opcode_name(op), peer);
+            msg(D_MULTI_MEDIUM, "Packet with invalid or missing SID from %s", peer);
         }
         else
         {
-            msg(D_MULTI_DEBUG, "Valid packet (%s) with HMAC challenge from peer (%s), "
-                "accepting new connection.", packet_opcode_name(op), peer);
+            msg(D_MULTI_DEBUG, "Valid packet with HMAC challenge from peer (%s), "
+                "accepting new connection.", peer);
         }
         gc_free(&gc);
 
@@ -239,13 +225,8 @@ multi_get_create_instance_udp(struct multi_context *m, bool *floated)
         if (!mi)
         {
             struct tls_pre_decrypt_state state = {0};
-            if (m->deferred_shutdown_signal.signal_received)
-            {
-                msg(D_MULTI_ERRORS,
-                    "MULTI: Connection attempt from %s ignored while server is "
-                    "shutting down", mroute_addr_print(&real, &gc));
-            }
-            else if (do_pre_decrypt_check(m, &state, real))
+
+            if (do_pre_decrypt_check(m, &state, real))
             {
                 /* This is an unknown session but with valid tls-auth/tls-crypt
                  * (or no auth at all).  If this is the initial packet of a
@@ -254,10 +235,6 @@ multi_get_create_instance_udp(struct multi_context *m, bool *floated)
 
                 if (frequency_limit_event_allowed(m->new_connection_limiter))
                 {
-                    /* a successful three-way handshake only counts against
-                     * connect-freq but not against connect-freq-initial */
-                    reflect_filter_rate_limit_decrease(m->initial_rate_limiter);
-
                     mi = multi_create_instance(m, &real);
                     if (mi)
                     {
@@ -271,7 +248,7 @@ multi_get_create_instance_udp(struct multi_context *m, bool *floated)
                             && session_id_defined((&state.peer_session_id)))
                         {
                             mi->context.c2.tls_multi->n_sessions++;
-                            struct tls_session *session = &mi->context.c2.tls_multi->session[TM_INITIAL];
+                            struct tls_session *session = &mi->context.c2.tls_multi->session[TM_ACTIVE];
                             session_skip_to_pre_start(session, &state, &m->top.c2.from);
                         }
                     }
@@ -404,7 +381,7 @@ multi_process_io_udp(struct multi_context *m)
         multi_process_file_closed(m, mpp_flags);
     }
 #endif
-#if defined(ENABLE_DCO) && (defined(TARGET_LINUX) || defined(TARGET_FREEBSD))
+#if defined(ENABLE_DCO) && defined(TARGET_LINUX)
     else if (status & DCO_READ)
     {
         if (!IS_SIG(&m->top))

@@ -5,7 +5,7 @@
  *             packet encryption, packet authentication, and
  *             packet compression.
  *
- *  Copyright (C) 2002-2023 OpenVPN Inc <sales@openvpn.net>
+ *  Copyright (C) 2002-2022 OpenVPN Inc <sales@openvpn.net>
  *  Copyright (C) 2010-2021 Fox Crypto B.V. <openvpn@foxcrypto.com>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -1501,11 +1501,7 @@ tls_ctx_use_management_external_key(struct tls_root_ctx *ctx)
     }
     EVP_PKEY_free(privkey);
 #else  /* ifdef HAVE_XKEY_PROVIDER */
-#if OPENSSL_VERSION_NUMBER < 0x30000000L
     if (EVP_PKEY_id(pkey) == EVP_PKEY_RSA)
-#else /* OPENSSL_VERSION_NUMBER < 0x30000000L */
-    if (EVP_PKEY_is_a(pkey, "RSA"))
-#endif /* OPENSSL_VERSION_NUMBER < 0x30000000L */
     {
         if (!tls_ctx_use_external_rsa_key(ctx, pkey))
         {
@@ -1513,11 +1509,7 @@ tls_ctx_use_management_external_key(struct tls_root_ctx *ctx)
         }
     }
 #if (OPENSSL_VERSION_NUMBER > 0x10100000L) && !defined(OPENSSL_NO_EC)
-#if OPENSSL_VERSION_NUMBER < 0x30000000L
     else if (EVP_PKEY_id(pkey) == EVP_PKEY_EC)
-#else /* OPENSSL_VERSION_NUMBER < 0x30000000L */
-    else if (EVP_PKEY_is_a(pkey, "EC"))
-#endif /* OPENSSL_VERSION_NUMBER < 0x30000000L */
     {
         if (!tls_ctx_use_external_ec_key(ctx, pkey))
         {
@@ -1834,7 +1826,10 @@ bio_write(BIO *bio, const uint8_t *data, int size, const char *desc)
 
         if (i < 0)
         {
-            if (!BIO_should_retry(bio))
+            if (BIO_should_retry(bio))
+            {
+            }
+            else
             {
                 crypto_msg(D_TLS_ERRORS, "TLS ERROR: BIO write %s error", desc);
                 ret = -1;
@@ -1878,48 +1873,51 @@ bio_write_post(const int status, struct buffer *buf)
 static int
 bio_read(BIO *bio, struct buffer *buf, const char *desc)
 {
+    int i;
+    int ret = 0;
     ASSERT(buf->len >= 0);
     if (buf->len)
     {
-        /* we only want to write empty buffers, ignore read request
-         * if the buffer is not empty */
-        return 0;
-    }
-    int len = buf_forward_capacity(buf);
-
-    /*
-     * BIO_read brackets most of the serious RSA
-     * key negotiation number crunching.
-     */
-    int i = BIO_read(bio, BPTR(buf), len);
-
-    VALGRIND_MAKE_READABLE((void *) &i, sizeof(i));
-
-#ifdef BIO_DEBUG
-    bio_debug_data("read", bio, BPTR(buf), i, desc);
-#endif
-
-    int ret = 0;
-    if (i < 0)
-    {
-        if (!BIO_should_retry(bio))
-        {
-            crypto_msg(D_TLS_ERRORS, "TLS_ERROR: BIO read %s error", desc);
-            buf->len = 0;
-            ret = -1;
-            ERR_clear_error();
-        }
-    }
-    else if (!i)
-    {
-        buf->len = 0;
     }
     else
-    {                       /* successful read */
-        dmsg(D_HANDSHAKE_VERBOSE, "BIO read %s %d bytes", desc, i);
-        buf->len = i;
-        ret = 1;
-        VALGRIND_MAKE_READABLE((void *) BPTR(buf), BLEN(buf));
+    {
+        int len = buf_forward_capacity(buf);
+
+        /*
+         * BIO_read brackets most of the serious RSA
+         * key negotiation number crunching.
+         */
+        i = BIO_read(bio, BPTR(buf), len);
+
+        VALGRIND_MAKE_READABLE((void *) &i, sizeof(i));
+
+#ifdef BIO_DEBUG
+        bio_debug_data("read", bio, BPTR(buf), i, desc);
+#endif
+        if (i < 0)
+        {
+            if (BIO_should_retry(bio))
+            {
+            }
+            else
+            {
+                crypto_msg(D_TLS_ERRORS, "TLS_ERROR: BIO read %s error", desc);
+                buf->len = 0;
+                ret = -1;
+                ERR_clear_error();
+            }
+        }
+        else if (!i)
+        {
+            buf->len = 0;
+        }
+        else
+        {                       /* successful read */
+            dmsg(D_HANDSHAKE_VERBOSE, "BIO read %s %d bytes", desc, i);
+            buf->len = i;
+            ret = 1;
+            VALGRIND_MAKE_READABLE((void *) BPTR(buf), BLEN(buf));
+        }
     }
     return ret;
 }
@@ -2072,15 +2070,10 @@ print_cert_details(X509 *cert, char *buf, size_t buflen)
     }
 
     int typeid = EVP_PKEY_id(pkey);
-#if OPENSSL_VERSION_NUMBER < 0x30000000L
-    bool is_ec = typeid == EVP_PKEY_EC;
-#else
-    bool is_ec = EVP_PKEY_is_a(pkey, "EC");
-#endif
 
 #ifndef OPENSSL_NO_EC
     char groupname[256];
-    if (is_ec)
+    if (typeid == EVP_PKEY_EC)
     {
         size_t len;
         if (EVP_PKEY_get_group_name(pkey, groupname, sizeof(groupname), &len))
@@ -2093,9 +2086,9 @@ print_cert_details(X509 *cert, char *buf, size_t buflen)
         }
     }
 #endif
-    if (typeid != 0)
+    if (EVP_PKEY_id(pkey) != 0)
     {
-#if OPENSSL_VERSION_NUMBER < 0x30000000L
+        int typeid = EVP_PKEY_id(pkey);
         type = OBJ_nid2sn(typeid);
 
         /* OpenSSL reports rsaEncryption, dsaEncryption and
@@ -2117,13 +2110,6 @@ print_cert_details(X509 *cert, char *buf, size_t buflen)
         {
             type = "unknown type";
         }
-#else /* OpenSSL >= 3 */
-        type = EVP_PKEY_get0_type_name(pkey);
-        if (type == NULL)
-        {
-            type = "(error getting public key type)";
-        }
-#endif /* if OPENSSL_VERSION_NUMBER < 0x30000000L */
     }
 
     char sig[128] = { 0 };

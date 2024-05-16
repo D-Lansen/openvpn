@@ -5,7 +5,7 @@
  *             packet encryption, packet authentication, and
  *             packet compression.
  *
- *  Copyright (C) 2002-2023 OpenVPN Inc <sales@openvpn.net>
+ *  Copyright (C) 2002-2022 OpenVPN Inc <sales@openvpn.net>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2
@@ -42,11 +42,18 @@
 #include "memdbg.h"
 
 /* calculates test - base while allowing for base or test wraparound. test is
- * assumed to be higher than base */
+ * assume to be higher than base */
 static inline packet_id_type
 subtract_pid(const packet_id_type test, const packet_id_type base)
 {
-    return test - base;
+    if (test >= base)
+    {
+        return test - base;
+    }
+    else
+    {
+        return (test+0x80000000u) - (base+0x80000000u);
+    }
 }
 
 /*
@@ -207,33 +214,33 @@ reliable_ack_parse(struct buffer *buf, struct reliable_ack *ack,
 }
 
 /**
- * Copies the first n acks from \c ack to \c ack_mru
+ * Copies the first n acks from \c ack to \c ack_lru
  */
 void
-copy_acks_to_mru(struct reliable_ack *ack, struct reliable_ack *ack_mru, int n)
+copy_acks_to_lru(struct reliable_ack *ack, struct reliable_ack *ack_lru, int n)
 {
     ASSERT(ack->len >= n);
-    /* This loop is backward to ensure the same order as in ack */
+    /* This loops is backward to ensure the same order as in ack */
     for (int i = n-1; i >= 0; i--)
     {
         packet_id_type id = ack->packet_id[i];
 
-        /* Handle special case of ack_mru empty */
-        if (ack_mru->len == 0)
+        /* Handle special case of ack_lru empty */
+        if (ack_lru->len == 0)
         {
-            ack_mru->len = 1;
-            ack_mru->packet_id[0] = id;
+            ack_lru->len = 1;
+            ack_lru->packet_id[0] = id;
         }
 
         bool idfound = false;
 
-        /* Move all existing entries one to the right */
+        /* Move all existing entry one to the right */
         packet_id_type move = id;
 
-        for (int j = 0; j < ack_mru->len; j++)
+        for (int j = 0; j < ack_lru->len; j++)
         {
-            packet_id_type tmp = ack_mru->packet_id[j];
-            ack_mru->packet_id[j] = move;
+            packet_id_type tmp = ack_lru->packet_id[j];
+            ack_lru->packet_id[j] = move;
             move = tmp;
 
             if (move == id)
@@ -243,10 +250,10 @@ copy_acks_to_mru(struct reliable_ack *ack, struct reliable_ack *ack_mru, int n)
             }
         }
 
-        if (!idfound && ack_mru->len < RELIABLE_ACK_SIZE)
+        if (!idfound && ack_lru->len < RELIABLE_ACK_SIZE)
         {
-            ack_mru->packet_id[ack_mru->len] = move;
-            ack_mru->len++;
+            ack_lru->packet_id[ack_lru->len] = move;
+            ack_lru->len++;
         }
     }
 }
@@ -255,7 +262,7 @@ copy_acks_to_mru(struct reliable_ack *ack, struct reliable_ack *ack_mru, int n)
 /* removing all acknowledged entries from ack */
 bool
 reliable_ack_write(struct reliable_ack *ack,
-                   struct reliable_ack *ack_mru,
+                   struct reliable_ack *ack_lru,
                    struct buffer *buf,
                    const struct session_id *sid, int max, bool prepend)
 {
@@ -269,10 +276,10 @@ reliable_ack_write(struct reliable_ack *ack,
         n = max;
     }
 
-    copy_acks_to_mru(ack, ack_mru, n);
+    copy_acks_to_lru(ack, ack_lru, n);
 
     /* Number of acks we can resend that still fit into the packet */
-    uint8_t total_acks = min_int(max, ack_mru->len);
+    uint8_t total_acks = min_int(max, ack_lru->len);
 
     sub = buf_sub(buf, ACK_SIZE(total_acks), prepend);
     if (!BDEF(&sub))
@@ -282,11 +289,11 @@ reliable_ack_write(struct reliable_ack *ack,
     ASSERT(buf_write_u8(&sub, total_acks));
 
     /* Write the actual acks to the packets. Since we copied the acks that
-     * are going out now already to the front of ack_mru we can fetch all
-     * acks from ack_mru */
+     * are going out now already to the front of ack_lru we can fetch all
+     * acks from ack_lru */
     for (i = 0; i < total_acks; ++i)
     {
-        packet_id_type pid = ack_mru->packet_id[i];
+        packet_id_type pid = ack_lru->packet_id[i];
         packet_id_type net_pid = htonpid(pid);
         ASSERT(buf_write(&sub, &net_pid, sizeof(net_pid)));
         dmsg(D_REL_DEBUG, "ACK write ID " packet_id_format " (ack->len=%d, n=%d)", (packet_id_print_type)pid, ack->len, n);
@@ -550,6 +557,8 @@ reliable_get_buf(struct reliable *rel)
     return NULL;
 }
 
+/* Counts the number of free buffers in output that can be potientially used
+ * for sending */
 int
 reliable_get_num_output_sequenced_available(struct reliable *rel)
 {

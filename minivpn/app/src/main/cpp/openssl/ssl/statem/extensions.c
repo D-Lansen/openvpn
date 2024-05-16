@@ -17,6 +17,7 @@
 #include "internal/cryptlib.h"
 #include "../ssl_local.h"
 #include "statem_local.h"
+#include "internal/cryptlib.h"
 
 static int final_renegotiate(SSL *s, unsigned int context, int sent);
 static int init_server_name(SSL *s, unsigned int context);
@@ -97,9 +98,6 @@ typedef struct extensions_definition_st {
  * Definitions of all built-in extensions. NOTE: Changes in the number or order
  * of these extensions should be mirrored with equivalent changes to the
  * indexes ( TLSEXT_IDX_* ) defined in ssl_local.h.
- * Extensions should be added to test/ext_internal_test.c as well, as that
- * tests the ordering of the extensions.
- *
  * Each extension has an initialiser, a client and
  * server side parser and a finaliser. The initialiser is called (if the
  * extension is relevant to the given context) even if we did not see the
@@ -120,7 +118,7 @@ typedef struct extensions_definition_st {
  * NOTE: WebSphere Application Server 7+ cannot handle empty extensions at
  * the end, keep these extensions before signature_algorithm.
  */
-#define INVALID_EXTENSION { TLSEXT_TYPE_invalid, 0, NULL, NULL, NULL, NULL, NULL, NULL }
+#define INVALID_EXTENSION { 0x10000, 0, NULL, NULL, NULL, NULL, NULL, NULL }
 static const EXTENSION_DEFINITION ext_defs[] = {
     {
         TLSEXT_TYPE_renegotiate,
@@ -386,17 +384,6 @@ static const EXTENSION_DEFINITION ext_defs[] = {
         tls_construct_ctos_psk, final_psk
     }
 };
-
-/* Returns a TLSEXT_TYPE for the given index */
-unsigned int ossl_get_extension_type(size_t idx)
-{
-    size_t num_exts = OSSL_NELEM(ext_defs);
-
-    if (idx >= num_exts)
-        return TLSEXT_TYPE_out_of_range;
-
-    return ext_defs[idx].type;
-}
 
 /* Check whether an extension's context matches the current context */
 static int validate_context(SSL *s, unsigned int extctx, unsigned int thisctx)
@@ -1464,10 +1451,13 @@ int tls_psk_do_binder(SSL *s, const EVP_MD *md, const unsigned char *msgstart,
     unsigned char hash[EVP_MAX_MD_SIZE], binderkey[EVP_MAX_MD_SIZE];
     unsigned char finishedkey[EVP_MAX_MD_SIZE], tmpbinder[EVP_MAX_MD_SIZE];
     unsigned char *early_secret;
-    /* ASCII: "res binder", in hex for EBCDIC compatibility */
-    static const unsigned char resumption_label[] = "\x72\x65\x73\x20\x62\x69\x6E\x64\x65\x72";
-    /* ASCII: "ext binder", in hex for EBCDIC compatibility */
-    static const unsigned char external_label[] = "\x65\x78\x74\x20\x62\x69\x6E\x64\x65\x72";
+#ifdef CHARSET_EBCDIC
+    static const unsigned char resumption_label[] = { 0x72, 0x65, 0x73, 0x20, 0x62, 0x69, 0x6E, 0x64, 0x65, 0x72, 0x00 };
+    static const unsigned char external_label[]   = { 0x65, 0x78, 0x74, 0x20, 0x62, 0x69, 0x6E, 0x64, 0x65, 0x72, 0x00 };
+#else
+    static const unsigned char resumption_label[] = "res binder";
+    static const unsigned char external_label[] = "ext binder";
+#endif
     const unsigned char *label;
     size_t bindersize, labelsize, hashsize;
     int hashsizei = EVP_MD_get_size(md);

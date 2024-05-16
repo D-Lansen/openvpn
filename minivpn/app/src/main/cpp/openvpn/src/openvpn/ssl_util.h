@@ -5,7 +5,7 @@
  *             packet encryption, packet authentication, and
  *             packet compression.
  *
- *  Copyright (C) 2002-2023 OpenVPN Inc <sales@openvpn.net>
+ *  Copyright (C) 2002-2022 OpenVPN Inc <sales@openvpn.net>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2
@@ -41,8 +41,10 @@
  * @return  The content of the variable as NULL terminated string or NULL if the
  *          variable cannot be found.
  */
-char *extract_var_peer_info(const char *peer_info, const char *var,
-                            struct gc_arena *gc);
+char *
+extract_var_peer_info(const char *peer_info,
+                      const char *var,
+                      struct gc_arena *gc);
 
 /**
  * Extracts the IV_PROTO variable and returns its value or 0
@@ -50,7 +52,8 @@ char *extract_var_peer_info(const char *peer_info, const char *var,
  *
  * @param peer_info     peer info string to search for IV_PROTO
  */
-unsigned int extract_iv_proto(const char *peer_info);
+unsigned int
+extract_iv_proto(const char *peer_info);
 
 /**
  * Takes a locally produced OCC string for TLS server mode and modifies as
@@ -64,6 +67,6 @@ unsigned int extract_iv_proto(const char *peer_info);
  * @param gc        gc_arena to allocate the returned string in
  * @return          the modified string or options on error
  */
-const char *options_string_compat_lzo(const char *options, struct gc_arena *gc);
-
+const char *
+options_string_compat_lzo(const char *options, struct gc_arena *gc);
 #endif

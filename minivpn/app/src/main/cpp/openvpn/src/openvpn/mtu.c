@@ -5,7 +5,7 @@
  *             packet encryption, packet authentication, and
  *             packet compression.
  *
- *  Copyright (C) 2002-2023 OpenVPN Inc <sales@openvpn.net>
+ *  Copyright (C) 2002-2022 OpenVPN Inc <sales@openvpn.net>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2
@@ -42,7 +42,8 @@
 /* allocate a buffer for socket or tun layer */
 void
 alloc_buf_sock_tun(struct buffer *buf,
-                   const struct frame *frame)
+                   const struct frame *frame,
+                   const bool tuntap_buffer)
 {
     /* allocate buffer for overlapped I/O */
     *buf = alloc_buf(BUF_SIZE(frame));
@@ -107,16 +108,20 @@ frame_calculate_protocol_header_size(const struct key_type *kt,
 
 
 size_t
-frame_calculate_payload_overhead(size_t extra_tun,
+frame_calculate_payload_overhead(const struct frame *frame,
                                  const struct options *options,
-                                 const struct key_type *kt)
+                                 const struct key_type *kt,
+                                 bool extra_tun)
 {
     size_t overhead = 0;
 
     /* This is the overhead of tap device that is not included in the MTU itself
      * i.e. Ethernet header that we still need to transmit as part of the
-     * payload, this is set to 0 by caller if not applicable */
-    overhead += extra_tun;
+     * payload */
+    if (extra_tun)
+    {
+        overhead += frame->extra_tun;
+    }
 
 #if defined(USE_COMP)
     /* v1 Compression schemes add 1 byte header. V2 only adds a header when it
@@ -153,7 +158,7 @@ frame_calculate_payload_size(const struct frame *frame,
                              const struct key_type *kt)
 {
     size_t payload_size = options->ce.tun_mtu;
-    payload_size += frame_calculate_payload_overhead(frame->extra_tun, options, kt);
+    payload_size += frame_calculate_payload_overhead(frame, options, kt, true);
     return payload_size;
 }
 

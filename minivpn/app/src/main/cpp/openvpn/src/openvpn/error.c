@@ -5,7 +5,7 @@
  *             packet encryption, packet authentication, and
  *             packet compression.
  *
- *  Copyright (C) 2002-2023 OpenVPN Inc <sales@openvpn.net>
+ *  Copyright (C) 2002-2022 OpenVPN Inc <sales@openvpn.net>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2
@@ -48,6 +48,10 @@
 #ifndef LOG_OPENVPN
 #define LOG_OPENVPN LOG_DAEMON
 #endif
+#endif
+
+#ifdef GOOGLE_BREAKPAD
+#include "breakpad.h"
 #endif
 
 /* Globals */
@@ -443,14 +447,24 @@ dont_mute(unsigned int flags)
 void
 assert_failed(const char *filename, int line, const char *condition)
 {
+#ifdef GOOGLE_BREAKPAD
+    int level = M_ERR;
+#else
+    int level = M_FATAL;
+#endif
     if (condition)
     {
-        msg(M_FATAL, "Assertion failed at %s:%d (%s)", filename, line, condition);
+        msg(level, "Assertion failed at %s:%d (%s)", filename, line, condition);
     }
     else
     {
-        msg(M_FATAL, "Assertion failed at %s:%d", filename, line);
+        msg(level, "Assertion failed at %s:%d", filename, line);
     }
+    _exit(1);
+
+#ifdef GOOGLE_BREAKPAD
+    breakpad_dodump();
+#endif
     _exit(1);
 }
 
@@ -695,14 +709,14 @@ x_check_status(int status,
         {
             if (extended_msg)
             {
-                msg(x_cs_info_level, "%s %s [%s]: %s (fd=" SOCKET_PRINTF ",code=%d)", description,
+                msg(x_cs_info_level, "%s %s [%s]: %s (fd=%d,code=%d)", description,
                     sock ? proto2ascii(sock->info.proto, sock->info.af, true) : "",
                     extended_msg, openvpn_strerror(my_errno, crt_error, &gc),
                     sock ? sock->sd : -1, my_errno);
             }
             else
             {
-                msg(x_cs_info_level, "%s %s: %s (fd=" SOCKET_PRINTF ",code=%d)", description,
+                msg(x_cs_info_level, "%s %s: %s (fd=%d,code=%d)", description,
                     sock ? proto2ascii(sock->info.proto, sock->info.af, true) : "",
                     openvpn_strerror(my_errno, crt_error, &gc),
                     sock ? sock->sd : -1, my_errno);
@@ -807,6 +821,15 @@ msg_flags_string(const unsigned int flags, struct gc_arena *gc)
     }
     return BSTR(&out);
 }
+
+#ifdef ENABLE_DEBUG
+void
+crash(void)
+{
+    char *null = NULL;
+    *null = 0;
+}
+#endif
 
 #ifdef _WIN32
 

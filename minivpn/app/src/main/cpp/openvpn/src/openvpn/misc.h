@@ -5,7 +5,7 @@
  *             packet encryption, packet authentication, and
  *             packet compression.
  *
- *  Copyright (C) 2002-2023 OpenVPN Inc <sales@openvpn.net>
+ *  Copyright (C) 2002-2022 OpenVPN Inc <sales@openvpn.net>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2
@@ -67,7 +67,6 @@ struct user_pass
 #else
 #define USER_PASS_LEN 128
 #endif
-    /* Note that username and password are expected to be null-terminated */
     char username[USER_PASS_LEN];
     char password[USER_PASS_LEN];
 };

@@ -93,8 +93,7 @@ int evp_keymgmt_util_export(const EVP_PKEY *pk, int selection,
                               export_cb, export_cbarg);
 }
 
-void *evp_keymgmt_util_export_to_provider(EVP_PKEY *pk, EVP_KEYMGMT *keymgmt,
-                                          int selection)
+void *evp_keymgmt_util_export_to_provider(EVP_PKEY *pk, EVP_KEYMGMT *keymgmt)
 {
     struct evp_keymgmt_util_try_import_data_st import_data;
     OP_CACHE_ELEM *op;
@@ -128,7 +127,7 @@ void *evp_keymgmt_util_export_to_provider(EVP_PKEY *pk, EVP_KEYMGMT *keymgmt,
      */
     if (pk->dirty_cnt == pk->dirty_cnt_copy) {
         /* If this key is already exported to |keymgmt|, no more to do */
-        op = evp_keymgmt_util_find_operation_cache(pk, keymgmt, selection);
+        op = evp_keymgmt_util_find_operation_cache(pk, keymgmt);
         if (op != NULL && op->keymgmt != NULL) {
             void *ret = op->keydata;
 
@@ -158,13 +157,13 @@ void *evp_keymgmt_util_export_to_provider(EVP_PKEY *pk, EVP_KEYMGMT *keymgmt,
     /* Setup for the export callback */
     import_data.keydata = NULL;  /* evp_keymgmt_util_try_import will create it */
     import_data.keymgmt = keymgmt;
-    import_data.selection = selection;
+    import_data.selection = OSSL_KEYMGMT_SELECT_ALL;
 
     /*
      * The export function calls the callback (evp_keymgmt_util_try_import),
      * which does the import for us.  If successful, we're done.
      */
-    if (!evp_keymgmt_util_export(pk, selection,
+    if (!evp_keymgmt_util_export(pk, OSSL_KEYMGMT_SELECT_ALL,
                                  &evp_keymgmt_util_try_import, &import_data))
         /* If there was an error, bail out */
         return NULL;
@@ -174,7 +173,7 @@ void *evp_keymgmt_util_export_to_provider(EVP_PKEY *pk, EVP_KEYMGMT *keymgmt,
         return NULL;
     }
     /* Check to make sure some other thread didn't get there first */
-    op = evp_keymgmt_util_find_operation_cache(pk, keymgmt, selection);
+    op = evp_keymgmt_util_find_operation_cache(pk, keymgmt);
     if (op != NULL && op->keydata != NULL) {
         void *ret = op->keydata;
 
@@ -197,8 +196,7 @@ void *evp_keymgmt_util_export_to_provider(EVP_PKEY *pk, EVP_KEYMGMT *keymgmt,
         evp_keymgmt_util_clear_operation_cache(pk, 0);
 
     /* Add the new export to the operation cache */
-    if (!evp_keymgmt_util_cache_keydata(pk, keymgmt, import_data.keydata,
-                                        selection)) {
+    if (!evp_keymgmt_util_cache_keydata(pk, keymgmt, import_data.keydata)) {
         CRYPTO_THREAD_unlock(pk->lock);
         evp_keymgmt_freedata(keymgmt, import_data.keydata);
         return NULL;
@@ -234,8 +232,7 @@ int evp_keymgmt_util_clear_operation_cache(EVP_PKEY *pk, int locking)
 }
 
 OP_CACHE_ELEM *evp_keymgmt_util_find_operation_cache(EVP_PKEY *pk,
-                                                     EVP_KEYMGMT *keymgmt,
-                                                     int selection)
+                                                     EVP_KEYMGMT *keymgmt)
 {
     int i, end = sk_OP_CACHE_ELEM_num(pk->operation_cache);
     OP_CACHE_ELEM *p;
@@ -246,14 +243,14 @@ OP_CACHE_ELEM *evp_keymgmt_util_find_operation_cache(EVP_PKEY *pk,
      */
     for (i = 0; i < end; i++) {
         p = sk_OP_CACHE_ELEM_value(pk->operation_cache, i);
-        if (keymgmt == p->keymgmt && (p->selection & selection) == selection)
+        if (keymgmt == p->keymgmt)
             return p;
     }
     return NULL;
 }
 
-int evp_keymgmt_util_cache_keydata(EVP_PKEY *pk, EVP_KEYMGMT *keymgmt,
-                                   void *keydata, int selection)
+int evp_keymgmt_util_cache_keydata(EVP_PKEY *pk,
+                                   EVP_KEYMGMT *keymgmt, void *keydata)
 {
     OP_CACHE_ELEM *p = NULL;
 
@@ -269,7 +266,6 @@ int evp_keymgmt_util_cache_keydata(EVP_PKEY *pk, EVP_KEYMGMT *keymgmt,
             return 0;
         p->keydata = keydata;
         p->keymgmt = keymgmt;
-        p->selection = selection;
 
         if (!EVP_KEYMGMT_up_ref(keymgmt)) {
             OPENSSL_free(p);
@@ -395,8 +391,7 @@ int evp_keymgmt_util_match(EVP_PKEY *pk1, EVP_PKEY *pk2, int selection)
             ok = 1;
             if (keydata1 != NULL) {
                 tmp_keydata =
-                    evp_keymgmt_util_export_to_provider(pk1, keymgmt2,
-                                                        selection);
+                    evp_keymgmt_util_export_to_provider(pk1, keymgmt2);
                 ok = (tmp_keydata != NULL);
             }
             if (ok) {
@@ -416,8 +411,7 @@ int evp_keymgmt_util_match(EVP_PKEY *pk1, EVP_PKEY *pk2, int selection)
             ok = 1;
             if (keydata2 != NULL) {
                 tmp_keydata =
-                    evp_keymgmt_util_export_to_provider(pk2, keymgmt1,
-                                                        selection);
+                    evp_keymgmt_util_export_to_provider(pk2, keymgmt1);
                 ok = (tmp_keydata != NULL);
             }
             if (ok) {

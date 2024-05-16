@@ -5,7 +5,7 @@
  *             packet encryption, packet authentication, and
  *             packet compression.
  *
- *  Copyright (C) 2002-2023 OpenVPN Inc <sales@openvpn.net>
+ *  Copyright (C) 2002-2022 OpenVPN Inc <sales@openvpn.net>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2
@@ -85,15 +85,10 @@ platform_user_get(const char *username, struct platform_state_user *state)
     if (username)
     {
 #if defined(HAVE_GETPWNAM) && defined(HAVE_SETUID)
-        state->uid = -1;
-        const struct passwd *pw = getpwnam(username);
-        if (!pw)
+        state->pw = getpwnam(username);
+        if (!state->pw)
         {
             msg(M_ERR, "failed to find UID for user %s", username);
-        }
-        else
-        {
-            state->uid = pw->pw_uid;
         }
         state->username = username;
         ret = true;
@@ -108,9 +103,9 @@ static void
 platform_user_set(const struct platform_state_user *state)
 {
 #if defined(HAVE_GETPWNAM) && defined(HAVE_SETUID)
-    if (state->username && state->uid >= 0)
+    if (state->username && state->pw)
     {
-        if (setuid(state->uid))
+        if (setuid(state->pw->pw_uid))
         {
             msg(M_ERR, "setuid('%s') failed", state->username);
         }
@@ -129,15 +124,10 @@ platform_group_get(const char *groupname, struct platform_state_group *state)
     if (groupname)
     {
 #if defined(HAVE_GETGRNAM) && defined(HAVE_SETGID)
-        state->gid = -1;
-        const struct group *gr = getgrnam(groupname);
-        if (!gr)
+        state->gr = getgrnam(groupname);
+        if (!state->gr)
         {
             msg(M_ERR, "failed to find GID for group %s", groupname);
-        }
-        else
-        {
-            state->gid = gr->gr_gid;
         }
         state->groupname = groupname;
         ret = true;
@@ -152,9 +142,9 @@ static void
 platform_group_set(const struct platform_state_group *state)
 {
 #if defined(HAVE_GETGRNAM) && defined(HAVE_SETGID)
-    if (state->groupname && state->gid >= 0)
+    if (state->groupname && state->gr)
     {
-        if (setgid(state->gid))
+        if (setgid(state->gr->gr_gid))
         {
             msg(M_ERR, "setgid('%s') failed", state->groupname);
         }
@@ -162,7 +152,7 @@ platform_group_set(const struct platform_state_group *state)
 #ifdef HAVE_SETGROUPS
         {
             gid_t gr_list[1];
-            gr_list[0] = state->gid;
+            gr_list[0] = state->gr->gr_gid;
             if (setgroups(1, gr_list))
             {
                 msg(M_ERR, "setgroups('%s') failed", state->groupname);
@@ -235,13 +225,13 @@ platform_user_group_set(const struct platform_state_user *user_state,
      * new_uid/new_gid defaults to -1, which will not make
      * libcap-ng change the UID/GID unless configured
      */
-    if (group_state->groupname && group_state->gid >= 0)
+    if (group_state->groupname && group_state->gr)
     {
-        new_gid = group_state->gid;
+        new_gid = group_state->gr->gr_gid;
     }
-    if (user_state->username && user_state->uid >= 0)
+    if (user_state->username && user_state->pw)
     {
-        new_uid = user_state->uid;
+        new_uid = user_state->pw->pw_uid;
     }
 
     /* Prepare capabilities before dropping UID/GID */
@@ -256,7 +246,7 @@ platform_user_group_set(const struct platform_state_user *user_state,
     /* Change to new UID/GID.
      * capng_change_id() internally calls capng_apply() to apply prepared capabilities.
      */
-    res = capng_change_id(new_uid, new_gid, CAPNG_DROP_SUPP_GRP);
+    res = capng_change_id(new_uid, new_gid, CAPNG_DROP_SUPP_GRP | CAPNG_CLEAR_BOUNDING);
     if (res == -4 || res == -6)
     {
         /* -4 and -6 mean failure of setuid/gid respectively.

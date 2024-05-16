@@ -5,7 +5,7 @@
  *             packet encryption, packet authentication, and
  *             packet compression.
  *
- *  Copyright (C) 2002-2023 OpenVPN Inc <sales@openvpn.net>
+ *  Copyright (C) 2002-2022 OpenVPN Inc <sales@openvpn.net>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2
@@ -743,14 +743,12 @@ init_tun(const char *dev,        /* --dev option */
          struct addrinfo *remote_public,
          const bool strict_warn,
          struct env_set *es,
-         openvpn_net_ctx_t *ctx,
-         struct tuntap *tt)
+         openvpn_net_ctx_t *ctx)
 {
-    if (!tt)
-    {
-        ALLOC_OBJ(tt, struct tuntap);
-        clear_tuntap(tt);
-    }
+    struct tuntap *tt;
+
+    ALLOC_OBJ(tt, struct tuntap);
+    clear_tuntap(tt);
 
     tt->type = dev_type_enum(dev, dev_type);
     tt->topology = topology;
@@ -892,14 +890,8 @@ init_tun_post(struct tuntap *tt,
 {
     tt->options = *options;
 #ifdef _WIN32
-    if (tt->windows_driver == WINDOWS_DRIVER_DCO)
-    {
-        dco_start_tun(tt);
-        return;
-    }
-
-    overlapped_io_init(&tt->reads, frame, FALSE);
-    overlapped_io_init(&tt->writes, frame, TRUE);
+    overlapped_io_init(&tt->reads, frame, FALSE, true);
+    overlapped_io_init(&tt->writes, frame, TRUE, true);
     tt->adapter_index = TUN_ADAPTER_INDEX_INVALID;
 
     if (tt->windows_driver == WINDOWS_DRIVER_WINTUN)
@@ -1104,12 +1096,11 @@ do_ifconfig_ipv6(struct tuntap *tt, const char *ifname, int tun_mtu,
     openvpn_execve_check(&argv, es, S_FATAL,
                          "generic BSD ifconfig inet6 failed");
 
-#if defined(TARGET_FREEBSD) && __FreeBSD_version >= 1200000 \
-    && __FreeBSD_version < 1300000
-    /* On FreeBSD 12.0-12.4, there is ipv6_activate_all_interfaces="YES"
+#if defined(TARGET_FREEBSD) && __FreeBSD_version >= 1200000
+    /* On FreeBSD 12 and up, there is ipv6_activate_all_interfaces="YES"
      * in rc.conf, which is not set by default.  If it is *not* set,
      * "all new interfaces that are not already up" are configured by
-     * devd -> /etc/pccard_ether -> /etc/network.subr as "inet6 ifdisabled".
+     * devd + /etc/pccard_ether as "inet6 ifdisabled".
      *
      * The "is this interface already up?" test is a non-zero time window
      * which we manage to hit with our ifconfig often enough to cause
@@ -1387,7 +1378,7 @@ do_ifconfig_ipv4(struct tuntap *tt, const char *ifname, int tun_mtu,
     }
 
 #elif defined(TARGET_NETBSD)
-    in_addr_t remote_end = INADDR_ANY;  /* for "virtual" subnet topology */
+    in_addr_t remote_end;           /* for "virtual" subnet topology */
 
     if (tun)
     {
@@ -1480,22 +1471,42 @@ do_ifconfig_ipv4(struct tuntap *tt, const char *ifname, int tun_mtu,
 
 #elif defined(TARGET_FREEBSD) || defined(TARGET_DRAGONFLY)
 
+    in_addr_t remote_end;           /* for "virtual" subnet topology */
+
     /* example: ifconfig tun2 10.2.0.2 10.2.0.1 mtu 1450 netmask 255.255.255.255 up */
-    if (tun)       /* point-to-point tun */
+    if (tun)
     {
         argv_printf(&argv, "%s %s %s %s mtu %d netmask 255.255.255.255 up",
                     IFCONFIG_PATH, ifname, ifconfig_local,
                     ifconfig_remote_netmask, tun_mtu);
     }
-    else            /* tun with topology subnet and tap mode (always subnet) */
+    else if (tt->type == DEV_TYPE_TUN && tt->topology == TOP_SUBNET)
     {
-        int netbits = netmask_to_netbits2(tt->remote_netmask);
-        argv_printf(&argv, "%s %s %s/%d mtu %d up", IFCONFIG_PATH,
-                    ifname, ifconfig_local, netbits, tun_mtu );
+        remote_end = create_arbitrary_remote( tt );
+        argv_printf(&argv, "%s %s %s %s mtu %d netmask %s up", IFCONFIG_PATH,
+                    ifname, ifconfig_local, print_in_addr_t(remote_end, 0, &gc),
+                    tun_mtu, ifconfig_remote_netmask);
+    }
+    else
+    {
+        argv_printf(&argv, "%s %s %s netmask %s mtu %d up", IFCONFIG_PATH,
+                    ifname, ifconfig_local, ifconfig_remote_netmask, tun_mtu);
     }
 
     argv_msg(M_INFO, &argv);
     openvpn_execve_check(&argv, es, S_FATAL, "FreeBSD ifconfig failed");
+
+    /* Add a network route for the local tun interface */
+    if (!tun && tt->type == DEV_TYPE_TUN && tt->topology == TOP_SUBNET)
+    {
+        struct route_ipv4 r;
+        CLEAR(r);
+        r.flags = RT_DEFINED;
+        r.network = tt->local & tt->remote_netmask;
+        r.netmask = tt->remote_netmask;
+        r.gateway = remote_end;
+        add_route(&r, tt, 0, NULL, es, NULL);
+    }
 
 #elif defined(TARGET_AIX)
     {
@@ -1591,91 +1602,6 @@ do_ifconfig(struct tuntap *tt, const char *ifname, int tun_mtu,
 
     /* release resources potentially allocated during interface setup */
     net_ctx_free(ctx);
-}
-
-static void
-undo_ifconfig_ipv4(struct tuntap *tt, openvpn_net_ctx_t *ctx)
-{
-#if defined(TARGET_LINUX)
-    int netbits = netmask_to_netbits2(tt->remote_netmask);
-
-    if (is_tun_p2p(tt))
-    {
-        if (net_addr_ptp_v4_del(ctx, tt->actual_name, &tt->local,
-                                &tt->remote_netmask) < 0)
-        {
-            msg(M_WARN, "Linux can't del IP from iface %s",
-                tt->actual_name);
-        }
-    }
-    else
-    {
-        if (net_addr_v4_del(ctx, tt->actual_name, &tt->local, netbits) < 0)
-        {
-            msg(M_WARN, "Linux can't del IP from iface %s",
-                tt->actual_name);
-        }
-    }
-#elif defined(TARGET_FREEBSD)
-    struct gc_arena gc = gc_new();
-    const char *ifconfig_local = print_in_addr_t(tt->local, 0, &gc);
-    struct argv argv = argv_new();
-
-    argv_printf(&argv, "%s %s %s -alias", IFCONFIG_PATH,
-                tt->actual_name, ifconfig_local);
-    argv_msg(M_INFO, &argv);
-    openvpn_execve_check(&argv, NULL, 0, "FreeBSD ip addr del failed");
-
-    argv_free(&argv);
-    gc_free(&gc);
-#endif /* if defined(TARGET_LINUX) */
-       /* Empty for _WIN32 and all other unixoid platforms */
-}
-
-static void
-undo_ifconfig_ipv6(struct tuntap *tt, openvpn_net_ctx_t *ctx)
-{
-#if defined(TARGET_LINUX)
-    if (net_addr_v6_del(ctx, tt->actual_name, &tt->local_ipv6,
-                        tt->netbits_ipv6) < 0)
-    {
-        msg(M_WARN, "Linux can't del IPv6 from iface %s", tt->actual_name);
-    }
-#elif defined(TARGET_FREEBSD)
-    struct gc_arena gc = gc_new();
-    const char *ifconfig_ipv6_local = print_in6_addr(tt->local_ipv6, 0, &gc);
-    struct argv argv = argv_new();
-
-    argv_printf(&argv, "%s %s inet6 %s/%d -alias", IFCONFIG_PATH,
-                tt->actual_name, ifconfig_ipv6_local, tt->netbits_ipv6);
-
-    argv_msg(M_INFO, &argv);
-    openvpn_execve_check(&argv, NULL, 0, "FreeBSD ip -6 addr del failed");
-
-    argv_free(&argv);
-    gc_free(&gc);
-#endif /* if defined(TARGET_LINUX) */
-       /* Empty for _WIN32 and all other unixoid platforms */
-}
-
-void
-undo_ifconfig(struct tuntap *tt, openvpn_net_ctx_t *ctx)
-{
-    if (tt->type != DEV_TYPE_NULL)
-    {
-        if (tt->did_ifconfig_setup)
-        {
-            undo_ifconfig_ipv4(tt, ctx);
-        }
-
-        if (tt->did_ifconfig_ipv6_setup)
-        {
-            undo_ifconfig_ipv6(tt, ctx);
-        }
-
-        /* release resources potentially allocated during undo */
-        net_ctx_reset(ctx);
-    }
 }
 
 static void
@@ -1796,7 +1722,7 @@ tun_name_is_fixed(const char *dev)
     return has_digit(dev);
 }
 
-#if defined(TARGET_LINUX) || defined(TARGET_FREEBSD)
+#if defined(TARGET_LINUX)
 static bool
 tun_dco_enabled(struct tuntap *tt)
 {
@@ -1834,6 +1760,29 @@ open_tun_generic(const char *dev, const char *dev_type, const char *dev_node,
              * explicit unit number.  Try opening /dev/[dev]n
              * where n = [0, 255].
              */
+#ifdef TARGET_NETBSD
+            /* on NetBSD, tap (but not tun) devices are opened by
+             * opening /dev/tap and then querying the system about the
+             * actual device name (tap0, tap1, ...) assigned
+             */
+            if (strcmp(dev, "tap") == 0)
+            {
+                struct ifreq ifr;
+                if ((tt->fd = open( "/dev/tap", O_RDWR)) < 0)
+                {
+                    msg(M_FATAL, "Cannot allocate NetBSD TAP dev dynamically");
+                }
+                if (ioctl( tt->fd, TAPGIFNAME, (void *)&ifr ) < 0)
+                {
+                    msg(M_FATAL, "Cannot query NetBSD TAP device name");
+                }
+                CLEAR(dynamic_name);
+                strncpy( dynamic_name, ifr.ifr_name, sizeof(dynamic_name)-1 );
+                dynamic_opened = true;
+                openvpn_snprintf(tunname, sizeof(tunname), "/dev/%s", dynamic_name );
+            }
+            else
+#endif
 
             if (!tun_name_is_fixed(dev))
             {
@@ -1887,9 +1836,9 @@ open_tun_generic(const char *dev, const char *dev_type, const char *dev_node,
         tt->actual_name = string_alloc(dynamic_opened ? dynamic_name : dev, NULL);
     }
 }
-#endif /* !_WIN32 && !TARGET_LINUX && !TARGET_FREEBSD*/
+#endif /* !_WIN32 && !TARGET_LINUX */
 
-#if defined(TARGET_LINUX) || defined(TARGET_FREEBSD)
+#if defined(TARGET_LINUX)
 static void
 open_tun_dco_generic(const char *dev, const char *dev_type,
                      struct tuntap *tt, openvpn_net_ctx_t *ctx)
@@ -1904,14 +1853,12 @@ open_tun_dco_generic(const char *dev, const char *dev_type,
     }
 
     /*
-     * unlike "open_tun_generic()", DCO on Linux and FreeBSD follows
-     * the device naming model of "non-DCO linux", that is:
-     *   --dev tun         -> try tun0, tun1, ... tun255, use first free
-     *   --dev <anything>  -> (try to) create a tun device named "anything"
-     * ("--dev tap" and "--dev null" are caught earlier and not handled here)
+     * dynamic open is indicated by --dev specified without
+     * explicit unit number.  Try opening DCO device named "[dev]n"
+     * where n = [0, 255].
      */
 
-    if (strcmp(dev, "tun") == 0)
+    if (!tun_name_is_fixed(dev))
     {
         for (int i = 0; i < 256; ++i)
         {
@@ -1964,7 +1911,7 @@ open_tun_dco_generic(const char *dev, const char *dev_type,
         tt->actual_name = string_alloc(dev, NULL);
     }
 }
-#endif /* TARGET_LINUX || TARGET_FREEBSD*/
+#endif /* TARGET_LINUX */
 
 #if !defined(_WIN32)
 static void
@@ -2242,7 +2189,7 @@ tuncfg(const char *dev, const char *dev_type, const char *dev_node,
         {
             msg(M_ERR, "Cannot get user entry for %s", username);
         }
-        else if (ioctl(tt->fd, TUNSETOWNER, platform_state_user.uid) < 0)
+        else if (ioctl(tt->fd, TUNSETOWNER, platform_state_user.pw->pw_uid) < 0)
         {
             msg(M_ERR, "Cannot ioctl TUNSETOWNER(%s) %s", username, dev);
         }
@@ -2255,7 +2202,7 @@ tuncfg(const char *dev, const char *dev_type, const char *dev_node,
         {
             msg(M_ERR, "Cannot get group entry for %s", groupname);
         }
-        else if (ioctl(tt->fd, TUNSETGROUP, platform_state_group.gid) < 0)
+        else if (ioctl(tt->fd, TUNSETGROUP, platform_state_group.gr->gr_gid) < 0)
         {
             msg(M_ERR, "Cannot ioctl TUNSETGROUP(%s) %s", groupname, dev);
         }
@@ -2266,12 +2213,88 @@ tuncfg(const char *dev, const char *dev_type, const char *dev_node,
 
 #endif /* ENABLE_FEATURE_TUN_PERSIST */
 
+static void
+undo_ifconfig_ipv4(struct tuntap *tt, openvpn_net_ctx_t *ctx)
+{
+#if defined(TARGET_LINUX)
+    int netbits = netmask_to_netbits2(tt->remote_netmask);
+
+    if (is_tun_p2p(tt))
+    {
+        if (net_addr_ptp_v4_del(ctx, tt->actual_name, &tt->local,
+                                &tt->remote_netmask) < 0)
+        {
+            msg(M_WARN, "Linux can't del IP from iface %s",
+                tt->actual_name);
+        }
+    }
+    else
+    {
+        if (net_addr_v4_del(ctx, tt->actual_name, &tt->local, netbits) < 0)
+        {
+            msg(M_WARN, "Linux can't del IP from iface %s",
+                tt->actual_name);
+        }
+    }
+#else  /* ifndef TARGET_LINUX */
+    struct argv argv = argv_new();
+
+    argv_printf(&argv, "%s %s 0.0.0.0", IFCONFIG_PATH, tt->actual_name);
+
+    argv_msg(M_INFO, &argv);
+    openvpn_execve_check(&argv, NULL, 0, "Generic ip addr del failed");
+
+    argv_free(&argv);
+#endif /* ifdef TARGET_LINUX */
+}
+
+static void
+undo_ifconfig_ipv6(struct tuntap *tt, openvpn_net_ctx_t *ctx)
+{
+#if defined(TARGET_LINUX)
+    if (net_addr_v6_del(ctx, tt->actual_name, &tt->local_ipv6,
+                        tt->netbits_ipv6) < 0)
+    {
+        msg(M_WARN, "Linux can't del IPv6 from iface %s", tt->actual_name);
+    }
+#else  /* ifndef TARGET_LINUX */
+    struct gc_arena gc = gc_new();
+    const char *ifconfig_ipv6_local = print_in6_addr(tt->local_ipv6, 0, gc);
+    struct argv argv = argv_new();
+
+    argv_printf(&argv, "%s %s del %s/%d", IFCONFIG_PATH, tt->actual_name,
+                ifconfig_ipv6_local, tt->netbits_ipv6);
+
+    argv_msg(M_INFO, &argv);
+    openvpn_execve_check(&argv, NULL, 0, "Linux ip -6 addr del failed");
+
+    argv_free(&argv);
+    gc_free(&gc);
+#endif /* ifdef TARGET_LINUX */
+}
+
 void
 close_tun(struct tuntap *tt, openvpn_net_ctx_t *ctx)
 {
     ASSERT(tt);
 
-#if defined(TARGET_LINUX) || defined(TARGET_FREEBSD)
+    if (tt->type != DEV_TYPE_NULL)
+    {
+        if (tt->did_ifconfig_setup)
+        {
+            undo_ifconfig_ipv4(tt, ctx);
+        }
+
+        if (tt->did_ifconfig_ipv6_setup)
+        {
+            undo_ifconfig_ipv6(tt, ctx);
+        }
+
+        /* release resources potentially allocated during undo */
+        net_ctx_reset(ctx);
+    }
+
+#ifdef TARGET_LINUX
     if (tun_dco_enabled(tt))
     {
         close_tun_dco(tt, ctx);
@@ -2363,11 +2386,10 @@ open_tun(const char *dev, const char *dev_type, const char *dev_node, struct tun
         msg(M_ERR, "Can't open %s", dev_node);
     }
 
-    ptr = dev;
-
     /* get unit number */
-    if (*ptr)
+    if (*dev)
     {
+        ptr = dev;
         while (*ptr && !isdigit((int) *ptr))
         {
             ptr++;
@@ -2735,51 +2757,24 @@ read_tun(struct tuntap *tt, uint8_t *buf, int len)
 #elif defined(TARGET_NETBSD)
 
 /*
- * NetBSD 4.0 and up support IPv6 on tun interfaces, but we need to put
- * the tun interface into "multi_af" mode, which will prepend the address
- * family to all packets (same as OpenBSD and FreeBSD).
+ * NetBSD before 4.0 does not support IPv6 on tun out of the box,
+ * but there exists a patch (sys/net/if_tun.c, 1.79->1.80, see PR 32944).
  *
- * If this is not enabled, the kernel silently drops all IPv6 packets on
- * output and gets confused on input.
+ * NetBSD 4.0 and up do, but we need to put the tun interface into
+ * "multi_af" mode, which will prepend the address family to all packets
+ * (same as OpenBSD and FreeBSD).  If this is not enabled, the kernel
+ * silently drops all IPv6 packets on output and gets confused on input.
  *
- * Note: --dev tap3 works *if* the interface is created externally by
- *         "ifconfig tap3 create"
- *         (and for devices beyond tap3, "mknod /dev/tapN c ...")
- *       but we do not have code to do that inside OpenVPN
+ * On earlier versions, multi_af is not available at all, so we have
+ * two different NetBSD code variants here :-(
+ *
  */
 
 void
 open_tun(const char *dev, const char *dev_type, const char *dev_node, struct tuntap *tt,
          openvpn_net_ctx_t *ctx)
 {
-    /* on NetBSD, tap (but not tun) devices are opened by
-     * opening /dev/tap and then querying the system about the
-     * actual device name (tap0, tap1, ...) assigned
-     */
-    if (strcmp(dev, "tap") == 0)
-    {
-        struct ifreq ifr;
-        if ((tt->fd = open( "/dev/tap", O_RDWR)) < 0)
-        {
-            msg(M_FATAL, "Cannot allocate NetBSD TAP dev dynamically");
-        }
-        if (ioctl( tt->fd, TAPGIFNAME, (void *)&ifr ) < 0)
-        {
-            msg(M_FATAL, "Cannot query NetBSD TAP device name");
-        }
-        set_nonblock(tt->fd);
-        set_cloexec(tt->fd); /* don't pass fd to scripts */
-        msg(M_INFO, "TUN/TAP device %s opened", ifr.ifr_name);
-
-        tt->actual_name = string_alloc(ifr.ifr_name, NULL);
-    }
-    else
-    {
-        /* dynamic / named tun can be handled by the generic function
-         * named tap ("tap3") is handled there as well, if pre-created
-         */
-        open_tun_generic(dev, dev_type, dev_node, tt);
-    }
+    open_tun_generic(dev, dev_type, dev_node, tt);
 
     if (tt->fd >= 0)
     {
@@ -2920,34 +2915,20 @@ void
 open_tun(const char *dev, const char *dev_type, const char *dev_node, struct tuntap *tt,
          openvpn_net_ctx_t *ctx)
 {
-    if (tun_dco_enabled(tt))
-    {
-        open_tun_dco_generic(dev, dev_type, tt, ctx);
-    }
-    else
-    {
-        open_tun_generic(dev, dev_type, dev_node, tt);
+    open_tun_generic(dev, dev_type, dev_node, tt);
 
-        if (tt->fd >= 0 && tt->type == DEV_TYPE_TUN)
+    if (tt->fd >= 0 && tt->type == DEV_TYPE_TUN)
+    {
+        int i = IFF_POINTOPOINT | IFF_MULTICAST;
+
+        if (ioctl(tt->fd, TUNSIFMODE, &i) < 0)
         {
-            /* see "Interface Flags" in ifnet(9) */
-            int i = IFF_POINTOPOINT | IFF_MULTICAST;
-            if (tt->topology == TOP_SUBNET)
-            {
-                i = IFF_BROADCAST | IFF_MULTICAST;
-            }
-
-            if (ioctl(tt->fd, TUNSIFMODE, &i) < 0)
-            {
-                msg(M_WARN | M_ERRNO, "ioctl(TUNSIFMODE)");
-            }
-
-            /* multi_af mode for v4+v6, see "tun(4)" */
-            i = 1;
-            if (ioctl(tt->fd, TUNSIFHEAD, &i) < 0)
-            {
-                msg(M_WARN | M_ERRNO, "ioctl(TUNSIFHEAD)");
-            }
+            msg(M_WARN | M_ERRNO, "ioctl(TUNSIFMODE)");
+        }
+        i = 1;
+        if (ioctl(tt->fd, TUNSIFHEAD, &i) < 0)
+        {
+            msg(M_WARN | M_ERRNO, "ioctl(TUNSIFHEAD)");
         }
     }
 }
@@ -3537,6 +3518,22 @@ read_tun(struct tuntap *tt, uint8_t *buf, int len)
 
 #elif defined(_WIN32)
 
+static const char *
+print_windows_driver(enum windows_driver_type windows_driver)
+{
+    switch (windows_driver)
+    {
+        case WINDOWS_DRIVER_TAP_WINDOWS6:
+            return "tap-windows6";
+
+        case WINDOWS_DRIVER_WINTUN:
+            return "wintun";
+
+        default:
+            return "unspecified";
+    }
+}
+
 int
 tun_read_queue(struct tuntap *tt, int maxsize)
 {
@@ -3705,7 +3702,6 @@ get_device_instance_id_interface(struct gc_arena *gc)
         msg(M_FATAL, "Error [%u] opening device information set key: %s", (unsigned int)err, strerror_win32(err, gc));
     }
 
-    msg(D_TAP_WIN_DEBUG, "Enumerate device interface lists:");
     for (DWORD i = 0;; ++i)
     {
         SP_DEVINFO_DATA device_info_data;
@@ -3719,6 +3715,7 @@ get_device_instance_id_interface(struct gc_arena *gc)
         LONG status;
         ULONG dev_interface_list_size;
         CONFIGRET cr;
+        struct buffer dev_interface_list;
 
         ZeroMemory(&device_info_data, sizeof(SP_DEVINFO_DATA));
         device_info_data.cbSize = sizeof(SP_DEVINFO_DATA);
@@ -3771,9 +3768,9 @@ get_device_instance_id_interface(struct gc_arena *gc)
             goto next;
         }
 
-        char *dev_interface_list = gc_malloc(dev_interface_list_size, false, gc);
+        dev_interface_list = alloc_buf_gc(dev_interface_list_size, gc);
         cr = CM_Get_Device_Interface_List((LPGUID)&GUID_DEVINTERFACE_NET, device_instance_id,
-                                          dev_interface_list,
+                                          BSTR(&dev_interface_list),
                                           dev_interface_list_size,
                                           CM_GET_DEVICE_INTERFACE_LIST_PRESENT);
         if (cr != CR_SUCCESS)
@@ -3781,33 +3778,21 @@ get_device_instance_id_interface(struct gc_arena *gc)
             goto next;
         }
 
-        char *dev_if = dev_interface_list;
+        struct device_instance_id_interface *dev_if;
+        ALLOC_OBJ_CLEAR_GC(dev_if, struct device_instance_id_interface, gc);
+        dev_if->net_cfg_instance_id = (unsigned char *)string_alloc((char *)net_cfg_instance_id, gc);
+        dev_if->device_interface_list = string_alloc(BSTR(&dev_interface_list), gc);
 
-        /* device interface list ends with empty string */
-        while (strlen(dev_if) > 0)
+        /* link into return list */
+        if (!first)
         {
-            struct device_instance_id_interface *dev_iif;
-            ALLOC_OBJ_CLEAR_GC(dev_iif, struct device_instance_id_interface, gc);
-            dev_iif->net_cfg_instance_id = (unsigned char *)string_alloc((char *)net_cfg_instance_id, gc);
-            dev_iif->device_interface = string_alloc(dev_if, gc);
-
-            msg(D_TAP_WIN_DEBUG, "NetCfgInstanceId: %s, Device Interface: %s",
-                dev_iif->net_cfg_instance_id,
-                dev_iif->device_interface);
-
-            /* link into return list */
-            if (!first)
-            {
-                first = dev_iif;
-            }
-            if (last)
-            {
-                last->next = dev_iif;
-            }
-            last = dev_iif;
-
-            dev_if += strlen(dev_if) + 1;
+            first = dev_if;
         }
+        if (last)
+        {
+            last->next = dev_if;
+        }
+        last = dev_if;
 
 next:
         RegCloseKey(dev_key);
@@ -3840,7 +3825,6 @@ get_tap_reg(struct gc_arena *gc)
         msg(M_FATAL, "Error opening registry key: %s", ADAPTER_KEY);
     }
 
-    msg(D_TAP_WIN_DEBUG, "Enumerate drivers in registy: ");
     while (true)
     {
         char enum_name[256];
@@ -3926,10 +3910,6 @@ get_tap_reg(struct gc_arena *gc)
                     {
                         windows_driver = WINDOWS_DRIVER_WINTUN;
                     }
-                    else if (strcasecmp(component_id, "ovpn-dco") == 0)
-                    {
-                        windows_driver = WINDOWS_DRIVER_DCO;
-                    }
 
                     if (windows_driver != WINDOWS_DRIVER_UNSPECIFIED)
                     {
@@ -3948,9 +3928,6 @@ get_tap_reg(struct gc_arena *gc)
                             last->next = reg;
                         }
                         last = reg;
-
-                        msg(D_TAP_WIN_DEBUG, "NetCfgInstanceId: %s, Driver: %s",
-                            reg->guid, print_windows_driver(reg->windows_driver));
                     }
                 }
             }
@@ -4287,9 +4264,7 @@ at_least_one_tap_win(const struct tap_reg *tap_reg)
 {
     if (!tap_reg)
     {
-        msg(M_FATAL, "There are no TAP-Windows, Wintun or ovpn-dco adapters "
-            "on this system.  You should be able to create an adapter "
-            "by using tapctl.exe utility.");
+        msg(M_FATAL, "There are no TAP-Windows nor Wintun adapters on this system.  You should be able to create an adapter by using tapctl.exe utility.");
     }
 }
 
@@ -6489,30 +6464,18 @@ tun_try_open_device(struct tuntap *tt, const char *device_guid, const struct dev
     const char *path = NULL;
     char tuntap_device_path[256];
 
-    if (tt->windows_driver == WINDOWS_DRIVER_WINTUN
-        || tt->windows_driver == WINDOWS_DRIVER_DCO)
+    if (tt->windows_driver == WINDOWS_DRIVER_WINTUN)
     {
         const struct device_instance_id_interface *dev_if;
 
+        /* Open Wintun adapter */
         for (dev_if = device_instance_id_interface; dev_if != NULL; dev_if = dev_if->next)
         {
-            if (strcmp((const char *)dev_if->net_cfg_instance_id, device_guid) != 0)
+            if (strcmp((const char *)dev_if->net_cfg_instance_id, device_guid) == 0)
             {
-                continue;
+                path = dev_if->device_interface_list;
+                break;
             }
-
-            if (tt->windows_driver == WINDOWS_DRIVER_DCO)
-            {
-                char *last_sep = strrchr(dev_if->device_interface, '\\');
-                if (!last_sep
-                    || strcmp(last_sep + 1, DCO_WIN_REFERENCE_STRING) != 0)
-                {
-                    continue;
-                }
-            }
-
-            path = dev_if->device_interface;
-            break;
         }
         if (path == NULL)
         {
@@ -6521,15 +6484,13 @@ tun_try_open_device(struct tuntap *tt, const char *device_guid, const struct dev
     }
     else
     {
-        /* Open TAP-Windows */
+        /* Open TAP-Windows adapter */
         openvpn_snprintf(tuntap_device_path, sizeof(tuntap_device_path), "%s%s%s",
                          USERMODEDEVICEDIR,
                          device_guid,
                          TAP_WIN_SUFFIX);
         path = tuntap_device_path;
     }
-
-    msg(D_TAP_WIN_DEBUG, "Using device interface: %s", path);
 
     tt->hand = CreateFile(path,
                           GENERIC_READ | GENERIC_WRITE,
@@ -6540,7 +6501,7 @@ tun_try_open_device(struct tuntap *tt, const char *device_guid, const struct dev
                           0);
     if (tt->hand == INVALID_HANDLE_VALUE)
     {
-        msg(D_TUNTAP_INFO | M_ERRNO, "CreateFile failed on %s device: %s", print_windows_driver(tt->windows_driver), path);
+        msg(D_TUNTAP_INFO, "CreateFile failed on %s device: %s", print_windows_driver(tt->windows_driver), path);
         return false;
     }
 
@@ -6559,7 +6520,7 @@ tun_try_open_device(struct tuntap *tt, const char *device_guid, const struct dev
     return true;
 }
 
-void
+static void
 tun_open_device(struct tuntap *tt, const char *dev_node, const char **device_guid, struct gc_arena *gc)
 {
     const struct tap_reg *tap_reg = get_tap_reg(gc);
@@ -6730,12 +6691,6 @@ void
 open_tun(const char *dev, const char *dev_type, const char *dev_node, struct tuntap *tt,
          openvpn_net_ctx_t *ctx)
 {
-    /* dco-win already opened the device, which handle we treat as socket */
-    if (tuntap_is_dco_win(tt))
-    {
-        return;
-    }
-
     const char *device_guid = NULL;
 
     /*netcmd_semaphore_lock ();*/
@@ -6857,7 +6812,7 @@ netsh_delete_address_dns(const struct tuntap *tt, bool ipv6, struct gc_arena *gc
     argv_free(&argv);
 }
 
-void
+static void
 close_tun_handle(struct tuntap *tt)
 {
     const char *adaptertype = print_windows_driver(tt->windows_driver);
@@ -7038,25 +6993,6 @@ ipset2ascii_all(struct gc_arena *gc)
         buf_printf(&out, "[%s]", ipset2ascii(i));
     }
     return BSTR(&out);
-}
-
-const char *
-print_windows_driver(enum windows_driver_type windows_driver)
-{
-    switch (windows_driver)
-    {
-        case WINDOWS_DRIVER_TAP_WINDOWS6:
-            return "tap-windows6";
-
-        case WINDOWS_DRIVER_WINTUN:
-            return "wintun";
-
-        case WINDOWS_DRIVER_DCO:
-            return "ovpn-dco";
-
-        default:
-            return "unspecified";
-    }
 }
 
 #else /* generic */

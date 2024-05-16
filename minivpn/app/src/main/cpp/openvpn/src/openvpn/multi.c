@@ -5,7 +5,7 @@
  *             packet encryption, packet authentication, and
  *             packet compression.
  *
- *  Copyright (C) 2002-2023 OpenVPN Inc <sales@openvpn.net>
+ *  Copyright (C) 2002-2022 OpenVPN Inc <sales@openvpn.net>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2
@@ -52,7 +52,6 @@
 #include "crypto_backend.h"
 #include "ssl_util.h"
 #include "dco.h"
-#include "reflect_filter.h"
 
 /*#define MULTI_DEBUG_EVENT_LOOP*/
 
@@ -369,8 +368,6 @@ multi_init(struct multi_context *m, struct context *t, bool tcp_mode)
      */
     m->new_connection_limiter = frequency_limit_init(t->options.cf_max,
                                                      t->options.cf_per);
-    m->initial_rate_limiter = initial_rate_limit_init(t->options.cf_initial_max,
-                                                      t->options.cf_initial_per);
 
     /*
      * Allocate broadcast/multicast buffer list
@@ -476,12 +473,6 @@ multi_instance_string(const struct multi_instance *mi, bool null, struct gc_aren
             buf_printf(&out, "%s/", cn);
         }
         buf_printf(&out, "%s", mroute_addr_print(&mi->real, gc));
-        if (mi->context.c2.tls_multi
-            && check_debug_level(D_DCO_DEBUG)
-            && dco_enabled(&mi->context.options))
-        {
-            buf_printf(&out, " peer-id=%d", mi->context.c2.tls_multi->peer_id);
-        }
         return BSTR(&out);
     }
     else if (null)
@@ -547,34 +538,29 @@ multi_del_iroutes(struct multi_context *m,
 }
 
 static void
-setenv_stats(struct multi_context *m, struct context *c)
+setenv_stats(struct context *c)
 {
-    if (dco_enabled(&m->top.options))
-    {
-        dco_get_peer_stats_multi(&m->top.c1.tuntap->dco, m);
-    }
-
-    setenv_counter(c->c2.es, "bytes_received", c->c2.link_read_bytes + c->c2.dco_read_bytes);
-    setenv_counter(c->c2.es, "bytes_sent", c->c2.link_write_bytes + c->c2.dco_write_bytes);
+    setenv_counter(c->c2.es, "bytes_received", c->c2.link_read_bytes);
+    setenv_counter(c->c2.es, "bytes_sent", c->c2.link_write_bytes);
 }
 
 static void
-multi_client_disconnect_setenv(struct multi_context *m, struct multi_instance *mi)
+multi_client_disconnect_setenv(struct multi_instance *mi)
 {
     /* setenv client real IP address */
     setenv_trusted(mi->context.c2.es, get_link_socket_info(&mi->context));
 
     /* setenv stats */
-    setenv_stats(m, &mi->context);
+    setenv_stats(&mi->context);
 
     /* setenv connection duration */
     setenv_long_long(mi->context.c2.es, "time_duration", now - mi->created);
 }
 
 static void
-multi_client_disconnect_script(struct multi_context *m, struct multi_instance *mi)
+multi_client_disconnect_script(struct multi_instance *mi)
 {
-    multi_client_disconnect_setenv(m, mi);
+    multi_client_disconnect_setenv(mi);
 
     if (plugin_defined(mi->context.plugins, OPENVPN_PLUGIN_CLIENT_DISCONNECT))
     {
@@ -681,7 +667,7 @@ multi_close_instance(struct multi_context *m,
 
     if (mi->context.c2.tls_multi->multi_state >= CAS_CONNECT_DONE)
     {
-        multi_client_disconnect_script(m, mi);
+        multi_client_disconnect_script(mi);
     }
 
     close_context(&mi->context, SIGTERM, CC_GC_FREE);
@@ -741,7 +727,6 @@ multi_uninit(struct multi_context *m)
         mbuf_free(m->mbuf);
         ifconfig_pool_free(m->ifconfig_pool);
         frequency_limit_free(m->new_connection_limiter);
-        initial_rate_limit_free(m->initial_rate_limiter);
         multi_reap_free(m->reaper);
         mroute_helper_free(m->route_helper);
         multi_tcp_free(m->mtcp);
@@ -852,12 +837,7 @@ multi_print_status(struct multi_context *m, struct status_output *so, const int 
 
         status_reset(so);
 
-        if (dco_enabled(&m->top.options))
-        {
-            dco_get_peer_stats_multi(&m->top.c1.tuntap->dco, m);
-        }
-
-        if (version == 1)
+        if (version == 1) /* WAS: m->status_file_version */
         {
             /*
              * Status file version 1
@@ -876,8 +856,8 @@ multi_print_status(struct multi_context *m, struct status_output *so, const int 
                     status_printf(so, "%s,%s," counter_format "," counter_format ",%s",
                                   tls_common_name(mi->context.c2.tls_multi, false),
                                   mroute_addr_print(&mi->real, &gc),
-                                  mi->context.c2.link_read_bytes + mi->context.c2.dco_read_bytes,
-                                  mi->context.c2.link_write_bytes + mi->context.c2.dco_write_bytes,
+                                  mi->context.c2.link_read_bytes,
+                                  mi->context.c2.link_write_bytes,
                                   time_string(mi->created, 0, false, &gc));
                 }
                 gc_free(&gc);
@@ -952,8 +932,8 @@ multi_print_status(struct multi_context *m, struct status_output *so, const int 
                                   sep, mroute_addr_print(&mi->real, &gc),
                                   sep, print_in_addr_t(mi->reporting_addr, IA_EMPTY_IF_UNDEF, &gc),
                                   sep, print_in6_addr(mi->reporting_addr_ipv6, IA_EMPTY_IF_UNDEF, &gc),
-                                  sep, mi->context.c2.link_read_bytes + mi->context.c2.dco_read_bytes,
-                                  sep, mi->context.c2.link_write_bytes + mi->context.c2.dco_write_bytes,
+                                  sep, mi->context.c2.link_read_bytes,
+                                  sep, mi->context.c2.link_write_bytes,
                                   sep, time_string(mi->created, 0, false, &gc),
                                   sep, (unsigned int)mi->created,
                                   sep, tls_username(mi->context.c2.tls_multi, false),
@@ -1004,7 +984,6 @@ multi_print_status(struct multi_context *m, struct status_output *so, const int 
                               sep, sep, mbuf_maximum_queued(m->mbuf));
             }
 
-            status_printf(so, "GLOBAL_STATS%cdco_enabled%c%d", sep, sep, dco_enabled(&m->top.options));
             status_printf(so, "END");
         }
         else
@@ -1261,7 +1240,6 @@ multi_learn_in_addr_t(struct multi_context *m,
         /* "primary" is the VPN ifconfig address of the peer and already
          * known to DCO, so only install "extra" iroutes (primary = false)
          */
-        ASSERT(netbits >= 0);           /* DCO requires populated netbits */
         dco_install_iroute(m, mi, &addr);
     }
 
@@ -1301,7 +1279,6 @@ multi_learn_in6_addr(struct multi_context *m,
         /* "primary" is the VPN ifconfig address of the peer and already
          * known to DCO, so only install "extra" iroutes (primary = false)
          */
-        ASSERT(netbits >= 0);           /* DCO requires populated netbits */
         dco_install_iroute(m, mi, &addr);
     }
 
@@ -1821,17 +1798,13 @@ multi_client_set_protocol_options(struct context *c)
 #ifdef HAVE_EXPORT_KEYING_MATERIAL
     if (proto & IV_PROTO_TLS_KEY_EXPORT)
     {
-        o->imported_protocol_flags |= CO_USE_TLS_KEY_MATERIAL_EXPORT;
-    }
-    if (proto & IV_PROTO_DYN_TLS_CRYPT)
-    {
-        o->imported_protocol_flags |= CO_USE_DYNAMIC_TLS_CRYPT;
+        o->data_channel_crypto_flags |= CO_USE_TLS_KEY_MATERIAL_EXPORT;
     }
 #endif
 
     if (proto & IV_PROTO_CC_EXIT_NOTIFY)
     {
-        o->imported_protocol_flags |= CO_USE_CC_EXIT_NOTIFY;
+        o->data_channel_crypto_flags |= CO_USE_CC_EXIT_NOTIFY;
     }
 
     /* Select cipher if client supports Negotiable Crypto Parameters */
@@ -2329,42 +2302,6 @@ cleanup:
     return ret;
 }
 
-static bool
-multi_client_setup_dco_initial(struct multi_context *m,
-                               struct multi_instance *mi,
-                               struct gc_arena *gc)
-{
-    if (!dco_enabled(&mi->context.options))
-    {
-        /* DCO not enabled, nothing to do, return sucess */
-        return true;
-    }
-    int ret = dco_multi_add_new_peer(m, mi);
-    if (ret < 0)
-    {
-        msg(D_DCO, "Cannot add peer to DCO for %s: %s (%d)",
-            multi_instance_string(mi, false, gc), strerror(-ret), ret);
-        return false;
-    }
-
-    if (mi->context.options.ping_send_timeout || mi->context.c2.frame.mss_fix)
-    {
-        ret = dco_set_peer(&mi->context.c1.tuntap->dco,
-                           mi->context.c2.tls_multi->dco_peer_id,
-                           mi->context.options.ping_send_timeout,
-                           mi->context.options.ping_rec_timeout,
-                           mi->context.c2.frame.mss_fix);
-        if (ret < 0)
-        {
-            msg(D_DCO, "Cannot set DCO peer parameters for %s (id=%u): %s",
-                multi_instance_string(mi, false, gc),
-                mi->context.c2.tls_multi->dco_peer_id, strerror(-ret));
-            return false;
-        }
-    }
-    return true;
-}
-
 /**
  * Generates the data channel keys
  */
@@ -2384,7 +2321,7 @@ multi_client_generate_tls_keys(struct context *c)
                                           get_link_socket_info(c)))
     {
         msg(D_TLS_ERRORS, "TLS Error: initializing data channel failed");
-        register_signal(c->sig, SIGUSR1, "process-push-msg-failed");
+        register_signal(c, SIGUSR1, "process-push-msg-failed");
         return false;
     }
 
@@ -2492,16 +2429,39 @@ multi_client_connect_late_setup(struct multi_context *m,
     {
         mi->context.c2.tls_multi->multi_state = CAS_FAILED;
     }
-    /* only continue if setting protocol options worked */
-    else if (!multi_client_setup_dco_initial(m, mi, &gc))
-    {
-        mi->context.c2.tls_multi->multi_state = CAS_FAILED;
-    }
     /* Generate data channel keys only if setting protocol options
-     * and DCO initial setup has not failed */
-    else if (!multi_client_generate_tls_keys(&mi->context))
+     * has not failed */
+    else
     {
-        mi->context.c2.tls_multi->multi_state = CAS_FAILED;
+        if (dco_enabled(&mi->context.options))
+        {
+            int ret = dco_multi_add_new_peer(m, mi);
+            if (ret < 0)
+            {
+                msg(D_DCO, "Cannot add peer to DCO: %s (%d)", strerror(-ret), ret);
+                mi->context.c2.tls_multi->multi_state = CAS_FAILED;
+            }
+
+            if (mi->context.options.ping_send_timeout || mi->context.c2.frame.mss_fix)
+            {
+                int ret = dco_set_peer(&mi->context.c1.tuntap->dco,
+                                       mi->context.c2.tls_multi->peer_id,
+                                       mi->context.options.ping_send_timeout,
+                                       mi->context.options.ping_rec_timeout,
+                                       mi->context.c2.frame.mss_fix);
+                if (ret < 0)
+                {
+                    msg(D_DCO, "Cannot set parameters for DCO peer (id=%u): %s",
+                        mi->context.c2.tls_multi->peer_id, strerror(-ret));
+                    mi->context.c2.tls_multi->multi_state = CAS_FAILED;
+                }
+            }
+        }
+
+        if (!multi_client_generate_tls_keys(&mi->context))
+        {
+            mi->context.c2.tls_multi->multi_state = CAS_FAILED;
+        }
     }
 
     /* send push reply if ready */
@@ -2509,6 +2469,7 @@ multi_client_connect_late_setup(struct multi_context *m,
     {
         process_incoming_push_request(&mi->context);
     }
+
     gc_free(&gc);
 }
 
@@ -2760,15 +2721,9 @@ multi_connection_established(struct multi_context *m, struct multi_instance *mi)
 
     /* Check if we have forbidding options in the current mode */
     if (dco_enabled(&mi->context.options)
-        && !dco_check_option(D_MULTI_ERRORS, &mi->context.options))
+        && !dco_check_option_conflict(D_MULTI_ERRORS, &mi->context.options))
     {
         msg(D_MULTI_ERRORS, "MULTI: client has been rejected due to incompatible DCO options");
-        cc_succeeded = false;
-    }
-
-    if (!check_compression_settings_valid(&mi->context.options.comp, D_MULTI_ERRORS))
-    {
-        msg(D_MULTI_ERRORS, "MULTI: client has been rejected due to invalid compression options");
         cc_succeeded = false;
     }
 
@@ -2782,7 +2737,7 @@ multi_connection_established(struct multi_context *m, struct multi_instance *mi)
          * did not fail */
         if (mi->context.c2.tls_multi->multi_state == CAS_PENDING_DEFERRED_PARTIAL)
         {
-            multi_client_disconnect_script(m, mi);
+            multi_client_disconnect_script(mi);
         }
 
         mi->context.c2.tls_multi->multi_state = CAS_FAILED;
@@ -3204,7 +3159,7 @@ multi_close_instance_on_signal(struct multi_context *m, struct multi_instance *m
     multi_close_instance(m, mi, false);
 }
 
-#if (defined(ENABLE_DCO) && (defined(TARGET_LINUX) || defined(TARGET_FREEBSD))) || defined(ENABLE_MANAGEMENT)
+#if (defined(ENABLE_DCO) && defined(TARGET_LINUX)) || defined(ENABLE_MANAGEMENT)
 static void
 multi_signal_instance(struct multi_context *m, struct multi_instance *mi, const int sig)
 {
@@ -3213,7 +3168,38 @@ multi_signal_instance(struct multi_context *m, struct multi_instance *mi, const 
 }
 #endif
 
-#if defined(ENABLE_DCO) && (defined(TARGET_LINUX) || defined(TARGET_FREEBSD))
+#if defined(ENABLE_DCO) && defined(TARGET_LINUX)
+static void
+process_incoming_dco_packet(struct multi_context *m, struct multi_instance *mi,
+                            dco_context_t *dco)
+{
+    if (BLEN(&dco->dco_packet_in) < 1)
+    {
+        msg(D_DCO, "Received too short packet for peer %d",
+            dco->dco_message_peer_id);
+        goto done;
+    }
+
+    uint8_t *ptr = BPTR(&dco->dco_packet_in);
+    uint8_t op = ptr[0] >> P_OPCODE_SHIFT;
+    if ((op == P_DATA_V1) || (op == P_DATA_V2))
+    {
+        msg(D_DCO, "DCO: received data channel packet for peer %d",
+            dco->dco_message_peer_id);
+        goto done;
+    }
+
+    struct buffer orig_buf = mi->context.c2.buf;
+    mi->context.c2.buf = dco->dco_packet_in;
+
+    multi_process_incoming_link(m, mi, 0);
+
+    mi->context.c2.buf = orig_buf;
+
+done:
+    buf_init(&dco->dco_packet_in, 0);
+}
+
 static void
 process_incoming_del_peer(struct multi_context *m, struct multi_instance *mi,
                           dco_context_t *dco)
@@ -3229,32 +3215,17 @@ process_incoming_del_peer(struct multi_context *m, struct multi_instance *mi,
             reason = "ovpn-dco: transport error";
             break;
 
-        case OVPN_DEL_PEER_REASON_TRANSPORT_DISCONNECT:
-            reason = "ovpn-dco: transport disconnected";
-            break;
-
         case OVPN_DEL_PEER_REASON_USERSPACE:
-            /* We assume that is ourselves. Unfortunately, sometimes these
-             * events happen with enough delay that they can have an order of
-             *
-             * dco_del_peer x
-             * [new client connecting]
-             * dco_new_peer x
-             * event from dco_del_peer arrives.
-             *
-             * if we do not ignore this we get desynced with the kernel
-             * since we assume the peer-id is free again. The other way would
-             * be to send a dco_del_peer again
-             */
-            return;
+            /* This very likely ourselves but might be another process, so
+             * still process it */
+            reason = "ovpn-dco: userspace request";
+            break;
     }
 
     /* When kernel already deleted the peer, the socket is no longer
-     * installed, and we do not need to clean up the state in the kernel */
-    mi->context.c2.tls_multi->dco_peer_id = -1;
+     * installed and we don't need to cleanup the state in the kernel */
+    mi->context.c2.tls_multi->dco_peer_added = false;
     mi->context.sig->signal_text = reason;
-    mi->context.c2.dco_read_bytes = dco->dco_read_bytes;
-    mi->context.c2.dco_write_bytes = dco->dco_write_bytes;
     multi_signal_instance(m, mi, SIGTERM);
 }
 
@@ -3269,47 +3240,25 @@ multi_process_incoming_dco(struct multi_context *m)
 
     int peer_id = dco->dco_message_peer_id;
 
-    /* no peer-specific message delivered -> nothing to process.
-     * bail out right away
-     */
-    if (peer_id < 0)
-    {
-        return ret > 0;
-    }
-
-    if ((peer_id < m->max_clients) && (m->instances[peer_id]))
+    if ((peer_id >= 0) && (peer_id < m->max_clients) && (m->instances[peer_id]))
     {
         mi = m->instances[peer_id];
-        if (dco->dco_message_type == OVPN_CMD_DEL_PEER)
+        if (dco->dco_message_type == OVPN_CMD_PACKET)
+        {
+            process_incoming_dco_packet(m, mi, dco);
+        }
+        else if (dco->dco_message_type == OVPN_CMD_DEL_PEER)
         {
             process_incoming_del_peer(m, mi, dco);
         }
     }
     else
     {
-        int msglevel = D_DCO;
-        if (dco->dco_message_type == OVPN_CMD_DEL_PEER
-            && dco->dco_del_peer_reason == OVPN_DEL_PEER_REASON_USERSPACE)
-        {
-            /* we receive OVPN_CMD_DEL_PEER message with reason USERSPACE
-             * after we kill the peer ourselves. This peer may have already
-             * been deleted, so we end up here.
-             * In this case, print the following debug message with DCO_DEBUG
-             * level only to avoid polluting the standard DCO level with this
-             * harmless event.
-             */
-            msglevel = D_DCO_DEBUG;
-        }
-        msg(msglevel, "Received DCO message for unknown peer-id: %d, "
-            "type %d, del_peer_reason %d", peer_id, dco->dco_message_type,
-            dco->dco_del_peer_reason);
+        msg(D_DCO, "Received packet for peer-id unknown to OpenVPN: %d", peer_id);
     }
 
     dco->dco_message_type = 0;
     dco->dco_message_peer_id = -1;
-    dco->dco_del_peer_reason = -1;
-    dco->dco_read_bytes = 0;
-    dco->dco_write_bytes = 0;
     return ret > 0;
 }
 #endif /* if defined(ENABLE_DCO) && defined(TARGET_LINUX) */
@@ -3525,6 +3474,7 @@ multi_process_incoming_link(struct multi_context *m, struct multi_instance *inst
 bool
 multi_process_incoming_tun(struct multi_context *m, const unsigned int mpp_flags)
 {
+    struct gc_arena gc = gc_new();
     bool ret = true;
 
     if (BLEN(&m->top.c2.buf) > 0)
@@ -3610,6 +3560,7 @@ multi_process_incoming_tun(struct multi_context *m, const unsigned int mpp_flags
             }
         }
     }
+    gc_free(&gc);
     return ret;
 }
 
@@ -3844,7 +3795,7 @@ multi_push_restart_schedule_exit(struct multi_context *m, bool next_server)
                        &m->deferred_shutdown_signal.wakeup,
                        compute_wakeup_sigma(&m->deferred_shutdown_signal.wakeup));
 
-    signal_reset(m->top.sig);
+    m->top.sig->signal_received = 0;
 }
 
 /*
@@ -3859,7 +3810,7 @@ multi_process_signal(struct multi_context *m)
         struct status_output *so = status_open(NULL, 0, M_INFO, NULL, 0);
         multi_print_status(m, so, m->status_file_version);
         status_close(so);
-        signal_reset(m->top.sig);
+        m->top.sig->signal_received = 0;
         return false;
     }
     else if (proto_is_dgram(m->top.options.ce.proto)
@@ -4001,33 +3952,15 @@ management_kill_by_cid(void *arg, const unsigned long cid, const char *kill_msg)
 static bool
 management_client_pending_auth(void *arg,
                                const unsigned long cid,
-                               const unsigned int mda_key_id,
                                const char *extra,
                                unsigned int timeout)
 {
     struct multi_context *m = (struct multi_context *) arg;
     struct multi_instance *mi = lookup_by_cid(m, cid);
-
     if (mi)
     {
-        struct tls_multi *multi = mi->context.c2.tls_multi;
-        struct tls_session *session;
-
-        if (multi->session[TM_INITIAL].key[KS_PRIMARY].mda_key_id == mda_key_id)
-        {
-            session = &multi->session[TM_INITIAL];
-        }
-        else if (multi->session[TM_ACTIVE].key[KS_PRIMARY].mda_key_id == mda_key_id)
-        {
-            session = &multi->session[TM_ACTIVE];
-        }
-        else
-        {
-            return false;
-        }
-
         /* sends INFO_PRE and AUTH_PENDING messages to client */
-        bool ret = send_auth_pending_messages(multi, session, extra,
+        bool ret = send_auth_pending_messages(mi->context.c2.tls_multi, extra,
                                               timeout);
         reschedule_multi_process(&mi->context);
         multi_schedule_context_wakeup(m, mi);

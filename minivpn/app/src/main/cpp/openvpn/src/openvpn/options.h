@@ -5,7 +5,7 @@
  *             packet encryption, packet authentication, and
  *             packet compression.
  *
- *  Copyright (C) 2002-2023 OpenVPN Inc <sales@openvpn.net>
+ *  Copyright (C) 2002-2022 OpenVPN Inc <sales@openvpn.net>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2
@@ -87,7 +87,9 @@ struct options_pre_connect
     int ping_rec_timeout_action;
 
     int foreign_option_index;
+#ifdef USE_COMP
     struct compress_options comp;
+#endif
 };
 
 #if !defined(ENABLE_CRYPTO_OPENSSL) && !defined(ENABLE_CRYPTO_MBEDTLS)
@@ -116,7 +118,6 @@ struct connection_entry
     const char *socks_proxy_authfile;
 
     int tun_mtu;         /* MTU of tun device */
-    int occ_mtu;         /* if non-null, this is the MTU we announce to peers in OCC */
     int tun_mtu_max;     /* maximum MTU that can be pushed */
 
     bool tun_mtu_defined; /* true if user overriding parm with command line option */
@@ -181,17 +182,15 @@ struct remote_entry
 
 struct connection_list
 {
-    int capacity;
     int len;
     int current;
-    struct connection_entry **array;
+    struct connection_entry *array[CONNECTION_LIST_SIZE];
 };
 
 struct remote_list
 {
-    int capacity;
     int len;
-    struct remote_entry **array;
+    struct remote_entry *array[CONNECTION_LIST_SIZE];
 };
 
 struct provider_list
@@ -276,15 +275,13 @@ struct options
     struct connection_list *connection_list;
 
     struct remote_list *remote_list;
-    /* Do not advance the connection or remote addr list */
+    /* Do not advance the connection or remote addr list*/
     bool no_advance;
     /* Advance directly to the next remote, skipping remaining addresses of the
      * current remote */
     bool advance_next_remote;
     /* Counts the number of unsuccessful connection attempts */
     unsigned int unsuccessful_attempts;
-    /* count of connection entries to advance by when no_advance is not set */
-    int ce_advance_count;
     /* the server can suggest a backoff time to the client, it
      * will still be capped by the max timeout between connections
      * (300s by default) */
@@ -329,8 +326,6 @@ struct options
 
     int inactivity_timeout;     /* --inactive */
     int64_t inactivity_minimum_bytes;
-
-    int session_timeout;        /* Force-kill session after n seconds */
 
     int ping_send_timeout;      /* Send a TCP/UDP ping to remote every n seconds */
     int ping_rec_timeout;       /* Expect a TCP/UDP ping from remote at least once every n seconds */
@@ -393,7 +388,9 @@ struct options
     /* optimize TUN/TAP/UDP writes */
     bool fast_io;
 
+#ifdef USE_COMP
     struct compress_options comp;
+#endif
 
     /* buffer sizes */
     int rcvbuf;
@@ -438,10 +435,10 @@ struct options
     const char *management_client_user;
     const char *management_client_group;
 
-    const char *management_certificate;
-#endif
     /* Mask of MF_ values of manage.h */
     unsigned int management_flags;
+    const char *management_certificate;
+#endif
 
 #ifdef ENABLE_PLUGIN
     struct plugin_option_list *plugin_list;
@@ -486,7 +483,6 @@ struct options
     const char *client_connect_script;
     const char *client_disconnect_script;
     const char *learn_address_script;
-    const char *client_crresponse_script;
     const char *client_config_dir;
     bool ccd_exclusive;
     bool disable;
@@ -509,13 +505,8 @@ struct options
     bool push_ifconfig_ipv6_blocked;                    /* IPv6 */
     bool enable_c2c;
     bool duplicate_cn;
-
     int cf_max;
     int cf_per;
-
-    int cf_initial_max;
-    int cf_initial_per;
-
     int max_clients;
     int max_routes_per_client;
     int stale_routes_check_interval;
@@ -524,9 +515,9 @@ struct options
     const char *auth_user_pass_verify_script;
     bool auth_user_pass_verify_script_via_file;
     bool auth_token_generate;
+    bool auth_token_gen_secret_file;
     bool auth_token_call_auth;
     int auth_token_lifetime;
-    int auth_token_renewal;
     const char *auth_token_secret_file;
     bool auth_token_secret_file_inline;
 
@@ -541,7 +532,6 @@ struct options
     int push_continuation;
     unsigned int push_option_types_found;
     const char *auth_user_pass_file;
-    bool auth_user_pass_file_inline;
     struct options_pre_connect *pre_connect;
 
     int scheduled_exit_interval;
@@ -700,7 +690,7 @@ struct options
     bool allow_recursive_routing;
 
     /* data channel crypto flags set by push/pull. Reuses the CO_* crypto_flags */
-    unsigned int imported_protocol_flags;
+    unsigned int data_channel_crypto_flags;
 };
 
 #define streq(x, y) (!strcmp((x), (y)))
@@ -711,7 +701,7 @@ struct options
 #define OPT_P_GENERAL         (1<<0)
 #define OPT_P_UP              (1<<1)
 #define OPT_P_ROUTE           (1<<2)
-#define OPT_P_DHCPDNS         (1<<3)    /* includes ip windows options like */
+#define OPT_P_IPWIN32         (1<<3)
 #define OPT_P_SCRIPT          (1<<4)
 #define OPT_P_SETENV          (1<<5)
 #define OPT_P_SHAPER          (1<<6)
@@ -791,8 +781,6 @@ void show_library_versions(const unsigned int flags);
 void show_windows_version(const unsigned int flags);
 
 #endif
-
-void show_dco_version(const unsigned int flags);
 
 void init_options(struct options *o, const bool init_gc);
 
@@ -899,17 +887,24 @@ void options_string_import(struct options *options,
 
 bool key_is_external(const struct options *options);
 
+#if defined(ENABLE_DCO) && defined(TARGET_LINUX)
+
 /**
  * Returns whether the current configuration has dco enabled.
  */
 static inline bool
 dco_enabled(const struct options *o)
 {
-#ifdef ENABLE_DCO
     return !o->tuntap_options.disable_dco;
-#else
-    return false;
-#endif /* ENABLE_DCO */
 }
 
+#else /* if defined(ENABLE_DCO) && defined(TARGET_LINUX) */
+
+static inline bool
+dco_enabled(const struct options *o)
+{
+    return false;
+}
+
+#endif
 #endif /* ifndef OPTIONS_H */

@@ -5,7 +5,7 @@
  *             packet encryption, packet authentication, and
  *             packet compression.
  *
- *  Copyright (C) 2002-2023 OpenVPN Inc <sales@openvpn.net>
+ *  Copyright (C) 2002-2021 OpenVPN Inc <sales@openvpn.net>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2
@@ -179,11 +179,11 @@ write_control_auth(struct tls_session *session,
 
     /* Workaround for Softether servers. Softether has a bug that it only
      * allows 4 ACks in packets and drops packets if more ACKs are contained
-     * in a packet (see commit 37aa1ba5 in Softether) */
+     * in a packet (see commit a14d812dcbc in Softether) */
     if (session->tls_wrap.mode == TLS_WRAP_NONE && !session->opt->server
-        && !(session->opt->crypto_flags & CO_USE_TLS_KEY_MATERIAL_EXPORT))
+            && !(session->opt->crypto_flags & CO_USE_TLS_KEY_MATERIAL_EXPORT))
     {
-        max_ack = min_int(max_ack, 4);
+            max_ack = min_int(max_ack, 4);
     }
 
     ASSERT(link_socket_actual_defined(&ks->remote_addr));
@@ -193,7 +193,7 @@ write_control_auth(struct tls_session *session,
 
     msg(D_TLS_DEBUG, "%s(): %s", __func__, packet_opcode_name(opcode));
 
-    tls_wrap_control(tls_session_get_tls_wrap(session, ks->key_id), header, buf, &session->session_id);
+    tls_wrap_control(&session->tls_wrap, header, buf, &session->session_id);
 
     *to_link_addr = &ks->remote_addr;
 }
@@ -434,10 +434,7 @@ tls_reset_standalone(struct tls_wrap_ctx *ctx,
                      uint8_t header,
                      bool request_resend_wkc)
 {
-    /* Copy buffer here to point at the same data but allow tls_wrap_control
-     * to potentially change buf to point to another buffer without
-     * modifying the buffer in tas */
-    struct buffer buf = tas->workbuf;
+    struct buffer buf = alloc_buf(tas->frame.buf.payload_size);
     ASSERT(buf_init(&buf, tas->frame.buf.headroom));
 
     /* Reliable ACK structure */
@@ -464,8 +461,7 @@ tls_reset_standalone(struct tls_wrap_ctx *ctx,
         buf_write_u16(&buf, EARLY_NEG_FLAG_RESEND_WKC);
     }
 
-    /* Add tls-auth/tls-crypt wrapping, this might replace buf with
-     * ctx->work */
+    /* Add tls-auth/tls-crypt wrapping, this might replace buf */
     tls_wrap_control(ctx, header, &buf, own_sid);
 
     return buf;
@@ -499,7 +495,7 @@ calculate_session_id_hmac(struct session_id client_sid,
     /* Get the valid time quantisation for our hmac,
      * we divide time by handwindow/2 and allow the previous
      * and future session time if specified by offset */
-    uint32_t session_id_time = ntohl(now/((handwindow+1)/2) + offset);
+    uint32_t session_id_time = now/((handwindow+1)/2) + offset;
 
     hmac_ctx_reset(hmac);
     /* We do not care about endian here since it does not need to be
@@ -508,7 +504,7 @@ calculate_session_id_hmac(struct session_id client_sid,
                     sizeof(session_id_time));
 
     /* add client IP and port */
-    switch (from->addr.sa.sa_family)
+    switch (af_addr_size(from->addr.sa.sa_family))
     {
         case AF_INET:
             hmac_ctx_update(hmac, (const uint8_t *) &from->addr.in4, sizeof(struct sockaddr_in));

@@ -1,16 +1,6 @@
-add_library(lzo
-        lzo/include/lzo/lzo1.h
-        lzo/include/lzo/lzo1a.h
-        lzo/include/lzo/lzo1b.h
-        lzo/include/lzo/lzo1c.h
-        lzo/include/lzo/lzo1f.h
-        lzo/include/lzo/lzo1x.h
-        lzo/include/lzo/lzo1y.h
-        lzo/include/lzo/lzo1z.h
-        lzo/include/lzo/lzo2a.h
-        lzo/include/lzo/lzo_asm.h
-        lzo/include/lzo/lzoconf.h
-        lzo/include/lzo/lzodefs.h
+# Lzo's own cmake is rather throublesome
+
+set(lzo_srcs
         lzo/src/lzo1.c
         lzo/src/lzo1_99.c
         lzo/src/lzo1a.c
@@ -80,4 +70,8 @@ add_library(lzo
         lzo/src/lzo_util.c
   )
 
+add_library(lzo ${lzo_srcs})
 target_include_directories(lzo PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/lzo/include")
+if (${ANDROID_ABI} STREQUAL "armeabi-v7a")
+    target_compile_options(lzo PRIVATE -O0)
+endif()

@@ -393,14 +393,12 @@ static int range_should_be_prefix(const unsigned char *min,
 /*
  * Construct a prefix.
  */
-static int make_addressPrefix(IPAddressOrRange **result, unsigned char *addr,
-                              const int prefixlen, const int afilen)
+static int make_addressPrefix(IPAddressOrRange **result,
+                              unsigned char *addr, const int prefixlen)
 {
     int bytelen = (prefixlen + 7) / 8, bitlen = prefixlen % 8;
     IPAddressOrRange *aor = IPAddressOrRange_new();
 
-    if (prefixlen < 0 || prefixlen > (afilen * 8))
-        return 0;
     if (aor == NULL)
         return 0;
     aor->type = IPAddressOrRange_addressPrefix;
@@ -440,7 +438,7 @@ static int make_addressRange(IPAddressOrRange **result,
         return 0;
 
     if ((prefixlen = range_should_be_prefix(min, max, length)) >= 0)
-        return make_addressPrefix(result, min, prefixlen, length);
+        return make_addressPrefix(result, min, prefixlen);
 
     if ((aor = IPAddressOrRange_new()) == NULL)
         return 0;
@@ -602,9 +600,7 @@ int X509v3_addr_add_prefix(IPAddrBlocks *addr,
 {
     IPAddressOrRanges *aors = make_prefix_or_range(addr, afi, safi);
     IPAddressOrRange *aor;
-
-    if (aors == NULL
-            || !make_addressPrefix(&aor, a, prefixlen, length_from_afi(afi)))
+    if (aors == NULL || !make_addressPrefix(&aor, a, prefixlen))
         return 0;
     if (sk_IPAddressOrRange_push(aors, aor))
         return 1;
@@ -691,14 +687,6 @@ static int IPAddressFamily_cmp(const IPAddressFamily *const *a_,
     return cmp ? cmp : a->length - b->length;
 }
 
-static int IPAddressFamily_check_len(const IPAddressFamily *f)
-{
-    if (f->addressFamily->length < 2 || f->addressFamily->length > 3)
-        return 0;
-    else
-        return 1;
-}
-
 /*
  * Check whether an IPAddrBLocks is in canonical form.
  */
@@ -721,10 +709,6 @@ int X509v3_addr_is_canonical(IPAddrBlocks *addr)
     for (i = 0; i < sk_IPAddressFamily_num(addr) - 1; i++) {
         const IPAddressFamily *a = sk_IPAddressFamily_value(addr, i);
         const IPAddressFamily *b = sk_IPAddressFamily_value(addr, i + 1);
-
-        if (!IPAddressFamily_check_len(a) || !IPAddressFamily_check_len(b))
-            return 0;
-
         if (IPAddressFamily_cmp(&a, &b) >= 0)
             return 0;
     }
@@ -750,9 +734,6 @@ int X509v3_addr_is_canonical(IPAddrBlocks *addr)
         default:
             return 0;
         }
-
-        if (!IPAddressFamily_check_len(f))
-            return 0;
 
         /*
          * It's an IPAddressOrRanges sequence, check it.
@@ -898,10 +879,6 @@ int X509v3_addr_canonize(IPAddrBlocks *addr)
     int i;
     for (i = 0; i < sk_IPAddressFamily_num(addr); i++) {
         IPAddressFamily *f = sk_IPAddressFamily_value(addr, i);
-
-        if (!IPAddressFamily_check_len(f))
-            return 0;
-
         if (f->ipAddressChoice->type == IPAddressChoice_addressesOrRanges &&
             !IPAddressOrRanges_canonize(f->ipAddressChoice->
                                         u.addressesOrRanges,
@@ -1018,10 +995,7 @@ static void *v2i_IPAddrBlocks(const struct v3_ext_method *method,
         switch (delim) {
         case '/':
             prefixlen = (int)strtoul(s + i2, &t, 10);
-            if (t == s + i2
-                    || *t != '\0'
-                    || prefixlen > (length * 8)
-                    || prefixlen < 0) {
+            if (t == s + i2 || *t != '\0') {
                 ERR_raise(ERR_LIB_X509V3, X509V3_R_EXTENSION_VALUE_ERROR);
                 X509V3_conf_add_error_name_value(val);
                 goto err;
@@ -1167,11 +1141,9 @@ int X509v3_addr_subset(IPAddrBlocks *a, IPAddrBlocks *b)
     for (i = 0; i < sk_IPAddressFamily_num(a); i++) {
         IPAddressFamily *fa = sk_IPAddressFamily_value(a, i);
         int j = sk_IPAddressFamily_find(b, fa);
-        IPAddressFamily *fb = sk_IPAddressFamily_value(b, j);
-
+        IPAddressFamily *fb;
+        fb = sk_IPAddressFamily_value(b, j);
         if (fb == NULL)
-            return 0;
-        if (!IPAddressFamily_check_len(fa) || !IPAddressFamily_check_len(fb))
             return 0;
         if (!addr_contains(fb->ipAddressChoice->u.addressesOrRanges,
                            fa->ipAddressChoice->u.addressesOrRanges,
@@ -1184,19 +1156,19 @@ int X509v3_addr_subset(IPAddrBlocks *a, IPAddrBlocks *b)
 /*
  * Validation error handling via callback.
  */
-# define validation_err(_err_)            \
-    do {                                  \
-        if (ctx != NULL) {                \
-            ctx->error = _err_;           \
-            ctx->error_depth = i;         \
-            ctx->current_cert = x;        \
-            rv = ctx->verify_cb(0, ctx);  \
-        } else {                          \
-            rv = 0;                       \
-        }                                 \
-        if (rv == 0)                      \
-            goto done;                    \
-    } while (0)
+#define validation_err(_err_)           \
+  do {                                  \
+    if (ctx != NULL) {                  \
+      ctx->error = _err_;               \
+      ctx->error_depth = i;             \
+      ctx->current_cert = x;            \
+      ret = ctx->verify_cb(0, ctx);     \
+    } else {                            \
+      ret = 0;                          \
+    }                                   \
+    if (!ret)                           \
+      goto done;                        \
+  } while (0)
 
 /*
  * Core code for RFC 3779 2.3 path validation.
@@ -1211,7 +1183,7 @@ static int addr_validate_path_internal(X509_STORE_CTX *ctx,
                                        IPAddrBlocks *ext)
 {
     IPAddrBlocks *child = NULL;
-    int i, j, ret = 0, rv;
+    int i, j, ret = 1;
     X509 *x;
 
     if (!ossl_assert(chain != NULL && sk_X509_num(chain) > 0)
@@ -1234,7 +1206,7 @@ static int addr_validate_path_internal(X509_STORE_CTX *ctx,
         i = 0;
         x = sk_X509_value(chain, i);
         if ((ext = x->rfc3779_addr) == NULL)
-            return 1; /* Return success */
+            goto done;
     }
     if (!X509v3_addr_is_canonical(ext))
         validation_err(X509_V_ERR_INVALID_EXTENSION);
@@ -1243,6 +1215,7 @@ static int addr_validate_path_internal(X509_STORE_CTX *ctx,
         ERR_raise(ERR_LIB_X509V3, ERR_R_MALLOC_FAILURE);
         if (ctx != NULL)
             ctx->error = X509_V_ERR_OUT_OF_MEM;
+        ret = 0;
         goto done;
     }
 
@@ -1257,10 +1230,6 @@ static int addr_validate_path_internal(X509_STORE_CTX *ctx,
         if (x->rfc3779_addr == NULL) {
             for (j = 0; j < sk_IPAddressFamily_num(child); j++) {
                 IPAddressFamily *fc = sk_IPAddressFamily_value(child, j);
-
-                if (!IPAddressFamily_check_len(fc))
-                    goto done;
-
                 if (fc->ipAddressChoice->type != IPAddressChoice_inherit) {
                     validation_err(X509_V_ERR_UNNESTED_RESOURCE);
                     break;
@@ -1275,7 +1244,6 @@ static int addr_validate_path_internal(X509_STORE_CTX *ctx,
             int k = sk_IPAddressFamily_find(x->rfc3779_addr, fc);
             IPAddressFamily *fp =
                 sk_IPAddressFamily_value(x->rfc3779_addr, k);
-
             if (fp == NULL) {
                 if (fc->ipAddressChoice->type ==
                     IPAddressChoice_addressesOrRanges) {
@@ -1284,10 +1252,6 @@ static int addr_validate_path_internal(X509_STORE_CTX *ctx,
                 }
                 continue;
             }
-
-            if (!IPAddressFamily_check_len(fc) || !IPAddressFamily_check_len(fp))
-                goto done;
-
             if (fp->ipAddressChoice->type ==
                 IPAddressChoice_addressesOrRanges) {
                 if (fc->ipAddressChoice->type == IPAddressChoice_inherit
@@ -1306,17 +1270,14 @@ static int addr_validate_path_internal(X509_STORE_CTX *ctx,
      */
     if (x->rfc3779_addr != NULL) {
         for (j = 0; j < sk_IPAddressFamily_num(x->rfc3779_addr); j++) {
-            IPAddressFamily *fp = sk_IPAddressFamily_value(x->rfc3779_addr, j);
-
-            if (!IPAddressFamily_check_len(fp))
-                goto done;
-
+            IPAddressFamily *fp =
+                sk_IPAddressFamily_value(x->rfc3779_addr, j);
             if (fp->ipAddressChoice->type == IPAddressChoice_inherit
                 && sk_IPAddressFamily_find(child, fp) >= 0)
                 validation_err(X509_V_ERR_UNNESTED_RESOURCE);
         }
     }
-    ret = 1;
+
  done:
     sk_IPAddressFamily_free(child);
     return ret;

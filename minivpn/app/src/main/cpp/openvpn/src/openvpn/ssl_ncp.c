@@ -5,9 +5,9 @@
  *             packet encryption, packet authentication, and
  *             packet compression.
  *
- *  Copyright (C) 2002-2023 OpenVPN Inc <sales@openvpn.net>
+ *  Copyright (C) 2002-2022 OpenVPN Inc <sales@openvpn.net>
  *  Copyright (C) 2010-2021 Fox Crypto B.V. <openvpn@foxcrypto.com>
- *  Copyright (C) 2008-2023 David Sommerseth <dazo@eurephia.org>
+ *  Copyright (C) 2008-2022 David Sommerseth <dazo@eurephia.org>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2
@@ -121,7 +121,6 @@ mutate_ncp_cipher_list(const char *list, struct gc_arena *gc)
         }
 
         const bool nonecipher = (strcmp(token, "none") == 0);
-        const char *optstr = optional ? "optional " : "";
 
         if (nonecipher)
         {
@@ -133,15 +132,8 @@ mutate_ncp_cipher_list(const char *list, struct gc_arena *gc)
         }
         if (!nonecipher && !cipher_valid(token))
         {
+            const char *optstr = optional ? "optional " : "";
             msg(M_WARN, "Unsupported %scipher in --data-ciphers: %s", optstr, token);
-            error_found = error_found || !optional;
-        }
-        else if (!nonecipher && !cipher_kt_mode_aead(token)
-                 && !cipher_kt_mode_cbc(token)
-                 && !cipher_kt_mode_ofb_cfb(token))
-        {
-            msg(M_WARN, "Unsupported %scipher algorithm '%s'. It does not use "
-                "CFB, OFB, CBC, or a supported AEAD mode", optstr, token);
             error_found = error_found || !optional;
         }
         else
@@ -318,7 +310,7 @@ check_pull_client_ncp(struct context *c, const int found)
 {
     if (found & OPT_P_NCP)
     {
-        msg(D_PUSH_DEBUG, "OPTIONS IMPORT: data channel crypto options modified");
+        msg(D_PUSH, "OPTIONS IMPORT: data channel crypto options modified");
         return true;
     }
 
@@ -460,10 +452,6 @@ p2p_ncp_set_options(struct tls_multi *multi, struct tls_session *session)
             }
 
         }
-    }
-    if (iv_proto_peer & IV_PROTO_DYN_TLS_CRYPT)
-    {
-        session->opt->crypto_flags |= CO_USE_DYNAMIC_TLS_CRYPT;
     }
 #endif /* if defined(HAVE_EXPORT_KEYING_MATERIAL) */
 }

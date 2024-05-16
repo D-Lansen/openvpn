@@ -5,7 +5,7 @@
  *             packet encryption, packet authentication, and
  *             packet compression.
  *
- *  Copyright (C) 2002-2023 OpenVPN Inc <sales@openvpn.net>
+ *  Copyright (C) 2002-2022 OpenVPN Inc <sales@openvpn.net>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2
@@ -185,7 +185,7 @@ reliable_ack_empty(struct reliable_ack *ack)
  *
  * @returns the number of outstanding acks
  */
-static inline int
+static inline bool
 reliable_ack_outstanding(struct reliable_ack *ack)
 {
     return ack->len;
@@ -197,7 +197,7 @@ reliable_ack_outstanding(struct reliable_ack *ack)
  *
  * @param ack The acknowledgment structure containing packet IDs to be
  *     acknowledged.
- * @param ack_mru List of packets we have acknowledged before. Packets from
+ * @param ack_lru List of packets we have acknowledged before. Packets from
  *                \c ack will be moved here and if there is space in our
  *                ack structure we will fill it with packets from this
  * @param buf The buffer into which the acknowledgment record will be
@@ -214,7 +214,7 @@ reliable_ack_outstanding(struct reliable_ack *ack)
  * @li False, if an error occurs during processing.
  */
 bool reliable_ack_write(struct reliable_ack *ack,
-                        struct reliable_ack *ack_mru,
+                        struct reliable_ack *ack_lru,
                         struct buffer *buf,
                         const struct session_id *sid, int max, bool prepend);
 
@@ -377,14 +377,14 @@ struct reliable_entry *reliable_get_entry_sequenced(struct reliable *rel);
 
 
 /**
- * Copies the first n acks from \c ack to \c ack_mru
+ * Copies the first n acks from \c ack to \c ack_lru
  *
  * @param ack The reliable structure to copy the acks from
- * @param ack_mru The reliable structure to insert the acks into
+ * @param ack_lru the reliable structure to insert the acks into
  * @param n The number of ACKS to copy
  */
 void
-copy_acks_to_mru(struct reliable_ack *ack, struct reliable_ack *ack_mru, int n);
+copy_acks_to_lru(struct reliable_ack *ack, struct reliable_ack *ack_lru, int n);
 
 
 /**
@@ -418,7 +418,7 @@ struct buffer *reliable_get_buf_output_sequenced(struct reliable *rel);
 
 
 /**
- * Counts the number of free buffers in output that can be potentially used
+ * Counts the number of free buffers in output that can be potientially used
  * for sending
  *
  *  @param rel The reliable structure in which to search for a free

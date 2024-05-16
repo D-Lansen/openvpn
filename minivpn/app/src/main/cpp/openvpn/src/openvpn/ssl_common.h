@@ -5,7 +5,7 @@
  *             packet encryption, packet authentication, and
  *             packet compression.
  *
- *  Copyright (C) 2002-2023 OpenVPN Inc <sales@openvpn.net>
+ *  Copyright (C) 2002-2022 OpenVPN Inc <sales@openvpn.net>
  *  Copyright (C) 2010-2021 Fox Crypto B.V. <openvpn@foxcrypto.com>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -155,7 +155,6 @@ struct auth_deferred_status
 {
     char *auth_control_file;
     char *auth_pending_file;
-    char *auth_failed_reason_file;
     unsigned int auth_control_status;
 };
 
@@ -196,7 +195,7 @@ struct key_state
 {
     int state;
     /** The state of the auth-token sent from the client */
-    unsigned int auth_token_state_flags;
+    int auth_token_state_flags;
 
     /**
      * Key id for this key_state,  inherited from struct tls_session.
@@ -275,15 +274,6 @@ struct tls_wrap_ctx
     struct buffer tls_crypt_v2_metadata;     /**< Received from client */
     bool cleanup_key_ctx;                    /**< opt.key_ctx_bi is owned by
                                               *   this context */
-    /** original key data to be xored in to the key for dynamic tls-crypt.
-     *
-     * We keep the original key data to ensure that the newly generated key
-     * for the dynamic tls-crypt has the same level of quality by using
-     * xor with the original key. This gives us the same same entropy/randomness
-     * as the original tls-crypt key to ensure the post-quantum use case of
-     * tls-crypt still holds true
-     * */
-    struct key2 original_wrap_keydata;
 };
 
 /*
@@ -373,18 +363,15 @@ struct tls_options
 
     /* used for username/password authentication */
     const char *auth_user_pass_verify_script;
-    const char *client_crresponse_script;
     bool auth_user_pass_verify_script_via_file;
     const char *tmp_dir;
     const char *auth_user_pass_file;
-    bool auth_user_pass_file_inline;
 
     bool auth_token_generate;   /**< Generate auth-tokens on successful
                                  * user/pass auth,seet via
                                  * options->auth_token_generate. */
     bool auth_token_call_auth; /**< always call normal authentication */
     unsigned int auth_token_lifetime;
-    unsigned int auth_token_renewal;
 
     struct key_ctx auth_token_key;
 
@@ -477,10 +464,6 @@ struct tls_session
     /* authenticate control packets */
     struct tls_wrap_ctx tls_wrap;
 
-    /* Specific tls-crypt for renegotiations, if this is valid,
-     * tls_wrap_reneg.mode is TLS_WRAP_CRYPT, otherwise ignore it */
-    struct tls_wrap_ctx tls_wrap_reneg;
-
     int initial_opcode;         /* our initial P_ opcode */
     struct session_id session_id; /* our random session ID */
 
@@ -525,7 +508,7 @@ struct tls_session
  *
  *  @{ */
 #define TM_ACTIVE    0          /**< Active \c tls_session. */
-#define TM_INITIAL   1          /**< As yet un-trusted \c tls_session
+#define TM_UNTRUSTED 1          /**< As yet un-trusted \c tls_session
                                  *   being negotiated. */
 #define TM_LAME_DUCK 2          /**< Old \c tls_session. */
 #define TM_SIZE      3          /**< Size of the \c tls_multi.session
@@ -564,10 +547,6 @@ enum multi_status {
     CAS_PENDING_DEFERRED_PARTIAL,   /**< at least handler succeeded but another is still pending */
     CAS_FAILED,                     /**< Option import failed or explicitly denied the client */
     CAS_WAITING_OPTIONS_IMPORT,     /**< client with pull or p2p waiting for first time options import */
-    CAS_RECONNECT_PENDING,          /**< session has already successful established (CAS_CONNECT_DONE)
-                                     * but has a reconnect and needs to redo some initialisation, this state is
-                                     * similar CAS_WAITING_OPTIONS_IMPORT but skips a few things. The normal connection
-                                     * skips this step. */
     CAS_CONNECT_DONE,
 };
 
@@ -678,14 +657,7 @@ struct tls_multi
     /* Only used when DCO is used to remember how many keys we installed
      * for this session */
     int dco_keys_installed;
-    /**
-     * This is the handle that DCO uses to identify this session with the
-     * kernel.
-     *
-     * We keep this separate as the normal peer_id can change during
-     * p2p NCP and we need to track the id that is really used.
-     */
-    int dco_peer_id;
+    bool dco_peer_added;
 
     dco_context_t *dco;
 };

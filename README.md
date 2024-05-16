@@ -72,3 +72,8 @@ set_var EASYRSA_REQ_ORG "Copyleft Certificate Co"
 set_var EASYRSA_REQ_EMAIL       "me@example.net"
 set_var EASYRSA_REQ_OU          "My Organizational Unit"
 
+
+
+
+
+

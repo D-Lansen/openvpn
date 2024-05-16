@@ -5,7 +5,7 @@
  *             packet encryption, packet authentication, and
  *             packet compression.
  *
- *  Copyright (C) 2002-2023 OpenVPN Inc <sales@openvpn.net>
+ *  Copyright (C) 2002-2022 OpenVPN Inc <sales@openvpn.net>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2
@@ -67,7 +67,7 @@ sf2gaf(const unsigned int getaddr_flags,
 static int
 get_addr_generic(sa_family_t af, unsigned int flags, const char *hostname,
                  void *network, unsigned int *netbits,
-                 int resolve_retry_seconds, struct signal_info *sig_info,
+                 int resolve_retry_seconds, volatile int *signal_received,
                  int msglevel)
 {
     char *endp, *sep, *var_host = NULL;
@@ -130,7 +130,7 @@ get_addr_generic(sa_family_t af, unsigned int flags, const char *hostname,
     }
 
     ret = openvpn_getaddrinfo(flags & ~GETADDR_HOST_ORDER, var_host, NULL,
-                              resolve_retry_seconds, sig_info, af, &ai);
+                              resolve_retry_seconds, signal_received, af, &ai);
     if ((ret == 0) && network)
     {
         struct in6_addr *ip6;
@@ -183,13 +183,13 @@ getaddr(unsigned int flags,
         const char *hostname,
         int resolve_retry_seconds,
         bool *succeeded,
-        struct signal_info *sig_info)
+        volatile int *signal_received)
 {
     in_addr_t addr;
     int status;
 
     status = get_addr_generic(AF_INET, flags, hostname, &addr, NULL,
-                              resolve_retry_seconds, sig_info,
+                              resolve_retry_seconds, signal_received,
                               M_WARN);
     if (status==0)
     {
@@ -432,13 +432,13 @@ openvpn_getaddrinfo(unsigned int flags,
                     const char *hostname,
                     const char *servname,
                     int resolve_retry_seconds,
-                    struct signal_info *sig_info,
+                    volatile int *signal_received,
                     int ai_family,
                     struct addrinfo **res)
 {
     struct addrinfo hints;
     int status;
-    struct signal_info sigrec = {0};
+    int sigrec = 0;
     int msglevel = (flags & GETADDR_FATAL) ? M_FATAL : D_RESOLVE_ERRORS;
     struct gc_arena gc = gc_new();
     const char *print_hostname;
@@ -464,9 +464,9 @@ openvpn_getaddrinfo(unsigned int flags,
     }
 
     if ((flags & (GETADDR_FATAL_ON_SIGNAL|GETADDR_WARN_ON_SIGNAL))
-        && !sig_info)
+        && !signal_received)
     {
-        sig_info = &sigrec;
+        signal_received = &sigrec;
     }
 
     /* try numeric ipv6 addr first */
@@ -561,18 +561,17 @@ openvpn_getaddrinfo(unsigned int flags,
                  flags, hints.ai_family, hints.ai_socktype);
             status = getaddrinfo(hostname, servname, &hints, res);
 
-            if (sig_info)
+            if (signal_received)
             {
-                get_signal(&sig_info->signal_received);
-                if (sig_info->signal_received) /* were we interrupted by a signal? */
+                get_signal(signal_received);
+                if (*signal_received) /* were we interrupted by a signal? */
                 {
-                    /* why are we overwriting SIGUSR1 ? */
-                    if (sig_info->signal_received == SIGUSR1) /* ignore SIGUSR1 */
+                    if (*signal_received == SIGUSR1) /* ignore SIGUSR1 */
                     {
                         msg(level,
                             "RESOLVE: Ignored SIGUSR1 signal received during "
                             "DNS resolution attempt");
-                        signal_reset(sig_info);
+                        *signal_received = 0;
                     }
                     else
                     {
@@ -639,7 +638,7 @@ openvpn_getaddrinfo(unsigned int flags,
     }
 
 done:
-    if (sig_info && sig_info->signal_received)
+    if (signal_received && *signal_received)
     {
         int level = 0;
         if (flags & GETADDR_FATAL_ON_SIGNAL)
@@ -957,8 +956,7 @@ socket_set_mark(socket_descriptor_t sd, int mark)
 static bool
 socket_set_flags(socket_descriptor_t sd, unsigned int sockflags)
 {
-    /* SF_TCP_NODELAY doesn't make sense for dco-win */
-    if ((sockflags & SF_TCP_NODELAY) && (!(sockflags & SF_DCO_WIN)))
+    if (sockflags & SF_TCP_NODELAY)
     {
         return socket_set_tcp_nodelay(sd, 1);
     }
@@ -973,8 +971,7 @@ link_socket_update_flags(struct link_socket *ls, unsigned int sockflags)
 {
     if (ls && socket_defined(ls->sd))
     {
-        ls->sockflags |= sockflags;
-        return socket_set_flags(ls->sd, ls->sockflags);
+        return socket_set_flags(ls->sd, ls->sockflags = sockflags);
     }
     else
     {
@@ -1163,11 +1160,6 @@ create_socket(struct link_socket *sock, struct addrinfo *addr)
 static void
 protect_fd_nonlocal(int fd, const struct sockaddr *addr)
 {
-    if (!management)
-    {
-        msg(M_FATAL, "Required management interface not available.")
-    }
-
     /* pass socket FD to management interface to pass on to VPNService API
      * as "protected socket" (exempt from being routed into tunnel)
      */
@@ -1594,7 +1586,7 @@ socket_connect(socket_descriptor_t *sd,
 
         openvpn_close_socket(*sd);
         *sd = SOCKET_UNDEFINED;
-        register_signal(sig_info, SIGUSR1, "connection-failed");
+        sig_info->signal_received = SIGUSR1;
         sig_info->source = SIG_SOURCE_CONNECTION_FAILED;
     }
     else
@@ -1630,8 +1622,8 @@ static void
 socket_frame_init(const struct frame *frame, struct link_socket *sock)
 {
 #ifdef _WIN32
-    overlapped_io_init(&sock->reads, frame, FALSE);
-    overlapped_io_init(&sock->writes, frame, TRUE);
+    overlapped_io_init(&sock->reads, frame, FALSE, false);
+    overlapped_io_init(&sock->writes, frame, TRUE, false);
     sock->rw_handle.read = sock->reads.overlapped.hEvent;
     sock->rw_handle.write = sock->writes.overlapped.hEvent;
 #endif
@@ -1644,7 +1636,9 @@ socket_frame_init(const struct frame *frame, struct link_socket *sock)
                         sock->sockflags,
                         sock->info.proto);
 #else
-        alloc_buf_sock_tun(&sock->stream_buf_data, frame);
+        alloc_buf_sock_tun(&sock->stream_buf_data,
+                           frame,
+                           false);
 
         stream_buf_init(&sock->stream_buf,
                         &sock->stream_buf_data,
@@ -1700,9 +1694,8 @@ static void
 resolve_remote(struct link_socket *sock,
                int phase,
                const char **remote_dynamic,
-               struct signal_info *sig_info)
+               volatile int *signal_received)
 {
-    volatile int *signal_received = sig_info ? &sig_info->signal_received : NULL;
     struct gc_arena gc = gc_new();
 
     /* resolve remote address if undefined */
@@ -1765,7 +1758,7 @@ resolve_remote(struct link_socket *sock,
             if (status)
             {
                 status = openvpn_getaddrinfo(flags, sock->remote_host, sock->remote_port,
-                                             retry, sig_info, sock->info.af, &ai);
+                                             retry, signal_received, sock->info.af, &ai);
             }
 
             if (status == 0)
@@ -1781,16 +1774,18 @@ resolve_remote(struct link_socket *sock,
                      signal_received ? *signal_received : -1,
                      status);
             }
-            if (signal_received && *signal_received)
+            if (signal_received)
             {
-                goto done;
+                if (*signal_received)
+                {
+                    goto done;
+                }
             }
             if (status!=0)
             {
                 if (signal_received)
                 {
-                    /* potential overwrite of signal */
-                    register_signal(sig_info, SIGUSR1, "socks-resolve-failure");
+                    *signal_received = SIGUSR1;
                 }
                 goto done;
             }
@@ -2007,9 +2002,8 @@ linksock_print_addr(struct link_socket *sock)
 
 static void
 phase2_tcp_server(struct link_socket *sock, const char *remote_dynamic,
-                  struct signal_info *sig_info)
+                  volatile int *signal_received)
 {
-    volatile int *signal_received = sig_info ? &sig_info->signal_received : NULL;
     switch (sock->mode)
     {
         case LS_MODE_DEFAULT:
@@ -2035,7 +2029,7 @@ phase2_tcp_server(struct link_socket *sock, const char *remote_dynamic,
                                         false);
             if (!socket_defined(sock->sd))
             {
-                register_signal(sig_info, SIGTERM, "socket-undefiled");
+                *signal_received = SIGTERM;
                 return;
             }
             tcp_connection_established(&sock->info.lsa->actual);
@@ -2071,7 +2065,7 @@ phase2_tcp_client(struct link_socket *sock, struct signal_info *sig_info)
                                                         sock->proxy_dest_port,
                                                         sock->server_poll_timeout,
                                                         &sock->stream_buf.residual,
-                                                        sig_info);
+                                                        &sig_info->signal_received);
         }
         else if (sock->socks_proxy)
         {
@@ -2079,7 +2073,7 @@ phase2_tcp_client(struct link_socket *sock, struct signal_info *sig_info)
                                            sock->sd,
                                            sock->proxy_dest_host,
                                            sock->proxy_dest_port,
-                                           sig_info);
+                                           &sig_info->signal_received);
         }
         if (proxy_retry)
         {
@@ -2108,7 +2102,7 @@ phase2_socks_client(struct link_socket *sock, struct signal_info *sig_info)
                                    sock->ctrl_sd,
                                    sock->sd,
                                    &sock->socks_relay.dest,
-                                   sig_info);
+                                   &sig_info->signal_received);
 
     if (sig_info->signal_received)
     {
@@ -2126,44 +2120,8 @@ phase2_socks_client(struct link_socket *sock, struct signal_info *sig_info)
         sock->info.lsa->remote_list = NULL;
     }
 
-    resolve_remote(sock, 1, NULL, sig_info);
+    resolve_remote(sock, 1, NULL, &sig_info->signal_received);
 }
-
-#if defined(_WIN32)
-static void
-create_socket_dco_win(struct context *c, struct link_socket *sock,
-                      struct signal_info *sig_info)
-{
-    if (!c->c1.tuntap)
-    {
-        struct tuntap *tt;
-        ALLOC_OBJ(tt, struct tuntap);
-
-        *tt = create_dco_handle(c->options.dev_node, &c->gc);
-
-        /* Ensure we can "safely" cast the handle to a socket */
-        static_assert(sizeof(sock->sd) == sizeof(tt->hand), "HANDLE and SOCKET size differs");
-
-        c->c1.tuntap = tt;
-    }
-
-    dco_create_socket(c->c1.tuntap->hand,
-                      sock->info.lsa->current_remote,
-                      sock->bind_local, sock->info.lsa->bind_local,
-                      get_server_poll_remaining_time(sock->server_poll_timeout),
-                      sig_info);
-
-    sock->sockflags |= SF_DCO_WIN;
-
-    if (sig_info->signal_received)
-    {
-        return;
-    }
-
-    sock->sd = (SOCKET)c->c1.tuntap->hand;
-    linksock_print_addr(sock);
-}
-#endif /* if defined(_WIN32) */
 
 /* finalize socket initialization */
 void
@@ -2174,15 +2132,15 @@ link_socket_init_phase2(struct context *c)
     struct signal_info *sig_info = c->sig;
 
     const char *remote_dynamic = NULL;
-    struct signal_info sig_save = {0};
+    int sig_save = 0;
 
     ASSERT(sock);
     ASSERT(sig_info);
 
     if (sig_info->signal_received)
     {
-        sig_save = *sig_info;
-        signal_reset(sig_info);
+        sig_save = sig_info->signal_received;
+        sig_info->signal_received = 0;
     }
 
     /* initialize buffers */
@@ -2199,23 +2157,12 @@ link_socket_init_phase2(struct context *c)
     }
 
     /* Second chance to resolv/create socket */
-    resolve_remote(sock, 2, &remote_dynamic,  sig_info);
+    resolve_remote(sock, 2, &remote_dynamic,  &sig_info->signal_received);
 
     /* If a valid remote has been found, create the socket with its addrinfo */
     if (sock->info.lsa->current_remote)
     {
-#if defined(_WIN32)
-        if (dco_enabled(&c->options))
-        {
-            create_socket_dco_win(c, sock, sig_info);
-            goto done;
-        }
-        else
-#endif
-        {
-            create_socket(sock, sock->info.lsa->current_remote);
-        }
-
+        create_socket(sock, sock->info.lsa->current_remote);
     }
 
     /* If socket has not already been created create it now */
@@ -2243,7 +2190,7 @@ link_socket_init_phase2(struct context *c)
     if (sock->sd == SOCKET_UNDEFINED)
     {
         msg(M_WARN, "Could not determine IPv4/IPv6 protocol");
-        register_signal(sig_info, SIGUSR1, "Could not determine IPv4/IPv6 protocol");
+        sig_info->signal_received = SIGUSR1;
         goto done;
     }
 
@@ -2254,7 +2201,8 @@ link_socket_init_phase2(struct context *c)
 
     if (sock->info.proto == PROTO_TCP_SERVER)
     {
-        phase2_tcp_server(sock, remote_dynamic, sig_info);
+        phase2_tcp_server(sock, remote_dynamic,
+                          &sig_info->signal_received);
     }
     else if (sock->info.proto == PROTO_TCP_CLIENT)
     {
@@ -2280,16 +2228,11 @@ link_socket_init_phase2(struct context *c)
     linksock_print_addr(sock);
 
 done:
-    if (sig_save.signal_received)
+    if (sig_save)
     {
-        /* Always restore the saved signal -- register/throw_signal will handle priority */
-        if (sig_save.source == SIG_SOURCE_HARD && sig_info == &siginfo_static)
+        if (!sig_info->signal_received)
         {
-            throw_signal(sig_save.signal_received);
-        }
-        else
-        {
-            register_signal(sig_info, sig_save.signal_received, sig_save.signal_text);
+            sig_info->signal_received = sig_save;
         }
     }
 }
@@ -3238,18 +3181,6 @@ link_socket_read_tcp(struct link_socket *sock,
 
     if (!sock->stream_buf.residual_fully_formed)
     {
-        /* with Linux-DCO, we sometimes try to access a socket that is
-         * already installed in the kernel and has no valid file descriptor
-         * anymore.  This is a bug.
-         * Handle by resetting client instance instead of crashing.
-         */
-        if (sock->sd == SOCKET_UNDEFINED)
-        {
-            msg(M_INFO, "BUG: link_socket_read_tcp(): sock->sd==-1, reset client instance" );
-            sock->stream_reset = true;              /* reset client instance */
-            return buf->len = 0;                    /* nothing to read */
-        }
-
 #ifdef _WIN32
         sockethandle_t sh = { .s = sock->sd };
         len = sockethandle_finalize(sh, &sock->reads, buf, NULL);
@@ -3306,8 +3237,6 @@ link_socket_read_udp_posix_recvmsg(struct link_socket *sock,
     uint8_t pktinfo_buf[PKTINFO_BUF_SIZE];
     struct msghdr mesg;
     socklen_t fromlen = sizeof(from->dest.addr);
-
-    ASSERT(sock->sd >= 0);                      /* can't happen */
 
     iov.iov_base = BPTR(buf);
     iov.iov_len = buf_forward_capacity_total(buf);
@@ -3375,9 +3304,6 @@ link_socket_read_udp_posix(struct link_socket *sock,
     socklen_t fromlen = sizeof(from->dest.addr);
     socklen_t expectedlen = af_addr_size(sock->info.af);
     addr_zero_host(&from->dest);
-
-    ASSERT(sock->sd >= 0);                      /* can't happen */
-
 #if ENABLE_IP_PKTINFO
     /* Both PROTO_UDPv4 and PROTO_UDPv6 */
     if (sock->info.proto == PROTO_UDP && sock->sockflags & SF_USE_IP_PKTINFO)
@@ -3504,17 +3430,6 @@ link_socket_write_udp_posix_sendmsg(struct link_socket *sock,
 
 #ifdef _WIN32
 
-static int
-socket_get_last_error(const struct link_socket *sock)
-{
-    if (socket_is_dco_win(sock))
-    {
-        return GetLastError();
-    }
-
-    return WSAGetLastError();
-}
-
 int
 socket_recv_queue(struct link_socket *sock, int maxsize)
 {
@@ -3548,14 +3463,7 @@ socket_recv_queue(struct link_socket *sock, int maxsize)
         ASSERT(ResetEvent(sock->reads.overlapped.hEvent));
         sock->reads.flags = 0;
 
-        if (socket_is_dco_win(sock))
-        {
-            status = ReadFile((HANDLE)sock->sd, wsabuf[0].buf, wsabuf[0].len,
-                              &sock->reads.size, &sock->reads.overlapped);
-            /* Readfile status is inverted from WSARecv */
-            status = !status;
-        }
-        else if (proto_is_udp(sock->info.proto))
+        if (proto_is_udp(sock->info.proto))
         {
             sock->reads.addr_defined = true;
             sock->reads.addrlen = sizeof(sock->reads.addr6);
@@ -3608,7 +3516,7 @@ socket_recv_queue(struct link_socket *sock, int maxsize)
         }
         else
         {
-            status = socket_get_last_error(sock);
+            status = WSAGetLastError();
             if (status == WSA_IO_PENDING) /* operation queued? */
             {
                 sock->reads.iostate = IOSTATE_QUEUED;
@@ -3653,16 +3561,7 @@ socket_send_queue(struct link_socket *sock, struct buffer *buf, const struct lin
         ASSERT(ResetEvent(sock->writes.overlapped.hEvent));
         sock->writes.flags = 0;
 
-        if (socket_is_dco_win(sock))
-        {
-            status = WriteFile((HANDLE)sock->sd, wsabuf[0].buf, wsabuf[0].len,
-                               &sock->writes.size, &sock->writes.overlapped);
-
-            /* WriteFile status is inverted from WSASendTo */
-            status = !status;
-
-        }
-        else if (proto_is_udp(sock->info.proto))
+        if (proto_is_udp(sock->info.proto))
         {
             /* set destination address for UDP writes */
             sock->writes.addr_defined = true;
@@ -3723,9 +3622,8 @@ socket_send_queue(struct link_socket *sock, struct buffer *buf, const struct lin
         }
         else
         {
-            status = socket_get_last_error(sock);
-            /* both status code have the identical value */
-            if (status == WSA_IO_PENDING || status == ERROR_IO_PENDING) /* operation queued? */
+            status = WSAGetLastError();
+            if (status == WSA_IO_PENDING) /* operation queued? */
             {
                 sock->writes.iostate = IOSTATE_QUEUED;
                 sock->writes.status = status;
@@ -3750,7 +3648,6 @@ socket_send_queue(struct link_socket *sock, struct buffer *buf, const struct lin
     return sock->writes.iostate;
 }
 
-/* Returns the number of bytes successfully read */
 int
 sockethandle_finalize(sockethandle_t sh,
                       struct overlapped_io *io,

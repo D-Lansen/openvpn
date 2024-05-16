@@ -1,14 +1,16 @@
-add_library(openssl
+enable_language(ASM)
+SET(SSLLIBTYPE STATIC)
+
+set(crypto_srcs
         openssl/crypto/aes/aes_cbc.c
         openssl/crypto/aes/aes_cfb.c
-        openssl/crypto/aes/aes_core.c
         openssl/crypto/aes/aes_ecb.c
         openssl/crypto/aes/aes_ige.c
-        openssl/crypto/aes/aes_local.h
         openssl/crypto/aes/aes_misc.c
         openssl/crypto/aes/aes_ofb.c
         openssl/crypto/aes/aes_wrap.c
         openssl/crypto/aria/aria.c
+        openssl/crypto/asn1_dsa.c
         openssl/crypto/asn1/a_bitstr.c
         openssl/crypto/asn1/a_d2i_fp.c
         openssl/crypto/asn1/a_digest.c
@@ -31,18 +33,14 @@ add_library(openssl
         openssl/crypto/asn1/ameth_lib.c
         openssl/crypto/asn1/asn1_err.c
         openssl/crypto/asn1/asn1_gen.c
-        openssl/crypto/asn1/asn1_item_list.c
-        openssl/crypto/asn1/asn1_item_list.h
         openssl/crypto/asn1/asn1_lib.c
-        openssl/crypto/asn1/asn1_local.h
-        openssl/crypto/asn1/asn1_parse.c
         openssl/crypto/asn1/asn_mime.c
         openssl/crypto/asn1/asn_moid.c
         openssl/crypto/asn1/asn_mstbl.c
         openssl/crypto/asn1/asn_pack.c
+        openssl/crypto/asn1/asn1_parse.c
         openssl/crypto/asn1/bio_asn1.c
         openssl/crypto/asn1/bio_ndef.c
-        openssl/crypto/asn1/charmap.h
         openssl/crypto/asn1/d2i_param.c
         openssl/crypto/asn1/d2i_pr.c
         openssl/crypto/asn1/d2i_pu.c
@@ -56,10 +54,8 @@ add_library(openssl
         openssl/crypto/asn1/p5_pbev2.c
         openssl/crypto/asn1/p5_scrypt.c
         openssl/crypto/asn1/p8_pkey.c
-        openssl/crypto/asn1/standard_methods.h
         openssl/crypto/asn1/t_bitst.c
         openssl/crypto/asn1/t_pkey.c
-        openssl/crypto/asn1/t_spki.c
         openssl/crypto/asn1/tasn_dec.c
         openssl/crypto/asn1/tasn_enc.c
         openssl/crypto/asn1/tasn_fre.c
@@ -68,7 +64,6 @@ add_library(openssl
         openssl/crypto/asn1/tasn_scn.c
         openssl/crypto/asn1/tasn_typ.c
         openssl/crypto/asn1/tasn_utl.c
-        openssl/crypto/asn1/tbl_standard.h
         openssl/crypto/asn1/x_algor.c
         openssl/crypto/asn1/x_bignum.c
         openssl/crypto/asn1/x_info.c
@@ -79,36 +74,30 @@ add_library(openssl
         openssl/crypto/asn1/x_spki.c
         openssl/crypto/asn1/x_val.c
         openssl/crypto/async/arch/async_null.c
-        openssl/crypto/async/arch/async_null.h
         openssl/crypto/async/arch/async_posix.c
-        openssl/crypto/async/arch/async_posix.h
         openssl/crypto/async/async.c
         openssl/crypto/async/async_err.c
-        openssl/crypto/async/async_local.h
         openssl/crypto/async/async_wait.c
         openssl/crypto/bf/bf_cfb64.c
         openssl/crypto/bf/bf_ecb.c
         openssl/crypto/bf/bf_enc.c
-        openssl/crypto/bf/bf_local.h
         openssl/crypto/bf/bf_ofb64.c
-        openssl/crypto/bf/bf_pi.h
         openssl/crypto/bf/bf_skey.c
         openssl/crypto/bio/bf_buff.c
-        openssl/crypto/bio/bf_lbuf.c
         openssl/crypto/bio/bf_nbio.c
         openssl/crypto/bio/bf_null.c
         openssl/crypto/bio/bf_prefix.c
         openssl/crypto/bio/bf_readbuff.c
         openssl/crypto/bio/bio_addr.c
-        openssl/crypto/bio/bio_cb.c
         openssl/crypto/bio/bio_dump.c
-        openssl/crypto/bio/bio_err.c
-        openssl/crypto/bio/bio_lib.c
-        openssl/crypto/bio/bio_local.h
-        openssl/crypto/bio/bio_meth.c
         openssl/crypto/bio/bio_print.c
         openssl/crypto/bio/bio_sock.c
         openssl/crypto/bio/bio_sock2.c
+        openssl/crypto/bio/ossl_core_bio.c
+        openssl/crypto/bio/bio_cb.c
+        openssl/crypto/bio/bio_err.c
+        openssl/crypto/bio/bio_lib.c
+        openssl/crypto/bio/bio_meth.c
         openssl/crypto/bio/bss_acpt.c
         openssl/crypto/bio/bss_bio.c
         openssl/crypto/bio/bss_conn.c
@@ -120,87 +109,48 @@ add_library(openssl
         openssl/crypto/bio/bss_mem.c
         openssl/crypto/bio/bss_null.c
         openssl/crypto/bio/bss_sock.c
-        openssl/crypto/bio/ossl_core_bio.c
         openssl/crypto/bn/bn_add.c
         openssl/crypto/bn/bn_asm.c
         openssl/crypto/bn/bn_blind.c
         openssl/crypto/bn/bn_const.c
         openssl/crypto/bn/bn_conv.c
         openssl/crypto/bn/bn_ctx.c
-        openssl/crypto/bn/bn_depr.c
         openssl/crypto/bn/bn_dh.c
         openssl/crypto/bn/bn_div.c
         openssl/crypto/bn/bn_err.c
         openssl/crypto/bn/bn_exp.c
         openssl/crypto/bn/bn_exp2.c
+        openssl/crypto/bn/bn_rsa_fips186_4.c
         openssl/crypto/bn/bn_gcd.c
         openssl/crypto/bn/bn_gf2m.c
         openssl/crypto/bn/bn_intern.c
         openssl/crypto/bn/bn_kron.c
         openssl/crypto/bn/bn_lib.c
-        openssl/crypto/bn/bn_local.h
         openssl/crypto/bn/bn_mod.c
         openssl/crypto/bn/bn_mont.c
         openssl/crypto/bn/bn_mpi.c
         openssl/crypto/bn/bn_mul.c
         openssl/crypto/bn/bn_nist.c
-        openssl/crypto/bn/bn_ppc.c
         openssl/crypto/bn/bn_prime.c
-        openssl/crypto/bn/bn_prime.h
         openssl/crypto/bn/bn_print.c
         openssl/crypto/bn/bn_rand.c
         openssl/crypto/bn/bn_recp.c
-        openssl/crypto/bn/bn_rsa_fips186_4.c
         openssl/crypto/bn/bn_shift.c
-        openssl/crypto/bn/bn_sparc.c
         openssl/crypto/bn/bn_sqr.c
         openssl/crypto/bn/bn_sqrt.c
         openssl/crypto/bn/bn_srp.c
         openssl/crypto/bn/bn_word.c
         openssl/crypto/bn/bn_x931p.c
-        openssl/crypto/bn/rsa_sup_mul.c
         openssl/crypto/bn/rsaz_exp.c
-        openssl/crypto/bn/rsaz_exp.h
-        openssl/crypto/bn/rsaz_exp_x2.c
+        openssl/crypto/bsearch.c
         openssl/crypto/buffer/buf_err.c
         openssl/crypto/buffer/buffer.c
-        openssl/crypto/camellia/camellia.c
-        openssl/crypto/camellia/cmll_cbc.c
-        openssl/crypto/camellia/cmll_cfb.c
-        openssl/crypto/camellia/cmll_ctr.c
-        openssl/crypto/camellia/cmll_ecb.c
-        openssl/crypto/camellia/cmll_local.h
-        openssl/crypto/camellia/cmll_misc.c
-        openssl/crypto/camellia/cmll_ofb.c
-        openssl/crypto/cast/c_cfb64.c
-        openssl/crypto/cast/c_ecb.c
-        openssl/crypto/cast/c_enc.c
-        openssl/crypto/cast/c_ofb64.c
-        openssl/crypto/cast/c_skey.c
-        openssl/crypto/cast/cast_local.h
-        openssl/crypto/cast/cast_s.h
         openssl/crypto/chacha/chacha_enc.c
-        openssl/crypto/chacha/chacha_ppc.c
         openssl/crypto/cmac/cmac.c
-        openssl/crypto/cmp/cmp_asn.c
-        openssl/crypto/cmp/cmp_client.c
-        openssl/crypto/cmp/cmp_ctx.c
-        openssl/crypto/cmp/cmp_err.c
-        openssl/crypto/cmp/cmp_hdr.c
-        openssl/crypto/cmp/cmp_http.c
-        openssl/crypto/cmp/cmp_local.h
-        openssl/crypto/cmp/cmp_msg.c
-        openssl/crypto/cmp/cmp_protect.c
-        openssl/crypto/cmp/cmp_server.c
-        openssl/crypto/cmp/cmp_status.c
-        openssl/crypto/cmp/cmp_util.c
-        openssl/crypto/cmp/cmp_vfy.c
         openssl/crypto/cms/cms_asn1.c
         openssl/crypto/cms/cms_att.c
         openssl/crypto/cms/cms_cd.c
         openssl/crypto/cms/cms_dd.c
-        openssl/crypto/cms/cms_dh.c
-        openssl/crypto/cms/cms_ec.c
         openssl/crypto/cms/cms_enc.c
         openssl/crypto/cms/cms_env.c
         openssl/crypto/cms/cms_err.c
@@ -208,33 +158,34 @@ add_library(openssl
         openssl/crypto/cms/cms_io.c
         openssl/crypto/cms/cms_kari.c
         openssl/crypto/cms/cms_lib.c
-        openssl/crypto/cms/cms_local.h
         openssl/crypto/cms/cms_pwri.c
-        openssl/crypto/cms/cms_rsa.c
         openssl/crypto/cms/cms_sd.c
         openssl/crypto/cms/cms_smime.c
         openssl/crypto/comp/c_zlib.c
         openssl/crypto/comp/comp_err.c
         openssl/crypto/comp/comp_lib.c
-        openssl/crypto/comp/comp_local.h
+        openssl/crypto/cmp/cmp_util.c
+        openssl/crypto/cmp/cmp_err.c
         openssl/crypto/conf/conf_api.c
         openssl/crypto/conf/conf_def.c
-        openssl/crypto/conf/conf_def.h
         openssl/crypto/conf/conf_err.c
         openssl/crypto/conf/conf_lib.c
-        openssl/crypto/conf/conf_local.h
         openssl/crypto/conf/conf_mall.c
         openssl/crypto/conf/conf_mod.c
         openssl/crypto/conf/conf_sap.c
         openssl/crypto/conf/conf_ssl.c
+        openssl/crypto/context.c
+        openssl/crypto/core_algorithm.c
+        openssl/crypto/core_fetch.c
+        openssl/crypto/core_namemap.c
+        openssl/crypto/cpt_err.c
         openssl/crypto/crmf/crmf_asn.c
         openssl/crypto/crmf/crmf_err.c
         openssl/crypto/crmf/crmf_lib.c
-        openssl/crypto/crmf/crmf_local.h
         openssl/crypto/crmf/crmf_pbm.c
+        openssl/crypto/cryptlib.c
         openssl/crypto/ct/ct_b64.c
         openssl/crypto/ct/ct_err.c
-        openssl/crypto/ct/ct_local.h
         openssl/crypto/ct/ct_log.c
         openssl/crypto/ct/ct_oct.c
         openssl/crypto/ct/ct_policy.c
@@ -243,13 +194,15 @@ add_library(openssl
         openssl/crypto/ct/ct_sct_ctx.c
         openssl/crypto/ct/ct_vfy.c
         openssl/crypto/ct/ct_x509v3.c
+        openssl/crypto/ctype.c
+        openssl/crypto/cpuid.c
+        openssl/crypto/cversion.c
         openssl/crypto/des/cbc_cksm.c
         openssl/crypto/des/cbc_enc.c
         openssl/crypto/des/cfb64ede.c
         openssl/crypto/des/cfb64enc.c
         openssl/crypto/des/cfb_enc.c
         openssl/crypto/des/des_enc.c
-        openssl/crypto/des/des_local.h
         openssl/crypto/des/ecb3_enc.c
         openssl/crypto/des/ecb_enc.c
         openssl/crypto/des/fcrypt.c
@@ -261,7 +214,6 @@ add_library(openssl
         openssl/crypto/des/qud_cksm.c
         openssl/crypto/des/rand_key.c
         openssl/crypto/des/set_key.c
-        openssl/crypto/des/spr.h
         openssl/crypto/des/str2key.c
         openssl/crypto/des/xcbc_enc.c
         openssl/crypto/dh/dh_ameth.c
@@ -275,10 +227,8 @@ add_library(openssl
         openssl/crypto/dh/dh_kdf.c
         openssl/crypto/dh/dh_key.c
         openssl/crypto/dh/dh_lib.c
-        openssl/crypto/dh/dh_local.h
         openssl/crypto/dh/dh_meth.c
         openssl/crypto/dh/dh_pmeth.c
-        openssl/crypto/dh/dh_prn.c
         openssl/crypto/dh/dh_rfc5114.c
         openssl/crypto/dsa/dsa_ameth.c
         openssl/crypto/dsa/dsa_asn1.c
@@ -289,36 +239,27 @@ add_library(openssl
         openssl/crypto/dsa/dsa_gen.c
         openssl/crypto/dsa/dsa_key.c
         openssl/crypto/dsa/dsa_lib.c
-        openssl/crypto/dsa/dsa_local.h
         openssl/crypto/dsa/dsa_meth.c
         openssl/crypto/dsa/dsa_ossl.c
         openssl/crypto/dsa/dsa_pmeth.c
         openssl/crypto/dsa/dsa_prn.c
         openssl/crypto/dsa/dsa_sign.c
         openssl/crypto/dsa/dsa_vrf.c
+        openssl/crypto/der_writer.c
         openssl/crypto/dso/dso_dl.c
         openssl/crypto/dso/dso_dlfcn.c
         openssl/crypto/dso/dso_err.c
         openssl/crypto/dso/dso_lib.c
-        openssl/crypto/dso/dso_local.h
         openssl/crypto/dso/dso_openssl.c
-        openssl/crypto/dso/dso_vms.c
-        openssl/crypto/dso/dso_win32.c
-        openssl/crypto/ec/curve448/arch_64/arch_intrinsics.h
-        openssl/crypto/ec/curve448/arch_64/f_impl.h
-        openssl/crypto/ec/curve448/arch_64/f_impl64.c
-        openssl/crypto/ec/curve448/curve448.c
-        openssl/crypto/ec/curve448/curve448_local.h
-        openssl/crypto/ec/curve448/curve448_tables.c
-        openssl/crypto/ec/curve448/curve448utils.h
-        openssl/crypto/ec/curve448/ed448.h
-        openssl/crypto/ec/curve448/eddsa.c
-        openssl/crypto/ec/curve448/f_generic.c
-        openssl/crypto/ec/curve448/field.h
-        openssl/crypto/ec/curve448/point_448.h
-        openssl/crypto/ec/curve448/scalar.c
-        openssl/crypto/ec/curve448/word.h
+        openssl/crypto/ebcdic.c
         openssl/crypto/ec/curve25519.c
+        openssl/crypto/ec/curve448/arch_32/f_impl32.c
+        openssl/crypto/ec/curve448/arch_64/f_impl64.c
+        openssl/crypto/ec/curve448/curve448_tables.c
+        openssl/crypto/ec/curve448/curve448.c
+        openssl/crypto/ec/curve448/eddsa.c
+        openssl/crypto/ec/curve448/scalar.c
+        openssl/crypto/ec/curve448/f_generic.c
         openssl/crypto/ec/ec2_oct.c
         openssl/crypto/ec/ec2_smpl.c
         openssl/crypto/ec/ec_ameth.c
@@ -327,12 +268,10 @@ add_library(openssl
         openssl/crypto/ec/ec_check.c
         openssl/crypto/ec/ec_curve.c
         openssl/crypto/ec/ec_cvt.c
-        openssl/crypto/ec/ec_deprecated.c
         openssl/crypto/ec/ec_err.c
         openssl/crypto/ec/ec_key.c
         openssl/crypto/ec/ec_kmeth.c
         openssl/crypto/ec/ec_lib.c
-        openssl/crypto/ec/ec_local.h
         openssl/crypto/ec/ec_mult.c
         openssl/crypto/ec/ec_oct.c
         openssl/crypto/ec/ec_pmeth.c
@@ -345,24 +284,18 @@ add_library(openssl
         openssl/crypto/ec/eck_prn.c
         openssl/crypto/ec/ecp_mont.c
         openssl/crypto/ec/ecp_nist.c
-        openssl/crypto/ec/ecp_nistputil.c
         openssl/crypto/ec/ecp_nistz256.c
         openssl/crypto/ec/ecp_oct.c
-        openssl/crypto/ec/ecp_ppc.c
-        openssl/crypto/ec/ecp_s390x_nistp.c
         openssl/crypto/ec/ecp_smpl.c
         openssl/crypto/ec/ecx_backend.c
-        openssl/crypto/ec/ecx_backend.h
-        openssl/crypto/ec/ecx_key.c
         openssl/crypto/ec/ecx_meth.c
-        openssl/crypto/ec/ecx_s390x.c
+        openssl/crypto/ec/ecx_key.c
         openssl/crypto/encode_decode/decoder_err.c
         openssl/crypto/encode_decode/decoder_lib.c
         openssl/crypto/encode_decode/decoder_meth.c
         openssl/crypto/encode_decode/decoder_pkey.c
         openssl/crypto/encode_decode/encoder_err.c
         openssl/crypto/encode_decode/encoder_lib.c
-        openssl/crypto/encode_decode/encoder_local.h
         openssl/crypto/encode_decode/encoder_meth.c
         openssl/crypto/encode_decode/encoder_pkey.c
         openssl/crypto/engine/eng_all.c
@@ -374,10 +307,8 @@ add_library(openssl
         openssl/crypto/engine/eng_init.c
         openssl/crypto/engine/eng_lib.c
         openssl/crypto/engine/eng_list.c
-        openssl/crypto/engine/eng_local.h
         openssl/crypto/engine/eng_openssl.c
         openssl/crypto/engine/eng_pkey.c
-        openssl/crypto/engine/eng_rdrand.c
         openssl/crypto/engine/eng_table.c
         openssl/crypto/engine/tb_asnmth.c
         openssl/crypto/engine/tb_cipher.c
@@ -390,9 +321,7 @@ add_library(openssl
         openssl/crypto/engine/tb_rsa.c
         openssl/crypto/err/err.c
         openssl/crypto/err/err_all.c
-        openssl/crypto/err/err_all_legacy.c
         openssl/crypto/err/err_blocks.c
-        openssl/crypto/err/err_local.h
         openssl/crypto/err/err_prn.c
         openssl/crypto/ess/ess_asn1.c
         openssl/crypto/ess/ess_err.c
@@ -415,19 +344,15 @@ add_library(openssl
         openssl/crypto/evp/e_aes_cbc_hmac_sha256.c
         openssl/crypto/evp/e_aria.c
         openssl/crypto/evp/e_bf.c
-        openssl/crypto/evp/e_camellia.c
-        openssl/crypto/evp/e_cast.c
         openssl/crypto/evp/e_chacha20_poly1305.c
         openssl/crypto/evp/e_des.c
         openssl/crypto/evp/e_des3.c
-        openssl/crypto/evp/e_idea.c
         openssl/crypto/evp/e_null.c
         openssl/crypto/evp/e_old.c
         openssl/crypto/evp/e_rc2.c
         openssl/crypto/evp/e_rc4.c
         openssl/crypto/evp/e_rc4_hmac_md5.c
         openssl/crypto/evp/e_rc5.c
-        openssl/crypto/evp/e_seed.c
         openssl/crypto/evp/e_sm4.c
         openssl/crypto/evp/e_xcbc_d.c
         openssl/crypto/evp/ec_ctrl.c
@@ -439,10 +364,8 @@ add_library(openssl
         openssl/crypto/evp/evp_fetch.c
         openssl/crypto/evp/evp_key.c
         openssl/crypto/evp/evp_lib.c
-        openssl/crypto/evp/evp_local.h
         openssl/crypto/evp/evp_pbe.c
         openssl/crypto/evp/evp_pkey.c
-        openssl/crypto/evp/evp_rand.c
         openssl/crypto/evp/evp_utils.c
         openssl/crypto/evp/exchange.c
         openssl/crypto/evp/kdf_lib.c
@@ -451,22 +374,18 @@ add_library(openssl
         openssl/crypto/evp/keymgmt_lib.c
         openssl/crypto/evp/keymgmt_meth.c
         openssl/crypto/evp/legacy_blake2.c
-        openssl/#        crypto/evp/legacy_md2.c
         openssl/crypto/evp/legacy_md4.c
         openssl/crypto/evp/legacy_md5.c
         openssl/crypto/evp/legacy_md5_sha1.c
-        openssl/crypto/evp/legacy_mdc2.c
-        openssl/crypto/evp/legacy_meth.h
-        openssl/crypto/evp/legacy_ripemd.c
         openssl/crypto/evp/legacy_sha.c
-        openssl/crypto/evp/legacy_wp.c
-        openssl/crypto/evp/m_null.c
-        openssl/crypto/evp/m_sigver.c
         openssl/crypto/evp/mac_lib.c
         openssl/crypto/evp/mac_meth.c
+        openssl/crypto/evp/m_null.c
+        openssl/crypto/evp/m_sigver.c
         openssl/crypto/evp/names.c
         openssl/crypto/evp/p5_crpt.c
         openssl/crypto/evp/p5_crpt2.c
+        openssl/crypto/evp/pbe_scrypt.c
         openssl/crypto/evp/p_dec.c
         openssl/crypto/evp/p_enc.c
         openssl/crypto/evp/p_legacy.c
@@ -475,11 +394,12 @@ add_library(openssl
         openssl/crypto/evp/p_seal.c
         openssl/crypto/evp/p_sign.c
         openssl/crypto/evp/p_verify.c
-        openssl/crypto/evp/pbe_scrypt.c
         openssl/crypto/evp/pmeth_check.c
         openssl/crypto/evp/pmeth_gn.c
         openssl/crypto/evp/pmeth_lib.c
+        openssl/crypto/evp/evp_rand.c
         openssl/crypto/evp/signature.c
+        openssl/crypto/ex_data.c
         openssl/crypto/ffc/ffc_backend.c
         openssl/crypto/ffc/ffc_dh.c
         openssl/crypto/ffc/ffc_key_generate.c
@@ -487,66 +407,64 @@ add_library(openssl
         openssl/crypto/ffc/ffc_params.c
         openssl/crypto/ffc/ffc_params_generate.c
         openssl/crypto/ffc/ffc_params_validate.c
+        openssl/crypto/getenv.c
         openssl/crypto/hmac/hmac.c
-        openssl/crypto/hmac/hmac_local.h
         openssl/crypto/http/http_client.c
         openssl/crypto/http/http_err.c
         openssl/crypto/http/http_lib.c
-        openssl/crypto/idea/i_cbc.c
-        openssl/crypto/idea/i_cfb64.c
-        openssl/crypto/idea/i_ecb.c
-        openssl/crypto/idea/i_ofb64.c
-        openssl/crypto/idea/i_skey.c
-        openssl/crypto/idea/idea_local.h
+        openssl/crypto/info.c
+        openssl/crypto/init.c
+        openssl/crypto/initthread.c
         openssl/crypto/kdf/kdf_err.c
         openssl/crypto/lhash/lh_stats.c
         openssl/crypto/lhash/lhash.c
-        openssl/crypto/lhash/lhash_local.h
         openssl/crypto/md4/md4_dgst.c
-        openssl/crypto/md4/md4_local.h
         openssl/crypto/md4/md4_one.c
         openssl/crypto/md5/md5_dgst.c
-        openssl/crypto/md5/md5_local.h
         openssl/crypto/md5/md5_one.c
         openssl/crypto/md5/md5_sha1.c
-        openssl/crypto/mdc2/mdc2_one.c
-        openssl/crypto/mdc2/mdc2dgst.c
+        openssl/crypto/mem.c
+        openssl/crypto/mem_sec.c
         openssl/crypto/modes/cbc128.c
         openssl/crypto/modes/ccm128.c
         openssl/crypto/modes/cfb128.c
         openssl/crypto/modes/ctr128.c
-        openssl/crypto/modes/cts128.c
         openssl/crypto/modes/gcm128.c
         openssl/crypto/modes/ocb128.c
         openssl/crypto/modes/ofb128.c
         openssl/crypto/modes/siv128.c
-        openssl/crypto/modes/wrap128.c
         openssl/crypto/modes/xts128.c
+        openssl/crypto/modes/wrap128.c
+        openssl/crypto/o_dir.c
+        openssl/crypto/o_fopen.c
+        openssl/crypto/o_init.c
+        openssl/crypto/o_str.c
+        openssl/crypto/o_time.c
         openssl/crypto/objects/o_names.c
-        openssl/crypto/objects/obj_compat.h
         openssl/crypto/objects/obj_dat.c
-        openssl/crypto/objects/obj_dat.h
         openssl/crypto/objects/obj_err.c
         openssl/crypto/objects/obj_lib.c
-        openssl/crypto/objects/obj_local.h
         openssl/crypto/objects/obj_xref.c
-        openssl/crypto/objects/obj_xref.h
         openssl/crypto/ocsp/ocsp_asn.c
         openssl/crypto/ocsp/ocsp_cl.c
         openssl/crypto/ocsp/ocsp_err.c
         openssl/crypto/ocsp/ocsp_ext.c
-        openssl/crypto/ocsp/ocsp_http.c
         openssl/crypto/ocsp/ocsp_lib.c
-        openssl/crypto/ocsp/ocsp_local.h
         openssl/crypto/ocsp/ocsp_prn.c
         openssl/crypto/ocsp/ocsp_srv.c
         openssl/crypto/ocsp/ocsp_vfy.c
         openssl/crypto/ocsp/v3_ocsp.c
+        openssl/crypto/packet.c
+        openssl/crypto/params.c
+        openssl/crypto/params_dup.c
+        openssl/crypto/param_build.c
+        openssl/crypto/param_build_set.c
+        openssl/crypto/params_from_text.c
+        openssl/crypto/passphrase.c
         openssl/crypto/pem/pem_all.c
         openssl/crypto/pem/pem_err.c
         openssl/crypto/pem/pem_info.c
         openssl/crypto/pem/pem_lib.c
-        openssl/crypto/pem/pem_local.h
         openssl/crypto/pem/pem_oth.c
         openssl/crypto/pem/pem_pk8.c
         openssl/crypto/pem/pem_pkey.c
@@ -563,7 +481,6 @@ add_library(openssl
         openssl/crypto/pkcs12/p12_init.c
         openssl/crypto/pkcs12/p12_key.c
         openssl/crypto/pkcs12/p12_kiss.c
-        openssl/crypto/pkcs12/p12_local.h
         openssl/crypto/pkcs12/p12_mutl.c
         openssl/crypto/pkcs12/p12_npas.c
         openssl/crypto/pkcs12/p12_p8d.c
@@ -571,55 +488,48 @@ add_library(openssl
         openssl/crypto/pkcs12/p12_sbag.c
         openssl/crypto/pkcs12/p12_utl.c
         openssl/crypto/pkcs12/pk12err.c
-        openssl/crypto/pkcs7/bio_pk7.c
         openssl/crypto/pkcs7/pk7_asn1.c
         openssl/crypto/pkcs7/pk7_attr.c
         openssl/crypto/pkcs7/pk7_doit.c
         openssl/crypto/pkcs7/pk7_lib.c
-        openssl/crypto/pkcs7/pk7_local.h
         openssl/crypto/pkcs7/pk7_mime.c
         openssl/crypto/pkcs7/pk7_smime.c
         openssl/crypto/pkcs7/pkcs7err.c
         openssl/crypto/poly1305/poly1305.c
+        openssl/crypto/provider.c
+        openssl/crypto/provider_core.c
+        openssl/crypto/provider_conf.c
+        openssl/crypto/provider_predefined.c
         openssl/crypto/property/defn_cache.c
         openssl/crypto/property/property.c
         openssl/crypto/property/property_err.c
-        openssl/crypto/property/property_local.h
         openssl/crypto/property/property_parse.c
         openssl/crypto/property/property_query.c
         openssl/crypto/property/property_string.c
+        openssl/crypto/provider_child.c
+        openssl/crypto/punycode.c
         openssl/crypto/rand/prov_seed.c
-        openssl/crypto/rand/rand_deprecated.c
         openssl/crypto/rand/rand_egd.c
         openssl/crypto/rand/rand_err.c
         openssl/crypto/rand/rand_lib.c
-        openssl/crypto/rand/rand_local.h
         openssl/crypto/rand/rand_meth.c
         openssl/crypto/rand/rand_pool.c
         openssl/crypto/rand/randfile.c
         openssl/crypto/rc2/rc2_cbc.c
         openssl/crypto/rc2/rc2_ecb.c
-        openssl/crypto/rc2/rc2_local.h
         openssl/crypto/rc2/rc2_skey.c
         openssl/crypto/rc2/rc2cfb64.c
         openssl/crypto/rc2/rc2ofb64.c
         openssl/crypto/rc4/rc4_enc.c
-        openssl/crypto/rc4/rc4_local.h
         openssl/crypto/rc4/rc4_skey.c
-        openssl/crypto/ripemd/rmd_dgst.c
-        openssl/crypto/ripemd/rmd_local.h
-        openssl/crypto/ripemd/rmd_one.c
-        openssl/crypto/ripemd/rmdconst.h
         openssl/crypto/rsa/rsa_ameth.c
         openssl/crypto/rsa/rsa_asn1.c
         openssl/crypto/rsa/rsa_backend.c
         openssl/crypto/rsa/rsa_chk.c
         openssl/crypto/rsa/rsa_crpt.c
-        openssl/crypto/rsa/rsa_depr.c
         openssl/crypto/rsa/rsa_err.c
         openssl/crypto/rsa/rsa_gen.c
         openssl/crypto/rsa/rsa_lib.c
-        openssl/crypto/rsa/rsa_local.h
         openssl/crypto/rsa/rsa_meth.c
         openssl/crypto/rsa/rsa_mp.c
         openssl/crypto/rsa/rsa_mp_names.c
@@ -637,83 +547,89 @@ add_library(openssl
         openssl/crypto/rsa/rsa_sp800_56b_gen.c
         openssl/crypto/rsa/rsa_x931.c
         openssl/crypto/rsa/rsa_x931g.c
-        openssl/crypto/seed/seed.c
-        openssl/crypto/seed/seed_cbc.c
-        openssl/crypto/seed/seed_cfb.c
-        openssl/crypto/seed/seed_ecb.c
-        openssl/crypto/seed/seed_local.h
-        openssl/crypto/seed/seed_ofb.c
-        openssl/crypto/sha/keccak1600.c
+        openssl/crypto/self_test_core.c
         openssl/crypto/sha/sha1_one.c
         openssl/crypto/sha/sha1dgst.c
         openssl/crypto/sha/sha256.c
         openssl/crypto/sha/sha3.c
         openssl/crypto/sha/sha512.c
-        openssl/crypto/sha/sha_local.h
-        openssl/crypto/sha/sha_ppc.c
         openssl/crypto/siphash/siphash.c
-        openssl/crypto/sm2/sm2_crypt.c
         openssl/crypto/sm2/sm2_err.c
+        openssl/crypto/sm2/sm2_crypt.c
         openssl/crypto/sm2/sm2_key.c
         openssl/crypto/sm2/sm2_sign.c
-        openssl/crypto/sm3/legacy_sm3.c
         openssl/crypto/sm3/sm3.c
-        openssl/crypto/sm3/sm3_local.h
+        openssl/crypto/sm3/legacy_sm3.c
         openssl/crypto/sm4/sm4.c
+        openssl/crypto/sparse_array.c
         openssl/crypto/srp/srp_lib.c
         openssl/crypto/srp/srp_vfy.c
-        openssl/crypto/stack/stack.c
-        openssl/crypto/store/store_err.c
         openssl/crypto/store/store_init.c
-        openssl/crypto/store/store_lib.c
-        openssl/crypto/store/store_local.h
-        openssl/crypto/store/store_meth.c
+        openssl/crypto/store/store_err.c
         openssl/crypto/store/store_register.c
         openssl/crypto/store/store_result.c
+        openssl/crypto/store/store_lib.c
+        openssl/crypto/store/store_meth.c
         openssl/crypto/store/store_strings.c
-        openssl/crypto/ts/ts_asn1.c
-        openssl/crypto/ts/ts_conf.c
+        openssl/crypto/stack/stack.c
+        openssl/crypto/threads_none.c
+        openssl/crypto/threads_pthread.c
+        openssl/crypto/threads_win.c
+        openssl/crypto/threads_lib.c
+        openssl/crypto/trace.c
         openssl/crypto/ts/ts_err.c
-        openssl/crypto/ts/ts_lib.c
-        openssl/crypto/ts/ts_local.h
-        openssl/crypto/ts/ts_req_print.c
-        openssl/crypto/ts/ts_req_utils.c
-        openssl/crypto/ts/ts_rsp_print.c
-        openssl/crypto/ts/ts_rsp_sign.c
-        openssl/crypto/ts/ts_rsp_utils.c
-        openssl/crypto/ts/ts_rsp_verify.c
-        openssl/crypto/ts/ts_verify_ctx.c
         openssl/crypto/txt_db/txt_db.c
         openssl/crypto/ui/ui_err.c
         openssl/crypto/ui/ui_lib.c
-        openssl/crypto/ui/ui_local.h
         openssl/crypto/ui/ui_null.c
         openssl/crypto/ui/ui_openssl.c
         openssl/crypto/ui/ui_util.c
-        openssl/crypto/whrlpool/wp_block.c
-        openssl/crypto/whrlpool/wp_dgst.c
-        openssl/crypto/whrlpool/wp_local.h
+        openssl/crypto/uid.c
         openssl/crypto/x509/by_dir.c
         openssl/crypto/x509/by_file.c
         openssl/crypto/x509/by_store.c
-        openssl/crypto/x509/ext_dat.h
-        openssl/crypto/x509/pcy_cache.c
-        openssl/crypto/x509/pcy_data.c
-        openssl/crypto/x509/pcy_lib.c
-        openssl/crypto/x509/pcy_local.h
-        openssl/crypto/x509/pcy_map.c
-        openssl/crypto/x509/pcy_node.c
-        openssl/crypto/x509/pcy_tree.c
-        openssl/crypto/x509/standard_exts.h
         openssl/crypto/x509/t_crl.c
         openssl/crypto/x509/t_req.c
         openssl/crypto/x509/t_x509.c
-        openssl/crypto/x509/v3_addr.c
+        openssl/crypto/x509/x509_att.c
+        openssl/crypto/x509/x509_cmp.c
+        openssl/crypto/x509/x509_d2.c
+        openssl/crypto/x509/x509_def.c
+        openssl/crypto/x509/x509_err.c
+        openssl/crypto/x509/x509_ext.c
+        openssl/crypto/x509/x509_lu.c
+        openssl/crypto/x509/x509_obj.c
+        openssl/crypto/x509/x509_r2x.c
+        openssl/crypto/x509/x509_req.c
+        openssl/crypto/x509/x509_set.c
+        openssl/crypto/x509/x509_trust.c
+        openssl/crypto/x509/x509_txt.c
+        openssl/crypto/x509/x509_v3.c
+        openssl/crypto/x509/x509_vfy.c
+        openssl/crypto/x509/x509_vpm.c
+        openssl/crypto/x509/x509cset.c
+        openssl/crypto/x509/x509name.c
+        openssl/crypto/x509/x509rset.c
+        openssl/crypto/x509/x509spki.c
+        openssl/crypto/x509/x509type.c
+        openssl/crypto/x509/x_all.c
+        openssl/crypto/x509/x_attrib.c
+        openssl/crypto/x509/x_crl.c
+        openssl/crypto/x509/x_exten.c
+        openssl/crypto/x509/x_name.c
+        openssl/crypto/x509/x_pubkey.c
+        openssl/crypto/x509/x_req.c
+        openssl/crypto/x509/x_x509.c
+        openssl/crypto/x509/x_x509a.c
+        openssl/crypto/x509/pcy_cache.c
+        openssl/crypto/x509/pcy_data.c
+        openssl/crypto/x509/pcy_lib.c
+        openssl/crypto/x509/pcy_map.c
+        openssl/crypto/x509/pcy_node.c
+        openssl/crypto/x509/pcy_tree.c
         openssl/crypto/x509/v3_admis.c
-        openssl/crypto/x509/v3_admis.h
         openssl/crypto/x509/v3_akeya.c
         openssl/crypto/x509/v3_akid.c
-        openssl/crypto/x509/v3_asid.c
         openssl/crypto/x509/v3_bcons.c
         openssl/crypto/x509/v3_bitst.c
         openssl/crypto/x509/v3_conf.c
@@ -742,574 +658,242 @@ add_library(openssl
         openssl/crypto/x509/v3_utf8.c
         openssl/crypto/x509/v3_utl.c
         openssl/crypto/x509/v3err.c
-        openssl/crypto/x509/x509_att.c
-        openssl/crypto/x509/x509_cmp.c
-        openssl/crypto/x509/x509_d2.c
-        openssl/crypto/x509/x509_def.c
-        openssl/crypto/x509/x509_err.c
-        openssl/crypto/x509/x509_ext.c
-        openssl/crypto/x509/x509_local.h
-        openssl/crypto/x509/x509_lu.c
-        openssl/crypto/x509/x509_meth.c
-        openssl/crypto/x509/x509_obj.c
-        openssl/crypto/x509/x509_r2x.c
-        openssl/crypto/x509/x509_req.c
-        openssl/crypto/x509/x509_set.c
-        openssl/crypto/x509/x509_trust.c
-        openssl/crypto/x509/x509_txt.c
-        openssl/crypto/x509/x509_v3.c
-        openssl/crypto/x509/x509_vfy.c
-        openssl/crypto/x509/x509_vpm.c
-        openssl/crypto/x509/x509cset.c
-        openssl/crypto/x509/x509name.c
-        openssl/crypto/x509/x509rset.c
-        openssl/crypto/x509/x509spki.c
-        openssl/crypto/x509/x509type.c
-        openssl/crypto/x509/x_all.c
-        openssl/crypto/x509/x_attrib.c
-        openssl/crypto/x509/x_crl.c
-        openssl/crypto/x509/x_exten.c
-        openssl/crypto/x509/x_name.c
-        openssl/crypto/x509/x_pubkey.c
-        openssl/crypto/x509/x_req.c
-        openssl/crypto/x509/x_x509.c
-        openssl/crypto/x509/x_x509a.c
-        openssl/crypto/asn1_dsa.c
-        openssl/crypto/bsearch.c
-        openssl/crypto/buildinf.h
-        openssl/crypto/context.c
-        openssl/crypto/core_algorithm.c
-        openssl/crypto/core_fetch.c
-        openssl/crypto/core_namemap.c
-        openssl/crypto/cpt_err.c
-        openssl/crypto/cpuid.c
-        openssl/crypto/cryptlib.c
-        openssl/crypto/ctype.c
-        openssl/crypto/cversion.c
-        openssl/crypto/der_writer.c
-        openssl/crypto/dllmain.c
-        openssl/crypto/ebcdic.c
-        openssl/crypto/ex_data.c
-        openssl/crypto/getenv.c
-        openssl/crypto/info.c
-        openssl/crypto/init.c
-        openssl/crypto/initthread.c
-        openssl/crypto/loongarch_arch.h
-        openssl/crypto/LPdir_unix.h
-        openssl/crypto/mem.c
-        openssl/crypto/mem_clr.c
-        openssl/crypto/mem_sec.c
-        openssl/crypto/mips_arch.h
-        openssl/crypto/o_dir.c
-        openssl/crypto/o_fopen.c
-        openssl/crypto/o_init.c
-        openssl/crypto/o_str.c
-        openssl/crypto/o_time.c
-        openssl/crypto/packet.c
-        openssl/crypto/param_build.c
-        openssl/crypto/param_build_set.c
-        openssl/crypto/params.c
-        openssl/crypto/params_dup.c
-        openssl/crypto/params_from_text.c
-        openssl/crypto/passphrase.c
-        openssl/crypto/ppccap.c
-        openssl/crypto/provider.c
-        openssl/crypto/provider_child.c
-        openssl/crypto/provider_conf.c
-        openssl/crypto/provider_core.c
-        openssl/crypto/provider_local.h
-        openssl/crypto/provider_predefined.c
-        openssl/crypto/punycode.c
-        openssl/crypto/riscvcap.c
-        openssl/crypto/s390x_arch.h
-        openssl/crypto/s390xcap.c
-        openssl/crypto/self_test_core.c
-        openssl/crypto/sparcv9cap.c
-        openssl/crypto/sparse_array.c
-        openssl/crypto/threads_lib.c
-        openssl/crypto/threads_none.c
-        openssl/crypto/threads_pthread.c
-        openssl/crypto/threads_win.c
-        openssl/crypto/trace.c
-        openssl/crypto/uid.c
-        openssl/crypto/vms_rms.h
-        openssl/include/crypto/__DECC_INCLUDE_EPILOGUE.H
-        openssl/include/crypto/__DECC_INCLUDE_PROLOGUE.H
-        openssl/include/crypto/aes_platform.h
-        openssl/include/crypto/aria.h
-        openssl/include/crypto/asn1.h
-        openssl/include/crypto/asn1_dsa.h
-        openssl/include/crypto/asn1err.h
-        openssl/include/crypto/async.h
-        openssl/include/crypto/asyncerr.h
-        openssl/include/crypto/bioerr.h
-        openssl/include/crypto/bn.h
-        openssl/include/crypto/bn_conf.h
-        openssl/include/crypto/bn_dh.h
-        openssl/include/crypto/bn_srp.h
-        openssl/include/crypto/bnerr.h
-        openssl/include/crypto/buffererr.h
-        openssl/include/crypto/chacha.h
-        openssl/include/crypto/cmll_platform.h
-        openssl/include/crypto/cmperr.h
-        openssl/include/crypto/cmserr.h
-        openssl/include/crypto/comperr.h
-        openssl/include/crypto/conferr.h
-        openssl/include/crypto/context.h
-        openssl/include/crypto/crmferr.h
-        openssl/include/crypto/cryptlib.h
-        openssl/include/crypto/cryptoerr.h
-        openssl/include/crypto/cterr.h
-        openssl/include/crypto/ctype.h
-        openssl/include/crypto/decoder.h
-        openssl/include/crypto/decodererr.h
-        openssl/include/crypto/des_platform.h
-        openssl/include/crypto/dh.h
-        openssl/include/crypto/dherr.h
-        openssl/include/crypto/dsa.h
-        openssl/include/crypto/dsaerr.h
-        openssl/include/crypto/dso_conf.h
-        openssl/include/crypto/ec.h
-        openssl/include/crypto/ecerr.h
-        openssl/include/crypto/ecx.h
-        openssl/include/crypto/encoder.h
-        openssl/include/crypto/encodererr.h
-        openssl/include/crypto/engine.h
-        openssl/include/crypto/engineerr.h
-        openssl/include/crypto/err.h
-        openssl/include/crypto/ess.h
-        openssl/include/crypto/esserr.h
-        openssl/include/crypto/evp.h
-        openssl/include/crypto/evperr.h
-        openssl/include/crypto/httperr.h
-        openssl/include/crypto/lhash.h
-        openssl/include/crypto/md32_common.h
-        openssl/include/crypto/modes.h
-        openssl/include/crypto/objects.h
-        openssl/include/crypto/objectserr.h
-        openssl/include/crypto/ocsperr.h
-        openssl/include/crypto/pem.h
-        openssl/include/crypto/pemerr.h
-        openssl/include/crypto/pkcs12err.h
-        openssl/include/crypto/pkcs7.h
-        openssl/include/crypto/pkcs7err.h
-        openssl/include/crypto/poly1305.h
-        openssl/include/crypto/ppc_arch.h
-        openssl/include/crypto/punycode.h
-        openssl/include/crypto/rand.h
-        openssl/include/crypto/rand_pool.h
-        openssl/include/crypto/randerr.h
-        openssl/include/crypto/riscv_arch.def
-        openssl/include/crypto/riscv_arch.h
-        openssl/include/crypto/rsa.h
-        openssl/include/crypto/rsaerr.h
-        openssl/include/crypto/security_bits.h
-        openssl/include/crypto/sha.h
-        openssl/include/crypto/siphash.h
-        openssl/include/crypto/siv.h
-        openssl/include/crypto/sm2.h
-        openssl/include/crypto/sm2err.h
-        openssl/include/crypto/sm4.h
-        openssl/include/crypto/sm4_platform.h
-        openssl/include/crypto/sparc_arch.h
-        openssl/include/crypto/sparse_array.h
-        openssl/include/crypto/store.h
-        openssl/include/crypto/storeerr.h
-        openssl/include/crypto/tserr.h
-        openssl/include/crypto/types.h
-        openssl/include/crypto/uierr.h
-        openssl/include/crypto/x509.h
-        openssl/include/crypto/x509err.h
-        openssl/include/crypto/x509v3err.h
-        openssl/include/internal/__DECC_INCLUDE_EPILOGUE.H
-        openssl/include/internal/__DECC_INCLUDE_PROLOGUE.H
-        openssl/include/internal/asn1.h
-        openssl/include/internal/bio.h
-        openssl/include/internal/comp.h
-        openssl/include/internal/conf.h
-        openssl/include/internal/constant_time.h
-        openssl/include/internal/core.h
-        openssl/include/internal/cryptlib.h
-        openssl/include/internal/dane.h
-        openssl/include/internal/deprecated.h
-        openssl/include/internal/der.h
-        openssl/include/internal/dso.h
-        openssl/include/internal/dsoerr.h
-        openssl/include/internal/e_os.h
-        openssl/include/internal/endian.h
-        openssl/include/internal/err.h
-        openssl/include/internal/ffc.h
-        openssl/include/internal/ktls.h
-        openssl/include/internal/namemap.h
-        openssl/include/internal/nelem.h
-        openssl/include/internal/numbers.h
-        openssl/include/internal/o_dir.h
-        openssl/include/internal/packet.h
-        openssl/include/internal/param_build_set.h
-        openssl/include/internal/passphrase.h
-        openssl/include/internal/property.h
-        openssl/include/internal/propertyerr.h
-        openssl/include/internal/provider.h
-        openssl/include/internal/refcount.h
-        openssl/include/internal/sha3.h
-        openssl/include/internal/sizes.h
-        openssl/include/internal/sm3.h
-        openssl/include/internal/sockets.h
-        openssl/include/internal/sslconf.h
-        openssl/include/internal/symhacks.h
-        openssl/include/internal/thread_once.h
-        openssl/include/internal/tlsgroups.h
-        openssl/include/internal/tsan_assist.h
-        openssl/include/internal/unicode.h
-        openssl/include/openssl/__DECC_INCLUDE_EPILOGUE.H
-        openssl/include/openssl/__DECC_INCLUDE_PROLOGUE.H
-        openssl/include/openssl/aes.h
-        openssl/include/openssl/asn1.h
-        openssl/include/openssl/asn1_mac.h
-        openssl/include/openssl/asn1err.h
-        openssl/include/openssl/asn1t.h
-        openssl/include/openssl/async.h
-        openssl/include/openssl/asyncerr.h
-        openssl/include/openssl/bio.h
-        openssl/include/openssl/bioerr.h
-        openssl/include/openssl/blowfish.h
-        openssl/include/openssl/bn.h
-        openssl/include/openssl/bnerr.h
-        openssl/include/openssl/buffer.h
-        openssl/include/openssl/buffererr.h
-        openssl/include/openssl/camellia.h
-        openssl/include/openssl/cast.h
-        openssl/include/openssl/cmac.h
-        openssl/include/openssl/cmp.h
-        openssl/include/openssl/cmp_util.h
-        openssl/include/openssl/cmperr.h
-        openssl/include/openssl/cms.h
-        openssl/include/openssl/cmserr.h
-        openssl/include/openssl/comp.h
-        openssl/include/openssl/comperr.h
-        openssl/include/openssl/conf.h
-        openssl/include/openssl/conf_api.h
-        openssl/include/openssl/conferr.h
-        openssl/include/openssl/configuration.h
-        openssl/include/openssl/conftypes.h
-        openssl/include/openssl/core.h
-        openssl/include/openssl/core_dispatch.h
-        openssl/include/openssl/core_names.h
-        openssl/include/openssl/core_object.h
-        openssl/include/openssl/crmf.h
-        openssl/include/openssl/crmferr.h
-        openssl/include/openssl/crypto.h
-        openssl/include/openssl/cryptoerr.h
-        openssl/include/openssl/cryptoerr_legacy.h
-        openssl/include/openssl/ct.h
-        openssl/include/openssl/cterr.h
-        openssl/include/openssl/decoder.h
-        openssl/include/openssl/decodererr.h
-        openssl/include/openssl/des.h
-        openssl/include/openssl/dh.h
-        openssl/include/openssl/dherr.h
-        openssl/include/openssl/dsa.h
-        openssl/include/openssl/dsaerr.h
-        openssl/include/openssl/dtls1.h
-        openssl/include/openssl/e_os2.h
-        openssl/include/openssl/ebcdic.h
-        openssl/include/openssl/ec.h
-        openssl/include/openssl/ecdh.h
-        openssl/include/openssl/ecdsa.h
-        openssl/include/openssl/ecerr.h
-        openssl/include/openssl/encoder.h
-        openssl/include/openssl/encodererr.h
-        openssl/include/openssl/engine.h
-        openssl/include/openssl/engineerr.h
-        openssl/include/openssl/err.h
-        openssl/include/openssl/ess.h
-        openssl/include/openssl/esserr.h
-        openssl/include/openssl/evp.h
-        openssl/include/openssl/evperr.h
-        openssl/include/openssl/fips_names.h
-        openssl/include/openssl/fipskey.h
-        openssl/include/openssl/hmac.h
-        openssl/include/openssl/http.h
-        openssl/include/openssl/httperr.h
-        openssl/include/openssl/idea.h
-        openssl/include/openssl/kdf.h
-        openssl/include/openssl/kdferr.h
-        openssl/include/openssl/lhash.h
-        openssl/include/openssl/macros.h
-        openssl/include/openssl/md2.h
-        openssl/include/openssl/md4.h
-        openssl/include/openssl/md5.h
-        openssl/include/openssl/mdc2.h
-        openssl/include/openssl/modes.h
-        openssl/include/openssl/obj_mac.h
-        openssl/include/openssl/objects.h
-        openssl/include/openssl/objectserr.h
-        openssl/include/openssl/ocsp.h
-        openssl/include/openssl/ocsperr.h
-        openssl/include/openssl/opensslconf.h
-        openssl/include/openssl/opensslv.h
-        openssl/include/openssl/ossl_typ.h
-        openssl/include/openssl/param_build.h
-        openssl/include/openssl/params.h
-        openssl/include/openssl/pem.h
-        openssl/include/openssl/pem2.h
-        openssl/include/openssl/pemerr.h
-        openssl/include/openssl/pkcs12.h
-        openssl/include/openssl/pkcs12err.h
-        openssl/include/openssl/pkcs7.h
-        openssl/include/openssl/pkcs7err.h
-        openssl/include/openssl/prov_ssl.h
-        openssl/include/openssl/proverr.h
-        openssl/include/openssl/provider.h
-        openssl/include/openssl/rand.h
-        openssl/include/openssl/randerr.h
-        openssl/include/openssl/rc2.h
-        openssl/include/openssl/rc4.h
-        openssl/include/openssl/rc5.h
-        openssl/include/openssl/ripemd.h
-        openssl/include/openssl/rsa.h
-        openssl/include/openssl/rsaerr.h
-        openssl/include/openssl/safestack.h
-        openssl/include/openssl/seed.h
-        openssl/include/openssl/self_test.h
-        openssl/include/openssl/sha.h
-        openssl/include/openssl/srp.h
-        openssl/include/openssl/srtp.h
-        openssl/include/openssl/ssl.h
-        openssl/include/openssl/ssl2.h
-        openssl/include/openssl/ssl3.h
-        openssl/include/openssl/sslerr.h
-        openssl/include/openssl/sslerr_legacy.h
-        openssl/include/openssl/stack.h
-        openssl/include/openssl/store.h
-        openssl/include/openssl/storeerr.h
-        openssl/include/openssl/symhacks.h
-        openssl/include/openssl/tls1.h
-        openssl/include/openssl/trace.h
-        openssl/include/openssl/ts.h
-        openssl/include/openssl/tserr.h
-        openssl/include/openssl/txt_db.h
-        openssl/include/openssl/types.h
-        openssl/include/openssl/ui.h
-        openssl/include/openssl/uierr.h
-        openssl/include/openssl/whrlpool.h
-        openssl/include/openssl/x509.h
-        openssl/include/openssl/x509_vfy.h
-        openssl/include/openssl/x509err.h
-        openssl/include/openssl/x509v3.h
-        openssl/include/openssl/x509v3err.h
+        )
+if (${ANDROID_ABI} STREQUAL "armeabi-v7a")
+    set(crypto_srcs ${crypto_srcs}
+            openssl/crypto/aes/asm/aes-armv4.S
+            openssl/crypto/aes/asm/aesv8-armx.S
+            openssl/crypto/aes/asm/bsaes-armv7.S
+            openssl/crypto/armcap.c
+            openssl/crypto/armv4cpuid.S
+            openssl/crypto/bn/asm/armv4-gf2m.S
+            openssl/crypto/bn/asm/armv4-mont.S
+            openssl/crypto/ec/asm/ecp_nistz256-armv4.S
+            openssl/crypto/modes/asm/ghash-armv4.S
+            openssl/crypto/modes/asm/ghashv8-armx.S
+            openssl/crypto/sha/asm/sha1-armv4-large.S
+            openssl/crypto/sha/asm/sha256-armv4.S
+            openssl/crypto/sha/asm/sha512-armv4.S
+            openssl/crypto/sha/asm/keccak1600-armv4.S
+            )
+
+elseif (${ANDROID_ABI} STREQUAL "arm64-v8a")
+    set(crypto_srcs ${crypto_srcs}
+            openssl/crypto/aes/aes_core.c
+            openssl/crypto/aes/asm/aesv8-armx-64.S
+            openssl/crypto/aes/asm/vpaes-armv8.S
+            openssl/crypto/arm64cpuid.S
+            openssl/crypto/armcap.c
+            openssl/crypto/bn/asm/armv8-mont.S
+            openssl/crypto/ec/asm/ecp_nistz256-armv8.S
+            openssl/crypto/modes/asm/ghashv8-armx-64.S
+            openssl/crypto/modes/asm/aes-gcm-armv8_64.S
+            openssl/crypto/poly1305/asm/poly1305-armv8.S
+            openssl/crypto/sha/asm/sha1-armv8.S
+            openssl/crypto/sha/asm/sha256-armv8.S
+            openssl/crypto/sha/asm/sha512-armv8.S
+            openssl/crypto/sha/asm/keccak1600-armv8.S
+            )
+elseif (${ANDROID_ABI} STREQUAL "x86")
+    set(crypto_srcs ${crypto_srcs}
+            openssl/crypto/aes/aes_x86core.c
+            openssl/crypto/aes/asm/aesni-x86.S
+            openssl/crypto/aes/asm/vpaes-x86.S
+            openssl/crypto/bf/asm/bf-586.S
+            openssl/crypto/bn/asm/bn-586.S
+            openssl/crypto/bn/asm/co-586.S
+            openssl/crypto/bn/asm/x86-gf2m.S
+            openssl/crypto/bn/asm/x86-mont.S
+            openssl/crypto/des/asm/crypt586.S
+            openssl/crypto/des/asm/des-586.S
+            openssl/crypto/ec/asm/ecp_nistz256-x86.S
+            openssl/crypto/md5/asm/md5-586.S
+            openssl/crypto/modes/asm/ghash-x86.S
+            openssl/crypto/poly1305/asm/poly1305-x86.S
+            openssl/crypto/sha/asm/sha1-586.S
+            openssl/crypto/sha/asm/sha256-586.S
+            openssl/crypto/sha/asm/sha512-586.S
+            openssl/crypto/sha/asm/keccak1600-mmx.S
+            openssl/crypto/x86cpuid.S
+            )
+    list(REMOVE_ITEM crypto_srcs
+            openssl/crypto/bf/bf_enc.c
+            openssl/crypto/bn/bn_asm.c
+            openssl/crypto/des/des_enc.c
+            openssl/crypto/des/fcrypt_b.c
+            )
+elseif (${ANDROID_ABI} STREQUAL "x86_64")
+    set(crypto_srcs ${crypto_srcs}
+            openssl/crypto/aes/asm/aes-x86_64.S
+            openssl/crypto/aes/asm/aesni-mb-x86_64.S
+            openssl/crypto/aes/asm/aesni-sha1-x86_64.S
+            openssl/crypto/aes/asm/aesni-sha256-x86_64.S
+            openssl/crypto/aes/asm/aesni-x86_64.S
+            openssl/crypto/aes/asm/bsaes-x86_64.S
+            openssl/crypto/aes/asm/vpaes-x86_64.S
+            openssl/crypto/bn/asm/rsaz-avx2.S
+            openssl/crypto/bn/asm/rsaz-x86_64.S
+            openssl/crypto/bn/asm/x86_64-gcc.c
+            openssl/crypto/bn/asm/x86_64-gf2m.S
+            openssl/crypto/bn/asm/x86_64-mont.S
+            openssl/crypto/bn/asm/x86_64-mont5.S
+            openssl/crypto/ec/asm/ecp_nistz256-x86_64.S
+            openssl/crypto/md5/asm/md5-x86_64.S
+            openssl/crypto/modes/asm/aesni-gcm-x86_64.S
+            openssl/crypto/modes/asm/ghash-x86_64.S
+            openssl/crypto/poly1305/asm/poly1305-x86_64.S
+            openssl/crypto/rc4/asm/rc4-md5-x86_64.S
+            openssl/crypto/rc4/asm/rc4-x86_64.S
+            openssl/crypto/sha/asm/sha1-mb-x86_64.S
+            openssl/crypto/sha/asm/sha1-x86_64.S
+            openssl/crypto/sha/asm/sha256-mb-x86_64.S
+            openssl/crypto/sha/asm/sha256-x86_64.S
+            openssl/crypto/sha/asm/sha512-x86_64.S
+            openssl/crypto/sha/asm/keccak1600-x86_64.S
+            openssl/crypto/ec/asm/x25519-x86_64.S
+            openssl/crypto/x86_64cpuid.S
+            )
+
+    list(REMOVE_ITEM crypto_srcs
+            openssl/crypto/aes/aes_cbc.c
+            openssl/crypto/bn/bn_asm.c
+            openssl/crypto/mem_clr.c
+            openssl/crypto/rc4/rc4_enc.c
+            openssl/crypto/rc4/rc4_skey.c
+            )
+else ()
+    message(FATAL_ERROR "Unknown arch ${ANDROID_ABI} for source files")
+endif ()
+
+set(provider_srcs
+        openssl/providers/nullprov.c
+        openssl/providers/common/bio_prov.c
+        openssl/providers/common/capabilities.c
         openssl/providers/common/der/der_digests_gen.c
         openssl/providers/common/der/der_dsa_gen.c
-        openssl/providers/common/der/der_dsa_key.c
         openssl/providers/common/der/der_dsa_sig.c
         openssl/providers/common/der/der_ec_gen.c
-        openssl/providers/common/der/der_ec_key.c
-        openssl/providers/common/der/der_ec_sig.c
         openssl/providers/common/der/der_ecx_gen.c
         openssl/providers/common/der/der_ecx_key.c
+        openssl/providers/common/der/der_ec_sig.c
         openssl/providers/common/der/der_rsa_gen.c
         openssl/providers/common/der/der_rsa_key.c
         openssl/providers/common/der/der_rsa_sig.c
         openssl/providers/common/der/der_sm2_gen.c
-        openssl/providers/common/der/der_sm2_key.c
         openssl/providers/common/der/der_sm2_sig.c
         openssl/providers/common/der/der_wrap_gen.c
-        openssl/providers/common/include/prov/__DECC_INCLUDE_EPILOGUE.H
-        openssl/providers/common/include/prov/__DECC_INCLUDE_PROLOGUE.H
-        openssl/providers/common/include/prov/bio.h
-        openssl/providers/common/include/prov/der_digests.h
-        openssl/providers/common/include/prov/der_dsa.h
-        openssl/providers/common/include/prov/der_ec.h
-        openssl/providers/common/include/prov/der_ecx.h
-        openssl/providers/common/include/prov/der_rsa.h
-        openssl/providers/common/include/prov/der_sm2.h
-        openssl/providers/common/include/prov/der_wrap.h
-        openssl/providers/common/include/prov/provider_ctx.h
-        openssl/providers/common/include/prov/proverr.h
-        openssl/providers/common/include/prov/provider_util.h
-        openssl/providers/common/include/prov/providercommon.h
-        openssl/providers/common/include/prov/securitycheck.h
-        openssl/providers/common/bio_prov.c
-        openssl/providers/common/capabilities.c
         openssl/providers/common/digest_to_nid.c
         openssl/providers/common/provider_ctx.c
+        openssl/providers/common/provider_util.c
         openssl/providers/common/provider_err.c
         openssl/providers/common/provider_seeding.c
-        openssl/providers/common/provider_util.c
         openssl/providers/common/securitycheck.c
         openssl/providers/common/securitycheck_default.c
-        openssl/providers/common/securitycheck_fips.c
-        openssl/providers/fips/fips_entry.c
-        openssl/providers/fips/fipsprov.c
-        openssl/providers/fips/self_test.c
-        openssl/providers/fips/self_test.h
-        openssl/providers/fips/self_test_data.inc
-        openssl/providers/fips/self_test_kats.c
+        openssl/providers/baseprov.c
+        openssl/providers/defltprov.c
         openssl/providers/implementations/asymciphers/rsa_enc.c
         openssl/providers/implementations/asymciphers/sm2_enc.c
-        openssl/providers/implementations/ciphers/cipher_aes.c
-        openssl/providers/implementations/ciphers/cipher_aes.h
-        openssl/providers/implementations/ciphers/cipher_aes_cbc_hmac_sha.c
-        openssl/providers/implementations/ciphers/cipher_aes_cbc_hmac_sha.h
-        openssl/providers/implementations/ciphers/cipher_aes_cbc_hmac_sha1_hw.c
-        openssl/providers/implementations/ciphers/cipher_aes_cbc_hmac_sha256_hw.c
-        openssl/providers/implementations/ciphers/cipher_aes_ccm.c
-        openssl/providers/implementations/ciphers/cipher_aes_ccm.h
-        openssl/providers/implementations/ciphers/cipher_aes_ccm_hw.c
-        openssl/providers/implementations/ciphers/cipher_aes_gcm.c
-        openssl/providers/implementations/ciphers/cipher_aes_gcm.h
-        openssl/providers/implementations/ciphers/cipher_aes_gcm_hw.c
-        openssl/providers/implementations/ciphers/cipher_aes_hw.c
-        openssl/providers/implementations/ciphers/cipher_aes_ocb.c
-        openssl/providers/implementations/ciphers/cipher_aes_ocb.h
-        openssl/providers/implementations/ciphers/cipher_aes_ocb_hw.c
-        openssl/providers/implementations/ciphers/cipher_aes_siv.c
-        openssl/providers/implementations/ciphers/cipher_aes_siv.h
-        openssl/providers/implementations/ciphers/cipher_aes_siv_hw.c
-        openssl/providers/implementations/ciphers/cipher_aes_wrp.c
-        openssl/providers/implementations/ciphers/cipher_aes_xts.c
-        openssl/providers/implementations/ciphers/cipher_aes_xts.h
-        openssl/providers/implementations/ciphers/cipher_aes_xts_fips.c
-        openssl/providers/implementations/ciphers/cipher_aes_xts_hw.c
-        openssl/providers/implementations/ciphers/cipher_aria.c
-        openssl/providers/implementations/ciphers/cipher_aria.h
-        openssl/providers/implementations/ciphers/cipher_aria_ccm.c
-        openssl/providers/implementations/ciphers/cipher_aria_ccm.h
-        openssl/providers/implementations/ciphers/cipher_aria_ccm_hw.c
-        openssl/providers/implementations/ciphers/cipher_aria_gcm.c
-        openssl/providers/implementations/ciphers/cipher_aria_gcm.h
-        openssl/providers/implementations/ciphers/cipher_aria_gcm_hw.c
-        openssl/providers/implementations/ciphers/cipher_aria_hw.c
-        openssl/providers/implementations/ciphers/cipher_blowfish.c
-        openssl/providers/implementations/ciphers/cipher_blowfish.h
-        openssl/providers/implementations/ciphers/cipher_blowfish_hw.c
-        openssl/providers/implementations/ciphers/cipher_camellia.c
-        openssl/providers/implementations/ciphers/cipher_camellia.h
-        openssl/providers/implementations/ciphers/cipher_camellia_hw.c
-        openssl/providers/implementations/ciphers/cipher_cast.h
-        openssl/providers/implementations/ciphers/cipher_cast5.c
-        openssl/providers/implementations/ciphers/cipher_cast5_hw.c
+        openssl/providers/implementations/ciphers/ciphercommon_block.c
         openssl/providers/implementations/ciphers/cipher_chacha20.c
-        openssl/providers/implementations/ciphers/cipher_chacha20.h
-        openssl/providers/implementations/ciphers/cipher_chacha20_hw.c
-        openssl/providers/implementations/ciphers/cipher_chacha20_poly1305.c
-        openssl/providers/implementations/ciphers/cipher_chacha20_poly1305.h
-        openssl/providers/implementations/ciphers/cipher_chacha20_poly1305_hw.c
-        openssl/providers/implementations/ciphers/cipher_cts.c
-        openssl/providers/implementations/ciphers/cipher_cts.h
-        openssl/providers/implementations/ciphers/cipher_des.c
-        openssl/providers/implementations/ciphers/cipher_des.h
-        openssl/providers/implementations/ciphers/cipher_des_hw.c
-        openssl/providers/implementations/ciphers/cipher_desx.c
-        openssl/providers/implementations/ciphers/cipher_desx_hw.c
-        openssl/providers/implementations/ciphers/cipher_idea.c
-        openssl/providers/implementations/ciphers/cipher_idea.h
-        openssl/providers/implementations/ciphers/cipher_idea_hw.c
-        openssl/providers/implementations/ciphers/cipher_null.c
-        openssl/providers/implementations/ciphers/cipher_rc2.c
-        openssl/providers/implementations/ciphers/cipher_rc2.h
-        openssl/providers/implementations/ciphers/cipher_rc2_hw.c
-        openssl/providers/implementations/ciphers/cipher_rc4.c
-        openssl/providers/implementations/ciphers/cipher_rc4.h
-        openssl/providers/implementations/ciphers/cipher_rc4_hw.c
-        openssl/providers/implementations/ciphers/cipher_rc4_hmac_md5.c
-        openssl/providers/implementations/ciphers/cipher_rc4_hmac_md5.h
-        openssl/providers/implementations/ciphers/cipher_rc4_hmac_md5_hw.c
-        openssl/providers/implementations/ciphers/cipher_seed.c
-        openssl/providers/implementations/ciphers/cipher_seed.h
-        openssl/providers/implementations/ciphers/cipher_seed_hw.c
-        openssl/providers/implementations/ciphers/cipher_sm4.c
-        openssl/providers/implementations/ciphers/cipher_sm4.h
-        openssl/providers/implementations/ciphers/cipher_sm4_ccm.c
-        openssl/providers/implementations/ciphers/cipher_sm4_ccm.h
-        openssl/providers/implementations/ciphers/cipher_sm4_ccm_hw.c
-        openssl/providers/implementations/ciphers/cipher_sm4_gcm.c
-        openssl/providers/implementations/ciphers/cipher_sm4_gcm.h
-        openssl/providers/implementations/ciphers/cipher_sm4_gcm_hw.c
-        openssl/providers/implementations/ciphers/cipher_sm4_hw.c
-        openssl/providers/implementations/ciphers/cipher_tdes.c
-        openssl/providers/implementations/ciphers/cipher_tdes.h
-        openssl/providers/implementations/ciphers/cipher_tdes_common.c
-        openssl/providers/implementations/ciphers/cipher_tdes_default.c
-        openssl/providers/implementations/ciphers/cipher_tdes_default.h
-        openssl/providers/implementations/ciphers/cipher_tdes_default_hw.c
-        openssl/providers/implementations/ciphers/cipher_tdes_hw.c
+        openssl/providers/implementations/ciphers/cipher_aes_cbc_hmac_sha1_hw.c
+        openssl/providers/implementations/ciphers/cipher_aes_cbc_hmac_sha.c
         openssl/providers/implementations/ciphers/cipher_tdes_wrap.c
-        openssl/providers/implementations/ciphers/cipher_tdes_wrap_hw.c
+        openssl/providers/implementations/ciphers/cipher_aes.c
+        openssl/providers/implementations/ciphers/cipher_blowfish_hw.c
+        openssl/providers/implementations/ciphers/cipher_aes_wrp.c
+        openssl/providers/implementations/ciphers/cipher_des.c
+        openssl/providers/implementations/ciphers/ciphercommon_gcm_hw.c
+        openssl/providers/implementations/ciphers/cipher_aria.c
+        openssl/providers/implementations/ciphers/cipher_aes_ocb.c
+        openssl/providers/implementations/ciphers/cipher_desx_hw.c
+        openssl/providers/implementations/ciphers/cipher_aes_xts.c
+        openssl/providers/implementations/ciphers/cipher_aria_hw.c
+        openssl/providers/implementations/ciphers/cipher_aes_gcm.c
+        openssl/providers/implementations/ciphers/ciphercommon_ccm_hw.c
+        openssl/providers/implementations/ciphers/cipher_aes_siv.c
+        openssl/providers/implementations/ciphers/cipher_tdes_common.c
+        openssl/providers/implementations/ciphers/cipher_aes_ccm.c
+        openssl/providers/implementations/ciphers/cipher_sm4.c
+        openssl/providers/implementations/ciphers/cipher_aes_hw.c
+        openssl/providers/implementations/ciphers/cipher_aes_ocb_hw.c
+        openssl/providers/implementations/ciphers/cipher_cts.c
+        openssl/providers/implementations/ciphers/cipher_des_hw.c
+        openssl/providers/implementations/ciphers/cipher_null.c
+        openssl/providers/implementations/ciphers/cipher_rc2_hw.c
+        openssl/providers/implementations/ciphers/cipher_chacha20_poly1305_hw.c
+        openssl/providers/implementations/ciphers/cipher_tdes.c
+        openssl/providers/implementations/ciphers/cipher_aes_ccm_hw.c
+        openssl/providers/implementations/ciphers/ciphercommon_ccm.c
+        openssl/providers/implementations/ciphers/cipher_tdes_default.c
         openssl/providers/implementations/ciphers/ciphercommon.c
         openssl/providers/implementations/ciphers/ciphercommon_block.c
-        openssl/providers/implementations/ciphers/ciphercommon_ccm.c
-        openssl/providers/implementations/ciphers/ciphercommon_ccm_hw.c
+        openssl/providers/implementations/ciphers/cipher_tdes_default_hw.c
+        openssl/providers/implementations/ciphers/cipher_sm4_hw.c
         openssl/providers/implementations/ciphers/ciphercommon_gcm.c
-        openssl/providers/implementations/ciphers/ciphercommon_gcm_hw.c
+        openssl/providers/implementations/ciphers/cipher_tdes_wrap_hw.c
+        openssl/providers/implementations/ciphers/cipher_desx.c
         openssl/providers/implementations/ciphers/ciphercommon_hw.c
-        openssl/providers/implementations/ciphers/ciphercommon_local.h
-        openssl/providers/implementations/digests/blake2_impl.h
+        openssl/providers/implementations/ciphers/cipher_rc2.c
+        openssl/providers/implementations/ciphers/cipher_aes_xts_hw.c
+        openssl/providers/implementations/ciphers/cipher_chacha20_hw.c
+        openssl/providers/implementations/ciphers/cipher_aria_ccm_hw.c
+        openssl/providers/implementations/ciphers/cipher_blowfish.c
+        openssl/providers/implementations/ciphers/cipher_aria_gcm.c
+        openssl/providers/implementations/ciphers/cipher_aria_gcm_hw.c
+        openssl/providers/implementations/ciphers/cipher_rc4_hw.c
+        openssl/providers/implementations/ciphers/cipher_chacha20_poly1305.c
+        openssl/providers/implementations/ciphers/cipher_rc4_hmac_md5.c
+        openssl/providers/implementations/ciphers/cipher_aes_cbc_hmac_sha256_hw.c
+        openssl/providers/implementations/ciphers/cipher_aria_ccm.c
+        openssl/providers/implementations/ciphers/cipher_aes_siv_hw.c
+        openssl/providers/implementations/ciphers/cipher_aes_gcm_hw.c
+        openssl/providers/implementations/ciphers/cipher_tdes_hw.c
+        openssl/providers/implementations/ciphers/cipher_aes_xts_fips.c
         openssl/providers/implementations/digests/blake2_prov.c
-        openssl/providers/implementations/digests/blake2b_prov.c
         openssl/providers/implementations/digests/blake2s_prov.c
+        openssl/providers/implementations/digests/blake2b_prov.c
         openssl/providers/implementations/digests/digestcommon.c
         openssl/providers/implementations/digests/md4_prov.c
         openssl/providers/implementations/digests/md5_prov.c
         openssl/providers/implementations/digests/md5_sha1_prov.c
-        openssl/providers/implementations/digests/mdc2_prov.c
         openssl/providers/implementations/digests/null_prov.c
-        openssl/providers/implementations/digests/ripemd_prov.c
         openssl/providers/implementations/digests/sha2_prov.c
         openssl/providers/implementations/digests/sha3_prov.c
         openssl/providers/implementations/digests/sm3_prov.c
-        openssl/providers/implementations/digests/wp_prov.c
         openssl/providers/implementations/encode_decode/decode_der2key.c
         openssl/providers/implementations/encode_decode/decode_epki2pki.c
-        openssl/providers/implementations/encode_decode/decode_msblob2key.c
-        openssl/providers/implementations/encode_decode/decode_pem2der.c
-        openssl/providers/implementations/encode_decode/decode_pvk2key.c
         openssl/providers/implementations/encode_decode/decode_spki2typespki.c
         openssl/providers/implementations/encode_decode/encode_key2any.c
         openssl/providers/implementations/encode_decode/encode_key2blob.c
         openssl/providers/implementations/encode_decode/encode_key2ms.c
         openssl/providers/implementations/encode_decode/encode_key2text.c
+        openssl/providers/implementations/encode_decode/decode_msblob2key.c
+        openssl/providers/implementations/encode_decode/decode_pem2der.c
+        openssl/providers/implementations/encode_decode/decode_pvk2key.c
         openssl/providers/implementations/encode_decode/endecoder_common.c
-        openssl/providers/implementations/encode_decode/endecoder_local.h
-        openssl/providers/implementations/exchange/dh_exch.c
-        openssl/providers/implementations/exchange/ecdh_exch.c
         openssl/providers/implementations/exchange/ecx_exch.c
+        openssl/providers/implementations/exchange/ecdh_exch.c
+        openssl/providers/implementations/exchange/dh_exch.c
         openssl/providers/implementations/exchange/kdf_exch.c
-        openssl/providers/implementations/include/prov/__DECC_INCLUDE_PROLOGUE.H
-        openssl/providers/implementations/include/prov/__DECC_INCLUDE_EPILOGUE.H
-        openssl/providers/implementations/include/prov/blake2.h
-        openssl/providers/implementations/include/prov/ciphercommon.h
-        openssl/providers/implementations/include/prov/ciphercommon_aead.h
-        openssl/providers/implementations/include/prov/ciphercommon_ccm.h
-        openssl/providers/implementations/include/prov/ciphercommon_gcm.h
-        openssl/providers/implementations/include/prov/digestcommon.h
-        openssl/providers/implementations/include/prov/implementations.h
-        openssl/providers/implementations/include/prov/kdfexchange.h
-        openssl/providers/implementations/include/prov/macsignature.h
-        openssl/providers/implementations/include/prov/md5_sha1.h
-        openssl/providers/implementations/include/prov/names.h
-        openssl/providers/implementations/include/prov/seeding.h
-        openssl/providers/implementations/kdfs/hkdf.c
-        openssl/providers/implementations/kdfs/kbkdf.c
-        openssl/providers/implementations/kdfs/krb5kdf.c
-        openssl/providers/implementations/kdfs/pbkdf1.c
-        openssl/providers/implementations/kdfs/pbkdf2.c
-        openssl/providers/implementations/kdfs/pbkdf2.h
-        openssl/providers/implementations/kdfs/pbkdf2_fips.c
-        openssl/providers/implementations/kdfs/pkcs12kdf.c
-        openssl/providers/implementations/kdfs/scrypt.c
-        openssl/providers/implementations/kdfs/sshkdf.c
-        openssl/providers/implementations/kdfs/sskdf.c
-        openssl/providers/implementations/kdfs/tls1_prf.c
-        openssl/providers/implementations/kdfs/x942kdf.c
         openssl/providers/implementations/kem/rsa_kem.c
         openssl/providers/implementations/keymgmt/dh_kmgmt.c
-        openssl/providers/implementations/keymgmt/dsa_kmgmt.c
         openssl/providers/implementations/keymgmt/ec_kmgmt.c
+        openssl/providers/implementations/keymgmt/dsa_kmgmt.c
         openssl/providers/implementations/keymgmt/ecx_kmgmt.c
         openssl/providers/implementations/keymgmt/kdf_legacy_kmgmt.c
         openssl/providers/implementations/keymgmt/mac_legacy_kmgmt.c
         openssl/providers/implementations/keymgmt/rsa_kmgmt.c
+        openssl/providers/implementations/kdfs/x942kdf.c
+        openssl/providers/implementations/kdfs/sskdf.c
+        openssl/providers/implementations/kdfs/tls1_prf.c
+        openssl/providers/implementations/kdfs/sshkdf.c
+        openssl/providers/implementations/kdfs/scrypt.c
+        openssl/providers/implementations/kdfs/krb5kdf.c
+        openssl/providers/implementations/kdfs/hkdf.c
+        openssl/providers/implementations/kdfs/pbkdf2_fips.c
+        openssl/providers/implementations/kdfs/kbkdf.c
+        openssl/providers/implementations/kdfs/pbkdf2.c
+        openssl/providers/implementations/kdfs/pkcs12kdf.c
         openssl/providers/implementations/macs/blake2b_mac.c
         openssl/providers/implementations/macs/blake2s_mac.c
         openssl/providers/implementations/macs/cmac_prov.c
@@ -1318,35 +902,125 @@ add_library(openssl
         openssl/providers/implementations/macs/kmac_prov.c
         openssl/providers/implementations/macs/poly1305_prov.c
         openssl/providers/implementations/macs/siphash_prov.c
-        openssl/providers/implementations/rands/seeding/rand_cpu_arm64.c
-        openssl/providers/implementations/rands/seeding/rand_cpu_x86.c
-        openssl/providers/implementations/rands/seeding/rand_tsc.c
-        openssl/providers/implementations/rands/seeding/rand_unix.c
-        openssl/providers/implementations/rands/crngt.c
         openssl/providers/implementations/rands/drbg.c
         openssl/providers/implementations/rands/drbg_ctr.c
         openssl/providers/implementations/rands/drbg_hash.c
         openssl/providers/implementations/rands/drbg_hmac.c
-        openssl/providers/implementations/rands/drbg_local.h
         openssl/providers/implementations/rands/seed_src.c
+        openssl/providers/implementations/rands/seeding/rand_unix.c
         openssl/providers/implementations/rands/test_rng.c
         openssl/providers/implementations/signature/dsa_sig.c
         openssl/providers/implementations/signature/ecdsa_sig.c
         openssl/providers/implementations/signature/eddsa_sig.c
         openssl/providers/implementations/signature/mac_legacy_sig.c
         openssl/providers/implementations/signature/rsa_sig.c
-        openssl/providers/implementations/signature/sm2_sig.c
+	    openssl/providers/implementations/signature/sm2_sig.c
         openssl/providers/implementations/storemgmt/file_store.c
         openssl/providers/implementations/storemgmt/file_store_any2obj.c
-        openssl/providers/implementations/storemgmt/file_store_local.h
-        openssl/providers/baseprov.c
-#        openssl/providers/decoders.inc
-        openssl/providers/defltprov.c
-#        openssl/providers/encoders.inc
-        openssl/providers/legacyprov.c
-        openssl/providers/nullprov.c
         openssl/providers/prov_running.c
-#        openssl/providers/stores.inc
+        )
+
+set(legacy_srcs
+        openssl/providers/legacyprov.c
+        openssl/providers/implementations/ciphers/cipher_rc4_hmac_md5_hw.c
+        openssl/providers/implementations/ciphers/cipher_rc4_hmac_md5.c
+        openssl/providers/implementations/ciphers/cipher_rc4.c
+        openssl/providers/implementations/kdfs/pbkdf1.c
+)
+
+add_library(crypto ${SSLLIBTYPE} ${provider_srcs} ${legacy_srcs} ${crypto_srcs})
+
+target_include_directories(crypto PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/openssl/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/openssl/
+        ${CMAKE_CURRENT_SOURCE_DIR}/openssl/crypto/
+        ${CMAKE_CURRENT_SOURCE_DIR}/openssl/crypto/ec/curve448/arch_32
+        ${CMAKE_CURRENT_SOURCE_DIR}/openssl/crypto/ec/curve448/
+        ${CMAKE_CURRENT_SOURCE_DIR}/openssl/providers/common/include/
+        ${CMAKE_CURRENT_SOURCE_DIR}/openssl/providers/implementations/include/
+        )
+
+target_include_directories(crypto PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/openssl/crypto/modes
+        )
+
+target_compile_definitions(crypto PRIVATE -DNO_WINDOWS_BRAINDEATH -DMODULESDIR="ossl-modules" -DOPENSSL_BUILDING_OPENSSL)
+target_compile_options(crypto PRIVATE -Wno-missing-field-initializers -Wno-unused-parameter
+        -DKECCAK1600_ASM
+        -DNDEBUG
+        -DECP_NISTZ256_ASM
+        -DSHA1_ASM
+        -DSHA256_ASM
+        -DSHA512_ASM
+        -DOPENSSL_PIC
+        -DOPENSSL_THREADS
+        -DOPENSSL_CPUID_OBJ
+        -DL_ENDIAN
+        -DSTATIC_LEGACY
+        )
+
+if (${ANDROID_ABI} STREQUAL "armeabi-v7a")
+    target_compile_definitions(crypto PRIVATE
+            -DAES_ASM
+            -DBSAES_ASM
+            -DGHASH_ASM
+            -DOPENSSL_BN_ASM_GF2m
+            )
+
+
+elseif (${ANDROID_ABI} STREQUAL "arm64-v8a")
+    target_compile_definitions(crypto PRIVATE
+            -DPOLY1305_ASM
+            -DVPAES_ASM
+            )
+elseif (${ANDROID_ABI} STREQUAL "x86")
+    target_compile_definitions(crypto PRIVATE
+            -DAES_ASM
+            -DDES_ASM
+            -DECP_NISTZ256_ASM
+            -DGHASH_ASM
+            -DMD5_ASM
+            -DOPENSSL_BN_ASM_GF2m
+            -DOPENSSL_BN_ASM_PART_WORDS
+            -DOPENSSL_IA32_SSE2
+            -DPOLY1305_ASM
+            -DVPAES_ASM
+            )
+elseif (${ANDROID_ABI} STREQUAL "x86_64")
+    target_compile_definitions(crypto PRIVATE
+            -DAES_ASM
+            -DBSAES_ASM
+            -DECP_NISTZ256_ASM
+            -DGHASH_ASM
+            -DMD5_ASM
+            -DNDEBUG
+            -DOPENSSL_BN_ASM_GF2m
+            -DOPENSSL_BN_ASM_MONT5
+            -DOPENSSL_IA32_SSE2
+            -DPOLY1305_ASM
+            -DVPAES_ASM
+            -DX25519_ASM
+            )
+else ()
+    message(FATAL_ERROR "Unknown arch ${ANDROID_ABI} for flags")
+endif ()
+
+if (${ANDROID_ABI} STREQUAL "x86_64" OR ${ANDROID_ABI} STREQUAL "arm64-v8a")
+    target_compile_definitions(crypto PRIVATE
+            -DOPENSSLDIR=\"/system/lib/ssl\"
+            -DENGINESDIR=\"/system/lib/ssl/engines\"
+            )
+else ()
+    target_compile_definitions(crypto PRIVATE
+            -DOPENSSLDIR=\"/system/lib64/ssl\"
+            -DENGINESDIR=\"/system/lib64/ssl/engines\"
+            )
+endif ()
+
+
+################## SSL Library ###########################################
+
+set(ssl_srcs
         openssl/ssl/bio_ssl.c
         openssl/ssl/d1_lib.c
         openssl/ssl/d1_msg.c
@@ -1356,37 +1030,21 @@ add_library(openssl
         openssl/ssl/record/dtls1_bitmap.c
         openssl/ssl/record/rec_layer_d1.c
         openssl/ssl/record/rec_layer_s3.c
-        openssl/ssl/record/record.h
-        openssl/ssl/record/record_local.h
         openssl/ssl/record/ssl3_buffer.c
         openssl/ssl/record/ssl3_record.c
         openssl/ssl/record/ssl3_record_tls13.c
         openssl/ssl/record/tls_pad.c
-        openssl/ssl/statem/statem.c
-        openssl/ssl/statem/statem.h
-        openssl/ssl/statem/statem_clnt.c
-        openssl/ssl/statem/statem_dtls.c
-        openssl/ssl/statem/extensions.c
-        openssl/ssl/statem/extensions_clnt.c
-        openssl/ssl/statem/extensions_srvr.c
-        openssl/ssl/statem/extensions_cust.c
-        openssl/ssl/statem/statem_lib.c
-        openssl/ssl/statem/statem_local.h
-        openssl/ssl/statem/statem_srvr.c
         openssl/ssl/s3_cbc.c
         openssl/ssl/s3_enc.c
         openssl/ssl/s3_lib.c
         openssl/ssl/s3_msg.c
         openssl/ssl/ssl_asn1.c
         openssl/ssl/ssl_cert.c
-        openssl/ssl/ssl_cert_table.h
         openssl/ssl/ssl_ciph.c
         openssl/ssl/ssl_conf.c
         openssl/ssl/ssl_err.c
-        openssl/ssl/ssl_err_legacy.c
         openssl/ssl/ssl_init.c
         openssl/ssl/ssl_lib.c
-        openssl/ssl/ssl_local.h
         openssl/ssl/ssl_mcnf.c
         openssl/ssl/ssl_rsa.c
         openssl/ssl/ssl_rsa_legacy.c
@@ -1394,29 +1052,23 @@ add_library(openssl
         openssl/ssl/ssl_stat.c
         openssl/ssl/ssl_txt.c
         openssl/ssl/ssl_utst.c
-        openssl/ssl/sslerr.h
+        openssl/ssl/statem/statem.c
+        openssl/ssl/statem/statem_clnt.c
+        openssl/ssl/statem/statem_dtls.c
+        openssl/ssl/statem/extensions.c
+        openssl/ssl/statem/extensions_clnt.c
+        openssl/ssl/statem/extensions_srvr.c
+        openssl/ssl/statem/extensions_cust.c
+        openssl/ssl/statem/statem_lib.c
+        openssl/ssl/statem/statem_srvr.c
         openssl/ssl/t1_enc.c
         openssl/ssl/t1_lib.c
         openssl/ssl/t1_trce.c
-        openssl/ssl/tls13_enc.c
         openssl/ssl/tls_depr.c
         openssl/ssl/tls_srp.c
+        openssl/ssl/tls13_enc.c
         )
 
-
-target_include_directories(openssl PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/openssl/include
-        ${CMAKE_CURRENT_SOURCE_DIR}/openssl/
-        ${CMAKE_CURRENT_SOURCE_DIR}/openssl/crypto/
-        ${CMAKE_CURRENT_SOURCE_DIR}/openssl/providers/common/include/
-        ${CMAKE_CURRENT_SOURCE_DIR}/openssl/providers/implementations/include/
-        )
-
-target_compile_definitions(openssl PRIVATE
-        -DNO_WINDOWS_BRAINDEATH
-        -DMODULESDIR="ossl-modules"
-        -DOPENSSL_BUILDING_OPENSSL
-        -DOPENSSLDIR=\"/system/lib/ssl\"
-        -DENGINESDIR=\"/system/lib/ssl/engines\"
-        -DOPENSSL_BUILDING_OPENSSL
-        )
+add_library(ssl ${SSLLIBTYPE} ${ssl_srcs})
+target_compile_definitions(ssl PRIVATE -DOPENSSL_BUILDING_OPENSSL)
+target_link_libraries(ssl crypto)

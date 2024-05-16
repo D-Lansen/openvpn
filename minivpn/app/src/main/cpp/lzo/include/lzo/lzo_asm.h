@@ -30,7 +30,7 @@
 #define __LZO_ASM_H_INCLUDED 1
 
 #ifndef __LZOCONF_H_INCLUDED
-#include "lzoconf.h"
+#include <lzo/lzoconf.h>
 #endif
 
 #ifdef __cplusplus

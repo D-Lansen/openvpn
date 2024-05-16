@@ -5,7 +5,7 @@
  *             packet encryption, packet authentication, and
  *             packet compression.
  *
- *  Copyright (C) 2002-2023 OpenVPN Inc <sales@openvpn.net>
+ *  Copyright (C) 2002-2022 OpenVPN Inc <sales@openvpn.net>
  *  Copyright (C) 2010-2021 Fox Crypto B.V. <openvpn@foxcrypto.com>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -43,7 +43,6 @@
 #include "ssl_common.h"
 #include "ssl_backend.h"
 #include "ssl_pkt.h"
-#include "tls_crypt.h"
 
 /* Used in the TLS PRF function */
 #define KEY_EXPANSION_ID "OpenVPN"
@@ -97,15 +96,11 @@
 /** Supports the --dns option introduced in version 2.6 */
 #define IV_PROTO_DNS_OPTION      (1<<6)
 
-/** Support for explicit exit notify via control channel
- *  This also includes support for the protocol-flags pushed option */
+/** Support for explicit exit notify via control channel */
 #define IV_PROTO_CC_EXIT_NOTIFY  (1<<7)
 
 /** Support for AUTH_FAIL,TEMP messages */
 #define IV_PROTO_AUTH_FAIL_TEMP  (1<<8)
-
-/** Support to dynamic tls-crypt (renegotiation with TLS-EKM derived tls-crypt key) */
-#define IV_PROTO_DYN_TLS_CRYPT   (1<<9)
 
 /* Default field in X509 to be username */
 #define X509_USERNAME_FIELD_DEFAULT "CN"
@@ -163,7 +158,7 @@ struct tls_multi *tls_multi_init(struct tls_options *tls_options);
  * @ingroup control_processor
  *
  * This function initializes the \c TM_ACTIVE \c tls_session, and in
- * server mode also the \c TM_INITIAL \c tls_session, associated with
+ * server mode also the \c TM_UNTRUSTED \c tls_session, associated with
  * this \c tls_multi structure.  It also configures the control channel's
  * \c frame structure based on the data channel's \c frame given in
  * argument \a frame.
@@ -179,12 +174,6 @@ void tls_multi_init_finalize(struct tls_multi *multi, int tls_mtu);
  */
 struct tls_auth_standalone *tls_auth_standalone_init(struct tls_options *tls_options,
                                                      struct gc_arena *gc);
-
-/**
- * Frees a standalone tls-auth verification object.
- * @param tas   the object to free. May be NULL.
- */
-void tls_auth_standalone_free(struct tls_auth_standalone *tas);
 
 /*
  * Setups the control channel frame size parameters from the data channel
@@ -222,7 +211,6 @@ void tls_multi_free(struct tls_multi *multi, bool clear);
 #define TLSMP_INACTIVE 0
 #define TLSMP_ACTIVE   1
 #define TLSMP_KILL     2
-#define TLSMP_RECONNECT 3
 
 /*
  * Called by the top-level event loop.
@@ -385,11 +373,9 @@ void enable_auth_user_pass();
 
 /*
  * Setup authentication username and password. If auth_file is given, use the
- * credentials stored in the file, however, if is_inline is true then auth_file
- * contains the username/password inline.
+ * credentials stored in the file.
  */
-void auth_user_pass_setup(const char *auth_file, bool is_inline,
-                          const struct static_challenge_info *sc_info);
+void auth_user_pass_setup(const char *auth_file, const struct static_challenge_info *sc_info);
 
 /*
  * Ensure that no caching is performed on authentication information
@@ -399,7 +385,6 @@ void ssl_set_auth_nocache(void);
 /*
  * Purge any stored authentication information, both for key files and tunnel
  * authentication. If PCKS #11 is enabled, purge authentication for that too.
- * Note that auth_token is not cleared.
  */
 void ssl_purge_auth(const bool auth_user_pass_only);
 
@@ -424,7 +409,7 @@ void ssl_put_auth_challenge(const char *cr_str);
 /*
  * Send a payload over the TLS control channel
  */
-bool tls_send_payload(struct key_state *ks,
+bool tls_send_payload(struct tls_multi *multi,
                       const uint8_t *data,
                       int size);
 
@@ -486,7 +471,6 @@ tls_wrap_free(struct tls_wrap_ctx *tls_wrap)
 
     free_buf(&tls_wrap->tls_crypt_v2_metadata);
     free_buf(&tls_wrap->work);
-    secure_memzero(&tls_wrap->original_wrap_keydata, sizeof(tls_wrap->original_wrap_keydata));
 }
 
 static inline bool
@@ -548,6 +532,12 @@ void extract_x509_field_test(void);
  *
  */
 bool is_hard_reset_method2(int op);
+
+/**
+ * Cleans the saved user/password unless auth-nocache is in use.
+ */
+void ssl_clean_user_pass(void);
+
 
 /*
  * Show the TLS ciphers that are available for us to use in the SSL

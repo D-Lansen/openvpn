@@ -29,7 +29,6 @@
 #include "internal/bio.h"
 #include "internal/core.h"
 #include "provider_local.h"
-#include "crypto/context.h"
 #ifndef FIPS_MODULE
 # include <openssl/self_test.h>
 #endif
@@ -73,7 +72,7 @@
  * The locks available are:
  *
  * The provider flag_lock: Used to control updates to the various provider
- * "flags" (flag_initialized and flag_activated) and associated
+ * "flags" (flag_initialized, flag_activated, flag_fallback) and associated
  * "counts" (activatecnt).
  *
  * The provider refcnt_lock: Only ever used to control updates to the provider
@@ -143,6 +142,7 @@ struct ossl_provider_st {
     /* Flag bits */
     unsigned int flag_initialized:1;
     unsigned int flag_activated:1;
+    unsigned int flag_fallback:1; /* Can be used as fallback */
 
     /* Getting and setting the flags require synchronization */
     CRYPTO_RWLOCK *flag_lock;
@@ -283,7 +283,7 @@ void ossl_provider_info_clear(OSSL_PROVIDER_INFO *info)
     sk_INFOPAIR_pop_free(info->parameters, infopair_free);
 }
 
-void ossl_provider_store_free(void *vstore)
+static void provider_store_free(void *vstore)
 {
     struct provider_store_st *store = vstore;
     size_t i;
@@ -305,7 +305,7 @@ void ossl_provider_store_free(void *vstore)
     OPENSSL_free(store);
 }
 
-void *ossl_provider_store_new(OSSL_LIB_CTX *ctx)
+static void *provider_store_new(OSSL_LIB_CTX *ctx)
 {
     struct provider_store_st *store = OPENSSL_zalloc(sizeof(*store));
 
@@ -316,7 +316,7 @@ void *ossl_provider_store_new(OSSL_LIB_CTX *ctx)
         || (store->child_cbs = sk_OSSL_PROVIDER_CHILD_CB_new_null()) == NULL
 #endif
         || (store->lock = CRYPTO_THREAD_lock_new()) == NULL) {
-        ossl_provider_store_free(store);
+        provider_store_free(store);
         return NULL;
     }
     store->libctx = ctx;
@@ -325,11 +325,19 @@ void *ossl_provider_store_new(OSSL_LIB_CTX *ctx)
     return store;
 }
 
+static const OSSL_LIB_CTX_METHOD provider_store_method = {
+    /* Needs to be freed before the child provider data is freed */
+    OSSL_LIB_CTX_METHOD_PRIORITY_1,
+    provider_store_new,
+    provider_store_free,
+};
+
 static struct provider_store_st *get_provider_store(OSSL_LIB_CTX *libctx)
 {
     struct provider_store_st *store = NULL;
 
-    store = ossl_lib_ctx_get_data(libctx, OSSL_LIB_CTX_PROVIDER_STORE_INDEX);
+    store = ossl_lib_ctx_get_data(libctx, OSSL_LIB_CTX_PROVIDER_STORE_INDEX,
+                                  &provider_store_method);
     if (store == NULL)
         ERR_raise(ERR_LIB_CRYPTO, ERR_R_INTERNAL_ERROR);
     return store;
@@ -899,28 +907,16 @@ static int provider_init(OSSL_PROVIDER *prov)
             OPENSSL_free(allocated_load_dir);
         }
 
-        if (prov->module == NULL) {
-            /* DSO has already recorded errors, this is just a tracepoint */
-            ERR_raise_data(ERR_LIB_CRYPTO, ERR_R_DSO_LIB,
-                           "name=%s", prov->name);
-            goto end;
-        }
-
-        prov->init_function = (OSSL_provider_init_fn *)
-            DSO_bind_func(prov->module, "OSSL_provider_init");
+        if (prov->module != NULL)
+            prov->init_function = (OSSL_provider_init_fn *)
+                DSO_bind_func(prov->module, "OSSL_provider_init");
 #endif
     }
 
-    /* Check for and call the initialise function for the provider. */
-    if (prov->init_function == NULL) {
-        ERR_raise_data(ERR_LIB_CRYPTO, ERR_R_UNSUPPORTED,
-                       "name=%s, provider has no provider init function",
-                       prov->name);
-        goto end;
-    }
-
-    if (!prov->init_function((OSSL_CORE_HANDLE *)prov, core_dispatch,
-                             &provider_dispatch, &tmp_provctx)) {
+    /* Call the initialise function for the provider. */
+    if (prov->init_function == NULL
+        || !prov->init_function((OSSL_CORE_HANDLE *)prov, core_dispatch,
+                                &provider_dispatch, &tmp_provctx)) {
         ERR_raise_data(ERR_LIB_CRYPTO, ERR_R_INIT_FAIL,
                        "name=%s", prov->name);
         goto end;
@@ -1208,7 +1204,7 @@ static int provider_remove_store_methods(OSSL_PROVIDER *prov)
     if (!freeing) {
         int acc;
 
-        if (!CRYPTO_THREAD_write_lock(prov->opbits_lock))
+        if (!CRYPTO_THREAD_read_lock(prov->opbits_lock))
             return 0;
         OPENSSL_free(prov->operation_bits);
         prov->operation_bits = NULL;
@@ -1264,7 +1260,7 @@ int ossl_provider_deactivate(OSSL_PROVIDER *prov, int removechildren)
 
 void *ossl_provider_ctx(const OSSL_PROVIDER *prov)
 {
-    return prov != NULL ? prov->provctx : NULL;
+    return prov->provctx;
 }
 
 /*
@@ -1476,6 +1472,16 @@ int OSSL_PROVIDER_available(OSSL_LIB_CTX *libctx, const char *name)
         ossl_provider_free(prov);
     }
     return available;
+}
+
+/* Setters of Provider Object data */
+int ossl_provider_set_fallback(OSSL_PROVIDER *prov)
+{
+    if (prov == NULL)
+        return 0;
+
+    prov->flag_fallback = 1;
+    return 1;
 }
 
 /* Getters of Provider Object data */
@@ -1834,8 +1840,8 @@ static const OSSL_PARAM param_types[] = {
  */
 static OSSL_FUNC_core_gettable_params_fn core_gettable_params;
 static OSSL_FUNC_core_get_params_fn core_get_params;
-static OSSL_FUNC_core_get_libctx_fn core_get_libctx;
 static OSSL_FUNC_core_thread_start_fn core_thread_start;
+static OSSL_FUNC_core_get_libctx_fn core_get_libctx;
 #ifndef FIPS_MODULE
 static OSSL_FUNC_core_new_error_fn core_new_error;
 static OSSL_FUNC_core_set_error_debug_fn core_set_error_debug;
@@ -1843,42 +1849,6 @@ static OSSL_FUNC_core_vset_error_fn core_vset_error;
 static OSSL_FUNC_core_set_error_mark_fn core_set_error_mark;
 static OSSL_FUNC_core_clear_last_error_mark_fn core_clear_last_error_mark;
 static OSSL_FUNC_core_pop_error_to_mark_fn core_pop_error_to_mark;
-OSSL_FUNC_BIO_new_file_fn ossl_core_bio_new_file;
-OSSL_FUNC_BIO_new_membuf_fn ossl_core_bio_new_mem_buf;
-OSSL_FUNC_BIO_read_ex_fn ossl_core_bio_read_ex;
-OSSL_FUNC_BIO_write_ex_fn ossl_core_bio_write_ex;
-OSSL_FUNC_BIO_gets_fn ossl_core_bio_gets;
-OSSL_FUNC_BIO_puts_fn ossl_core_bio_puts;
-OSSL_FUNC_BIO_up_ref_fn ossl_core_bio_up_ref;
-OSSL_FUNC_BIO_free_fn ossl_core_bio_free;
-OSSL_FUNC_BIO_vprintf_fn ossl_core_bio_vprintf;
-OSSL_FUNC_BIO_vsnprintf_fn BIO_vsnprintf;
-static OSSL_FUNC_self_test_cb_fn core_self_test_get_callback;
-OSSL_FUNC_get_entropy_fn ossl_rand_get_entropy;
-OSSL_FUNC_cleanup_entropy_fn ossl_rand_cleanup_entropy;
-OSSL_FUNC_get_nonce_fn ossl_rand_get_nonce;
-OSSL_FUNC_cleanup_nonce_fn ossl_rand_cleanup_nonce;
-#endif
-OSSL_FUNC_CRYPTO_malloc_fn CRYPTO_malloc;
-OSSL_FUNC_CRYPTO_zalloc_fn CRYPTO_zalloc;
-OSSL_FUNC_CRYPTO_free_fn CRYPTO_free;
-OSSL_FUNC_CRYPTO_clear_free_fn CRYPTO_clear_free;
-OSSL_FUNC_CRYPTO_realloc_fn CRYPTO_realloc;
-OSSL_FUNC_CRYPTO_clear_realloc_fn CRYPTO_clear_realloc;
-OSSL_FUNC_CRYPTO_secure_malloc_fn CRYPTO_secure_malloc;
-OSSL_FUNC_CRYPTO_secure_zalloc_fn CRYPTO_secure_zalloc;
-OSSL_FUNC_CRYPTO_secure_free_fn CRYPTO_secure_free;
-OSSL_FUNC_CRYPTO_secure_clear_free_fn CRYPTO_secure_clear_free;
-OSSL_FUNC_CRYPTO_secure_allocated_fn CRYPTO_secure_allocated;
-OSSL_FUNC_OPENSSL_cleanse_fn OPENSSL_cleanse;
-#ifndef FIPS_MODULE
-OSSL_FUNC_provider_register_child_cb_fn ossl_provider_register_child_cb;
-OSSL_FUNC_provider_deregister_child_cb_fn ossl_provider_deregister_child_cb;
-static OSSL_FUNC_provider_name_fn core_provider_get0_name;
-static OSSL_FUNC_provider_get0_provider_ctx_fn core_provider_get0_provider_ctx;
-static OSSL_FUNC_provider_get0_dispatch_fn core_provider_get0_dispatch;
-static OSSL_FUNC_provider_up_ref_fn core_provider_up_ref_intern;
-static OSSL_FUNC_provider_free_fn core_provider_free_intern;
 static OSSL_FUNC_core_obj_add_sigid_fn core_obj_add_sigid;
 static OSSL_FUNC_core_obj_create_fn core_obj_create;
 #endif
@@ -2012,40 +1982,6 @@ static int core_pop_error_to_mark(const OSSL_CORE_HANDLE *handle)
     return ERR_pop_to_mark();
 }
 
-static void core_self_test_get_callback(OPENSSL_CORE_CTX *libctx,
-                                        OSSL_CALLBACK **cb, void **cbarg)
-{
-    OSSL_SELF_TEST_get_callback((OSSL_LIB_CTX *)libctx, cb, cbarg);
-}
-
-static const char *core_provider_get0_name(const OSSL_CORE_HANDLE *prov)
-{
-    return OSSL_PROVIDER_get0_name((const OSSL_PROVIDER *)prov);
-}
-
-static void *core_provider_get0_provider_ctx(const OSSL_CORE_HANDLE *prov)
-{
-    return OSSL_PROVIDER_get0_provider_ctx((const OSSL_PROVIDER *)prov);
-}
-
-static const OSSL_DISPATCH *
-core_provider_get0_dispatch(const OSSL_CORE_HANDLE *prov)
-{
-    return OSSL_PROVIDER_get0_dispatch((const OSSL_PROVIDER *)prov);
-}
-
-static int core_provider_up_ref_intern(const OSSL_CORE_HANDLE *prov,
-                                       int activate)
-{
-    return provider_up_ref_intern((OSSL_PROVIDER *)prov, activate);
-}
-
-static int core_provider_free_intern(const OSSL_CORE_HANDLE *prov,
-                                     int deactivate)
-{
-    return provider_free_intern((OSSL_PROVIDER *)prov, deactivate);
-}
-
 static int core_obj_add_sigid(const OSSL_CORE_HANDLE *prov,
                               const char *sign_name, const char *digest_name,
                               const char *pkey_name)
@@ -2110,7 +2046,7 @@ static const OSSL_DISPATCH core_dispatch_[] = {
     { OSSL_FUNC_BIO_FREE, (void (*)(void))ossl_core_bio_free },
     { OSSL_FUNC_BIO_VPRINTF, (void (*)(void))ossl_core_bio_vprintf },
     { OSSL_FUNC_BIO_VSNPRINTF, (void (*)(void))BIO_vsnprintf },
-    { OSSL_FUNC_SELF_TEST_CB, (void (*)(void))core_self_test_get_callback },
+    { OSSL_FUNC_SELF_TEST_CB, (void (*)(void))OSSL_SELF_TEST_get_callback },
     { OSSL_FUNC_GET_ENTROPY, (void (*)(void))ossl_rand_get_entropy },
     { OSSL_FUNC_CLEANUP_ENTROPY, (void (*)(void))ossl_rand_cleanup_entropy },
     { OSSL_FUNC_GET_NONCE, (void (*)(void))ossl_rand_get_nonce },
@@ -2136,15 +2072,15 @@ static const OSSL_DISPATCH core_dispatch_[] = {
     { OSSL_FUNC_PROVIDER_DEREGISTER_CHILD_CB,
         (void (*)(void))ossl_provider_deregister_child_cb },
     { OSSL_FUNC_PROVIDER_NAME,
-        (void (*)(void))core_provider_get0_name },
+        (void (*)(void))OSSL_PROVIDER_get0_name },
     { OSSL_FUNC_PROVIDER_GET0_PROVIDER_CTX,
-        (void (*)(void))core_provider_get0_provider_ctx },
+        (void (*)(void))OSSL_PROVIDER_get0_provider_ctx },
     { OSSL_FUNC_PROVIDER_GET0_DISPATCH,
-        (void (*)(void))core_provider_get0_dispatch },
+        (void (*)(void))OSSL_PROVIDER_get0_dispatch },
     { OSSL_FUNC_PROVIDER_UP_REF,
-        (void (*)(void))core_provider_up_ref_intern },
+        (void (*)(void))provider_up_ref_intern },
     { OSSL_FUNC_PROVIDER_FREE,
-        (void (*)(void))core_provider_free_intern },
+        (void (*)(void))provider_free_intern },
     { OSSL_FUNC_CORE_OBJ_ADD_SIGID, (void (*)(void))core_obj_add_sigid },
     { OSSL_FUNC_CORE_OBJ_CREATE, (void (*)(void))core_obj_create },
 #endif

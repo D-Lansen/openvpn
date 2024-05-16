@@ -5,7 +5,7 @@
  *             packet encryption, packet authentication, and
  *             packet compression.
  *
- *  Copyright (C) 2002-2023 OpenVPN Inc <sales@openvpn.net>
+ *  Copyright (C) 2002-2022 OpenVPN Inc <sales@openvpn.net>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2
@@ -283,7 +283,7 @@ multi_tcp_wait(const struct context *c,
     }
 #endif
     tun_set(c->c1.tuntap, mtcp->es, EVENT_READ, MTCP_TUN, persistent);
-#if defined(TARGET_LINUX) || defined(TARGET_FREEBSD)
+#if defined(TARGET_LINUX)
     dco_event_set(&c->c1.tuntap->dco, mtcp->es, MTCP_DCO);
 #endif
 
@@ -401,6 +401,18 @@ multi_tcp_wait_lite(struct multi_context *m, struct multi_instance *mi, const in
          (ptr_type)mi);
 
     tv_clear(&c->c2.timeval); /* ZERO-TIMEOUT */
+
+    if (mi && mi->context.c2.link_socket->info.dco_installed)
+    {
+        /* If we got a socket that has been handed over to the kernel
+         * we must not call the normal socket function to figure out
+         * if it is readable or writable */
+        /* Assert that we only have the DCO exptected flags */
+        ASSERT(action & (TA_SOCKET_READ | TA_SOCKET_WRITE));
+
+        /* We are always ready! */
+        return action;
+    }
 
     switch (action)
     {
@@ -525,7 +537,10 @@ multi_tcp_dispatch(struct multi_context *m, struct multi_instance *mi, const int
 
         case TA_INITIAL:
             ASSERT(mi);
-            multi_tcp_set_global_rw_flags(m, mi);
+            if (!mi->context.c2.link_socket->info.dco_installed)
+            {
+                multi_tcp_set_global_rw_flags(m, mi);
+            }
             multi_process_post(m, mi, mpp_flags);
             break;
 
@@ -575,7 +590,10 @@ multi_tcp_post(struct multi_context *m, struct multi_instance *mi, const int act
             }
             else
             {
-                multi_tcp_set_global_rw_flags(m, mi);
+                if (!c->c2.link_socket->info.dco_installed)
+                {
+                    multi_tcp_set_global_rw_flags(m, mi);
+                }
             }
             break;
 
@@ -745,7 +763,7 @@ multi_tcp_process_io(struct multi_context *m)
                     multi_tcp_action(m, mi, TA_INITIAL, false);
                 }
             }
-#if defined(ENABLE_DCO) && (defined(TARGET_LINUX) || defined(TARGET_FREEBSD))
+#if defined(ENABLE_DCO) && defined(TARGET_LINUX)
             /* incoming data on DCO? */
             else if (e->arg == MTCP_DCO)
             {

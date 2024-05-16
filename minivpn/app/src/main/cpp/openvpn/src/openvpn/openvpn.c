@@ -5,7 +5,7 @@
  *             packet encryption, packet authentication, and
  *             packet compression.
  *
- *  Copyright (C) 2002-2023 OpenVPN Inc <sales@openvpn.net>
+ *  Copyright (C) 2002-2022 OpenVPN Inc <sales@openvpn.net>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2
@@ -38,6 +38,10 @@
 #include "memdbg.h"
 
 #define P2P_CHECK_SIG() EVENT_LOOP_CHECK_SIGNAL(c, process_signal_p2p, c);
+
+#ifdef GOOGLE_BREAKPAD
+#include "breakpad.h"
+#endif
 
 static bool
 process_signal_p2p(struct context *c)
@@ -96,8 +100,6 @@ tunnel_point_to_point(struct context *c)
 
         perf_pop();
     }
-
-    persist_client_stats(c);
 
     uninit_management_callback();
 
@@ -262,8 +264,6 @@ openvpn_main(int argc, char *argv[])
 #endif
             show_library_versions(M_INFO);
 
-            show_dco_version(M_INFO);
-
             /* misc stuff */
             pre_setup(&c.options);
 
@@ -393,6 +393,10 @@ wmain(int argc, wchar_t *wargv[])
 int
 main(int argc, char *argv[])
 {
+#ifdef GOOGLE_BREAKPAD
+    breakpad_setup();
+#endif
+
     return openvpn_main(argc, argv);
 }
 #endif /* ifdef _WIN32 */

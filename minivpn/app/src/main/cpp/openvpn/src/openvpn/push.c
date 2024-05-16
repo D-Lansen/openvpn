@@ -5,7 +5,7 @@
  *             packet encryption, packet authentication, and
  *             packet compression.
  *
- *  Copyright (C) 2002-2023 OpenVPN Inc <sales@openvpn.net>
+ *  Copyright (C) 2002-2022 OpenVPN Inc <sales@openvpn.net>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2
@@ -52,7 +52,6 @@ void
 receive_auth_failed(struct context *c, const struct buffer *buffer)
 {
     msg(M_VERB0, "AUTH: Received control message: %s", BSTR(buffer));
-    c->options.no_advance = true;
 
     if (!c->options.pull)
     {
@@ -73,10 +72,10 @@ receive_auth_failed(struct context *c, const struct buffer *buffer)
 
     if (authfail_extended && buf_string_match_head_str(&buf, "TEMP"))
     {
-        parse_auth_failed_temp(&c->options, reason + strlen("TEMP"));
-        register_signal(c->sig, SIGUSR1, "auth-temp-failure (server temporary reject)");
+        parse_auth_failed_temp(&c->options, reason);
+        c->sig->signal_received = SIGUSR1;
+        c->sig->signal_text = "auth-temp-failure (server temporary reject)";
     }
-
     /* Before checking how to react on AUTH_FAILED, first check if the
      * failed auth might be the result of an expired auth-token.
      * Note that a server restart will trigger a generic AUTH_FAILED
@@ -84,8 +83,8 @@ receive_auth_failed(struct context *c, const struct buffer *buffer)
      * identical for this scenario */
     else if (ssl_clean_auth_token())
     {
-        /* SOFT-SIGUSR1 -- Auth failure error */
-        register_signal(c->sig, SIGUSR1, "auth-failure (auth-token)");
+        c->sig->signal_received = SIGUSR1;     /* SOFT-SIGUSR1 -- Auth failure error */
+        c->sig->signal_text = "auth-failure (auth-token)";
         c->options.no_advance = true;
     }
     else
@@ -93,21 +92,20 @@ receive_auth_failed(struct context *c, const struct buffer *buffer)
         switch (auth_retry_get())
         {
             case AR_NONE:
-                /* SOFT-SIGTERM -- Auth failure error */
-                register_signal(c->sig, SIGTERM, "auth-failure");
+                c->sig->signal_received = SIGTERM;     /* SOFT-SIGTERM -- Auth failure error */
                 break;
 
             case AR_INTERACT:
                 ssl_purge_auth(false);
 
             case AR_NOINTERACT:
-                /* SOFT-SIGTUSR1 -- Auth failure error */
-                register_signal(c->sig, SIGUSR1, "auth-failure");
+                c->sig->signal_received = SIGUSR1;     /* SOFT-SIGUSR1 -- Auth failure error */
                 break;
 
             default:
                 ASSERT(0);
         }
+        c->sig->signal_text = "auth-failure";
     }
 #ifdef ENABLE_MANAGEMENT
     if (management)
@@ -171,14 +169,14 @@ server_pushed_signal(struct context *c, const struct buffer *buffer, const bool 
         if (restart)
         {
             msg(D_STREAM_ERRORS, "Connection reset command was pushed by server ('%s')", m);
-            /* SOFT-SIGUSR1 -- server-pushed connection reset */
-            register_signal(c->sig, SIGUSR1, "server-pushed-connection-reset");
+            c->sig->signal_received = SIGUSR1; /* SOFT-SIGUSR1 -- server-pushed connection reset */
+            c->sig->signal_text = "server-pushed-connection-reset";
         }
         else
         {
             msg(D_STREAM_ERRORS, "Halt command was pushed by server ('%s')", m);
-            /* SOFT-SIGTERM -- server-pushed halt */
-            register_signal(c->sig, SIGTERM, "server-pushed-halt");
+            c->sig->signal_received = SIGTERM; /* SOFT-SIGTERM -- server-pushed halt */
+            c->sig->signal_text = "server-pushed-halt";
         }
 #ifdef ENABLE_MANAGEMENT
         if (management)
@@ -193,29 +191,12 @@ void
 receive_exit_message(struct context *c)
 {
     dmsg(D_STREAM_ERRORS, "Exit message received by peer");
-    /* With control channel exit notification, we want to give the session
-     * enough time to handle retransmits and acknowledgment, so that eventual
-     * retries from the client to resend the exit or ACKs will not trigger
-     * a new session (we already forgot the session but the packet's HMAC
-     * is still valid).  This could happen for the entire period that the
-     * HMAC timeslot is still valid, but waiting five seconds here does not
-     * hurt much, takes care of the retransmits, and is easier code-wise.
-     *
-     * This does not affect OCC exit since the HMAC session code will
-     * ignore DATA packets
-     * */
-    if (c->options.mode == MODE_SERVER)
-    {
-        schedule_exit(c, c->options.scheduled_exit_interval, SIGTERM);
-    }
-    else
-    {
-        register_signal(c->sig, SIGUSR1, "remote-exit");
-    }
+    c->sig->signal_received = SIGTERM;
+    c->sig->signal_text = "remote-exit";
 #ifdef ENABLE_MANAGEMENT
     if (management)
     {
-        management_notify(management, "info", "remote-exit", "EXIT");
+        management_notify(management, "info", c->sig->signal_text, "EXIT");
     }
 #endif
 }
@@ -271,10 +252,6 @@ receive_cr_response(struct context *c, const struct buffer *buffer)
 
     management_notify_client_cr_response(key_id, mda, es, m);
 #endif
-#if ENABLE_PLUGIN
-    verify_crresponse_plugin(c->c2.tls_multi, m);
-#endif
-    verify_crresponse_script(c->c2.tls_multi, m);
     msg(D_PUSH, "CR response was sent by client ('%s')", m);
 }
 
@@ -412,16 +389,7 @@ send_auth_failed(struct context *c, const char *client_reason)
         {
             buf_printf(&buf, ",%s", client_reason);
         }
-
-        /* We kill the whole session, send the AUTH_FAILED to any TLS session
-         * that might be active */
-        send_control_channel_string_dowork(&c->c2.tls_multi->session[TM_INITIAL],
-                                           BSTR(&buf), D_PUSH);
-        send_control_channel_string_dowork(&c->c2.tls_multi->session[TM_ACTIVE],
-                                           BSTR(&buf), D_PUSH);
-
-        reschedule_multi_process(c);
-
+        send_control_channel_string(c, BSTR(&buf), D_PUSH);
     }
 
     gc_free(&gc);
@@ -429,11 +397,10 @@ send_auth_failed(struct context *c, const char *client_reason)
 
 
 bool
-send_auth_pending_messages(struct tls_multi *tls_multi,
-                           struct tls_session *session,
-                           const char *extra, unsigned int timeout)
+send_auth_pending_messages(struct tls_multi *tls_multi, const char *extra,
+                           unsigned int timeout)
 {
-    struct key_state *ks = &session->key[KS_PRIMARY];
+    struct key_state *ks = get_key_scan(tls_multi, 0);
 
     static const char info_pre[] = "INFO_PRE,";
 
@@ -450,7 +417,7 @@ send_auth_pending_messages(struct tls_multi *tls_multi,
     struct gc_arena gc = gc_new();
     if ((proto & IV_PROTO_AUTH_PENDING_KW) == 0)
     {
-        send_control_channel_string_dowork(session, "AUTH_PENDING", D_PUSH);
+        send_control_channel_string_dowork(tls_multi, "AUTH_PENDING", D_PUSH);
     }
     else
     {
@@ -461,7 +428,7 @@ send_auth_pending_messages(struct tls_multi *tls_multi,
         struct buffer buf = alloc_buf_gc(len, &gc);
         buf_printf(&buf, auth_pre);
         buf_printf(&buf, "%u", timeout);
-        send_control_channel_string_dowork(session, BSTR(&buf), D_PUSH);
+        send_control_channel_string_dowork(tls_multi, BSTR(&buf), D_PUSH);
     }
 
     size_t len = strlen(extra) + 1 + sizeof(info_pre);
@@ -474,7 +441,7 @@ send_auth_pending_messages(struct tls_multi *tls_multi,
     struct buffer buf = alloc_buf_gc(len, &gc);
     buf_printf(&buf, info_pre);
     buf_printf(&buf, "%s", extra);
-    send_control_channel_string_dowork(session, BSTR(&buf), D_PUSH);
+    send_control_channel_string_dowork(tls_multi, BSTR(&buf), D_PUSH);
 
     ks->auth_deferred_expire = now + timeout;
 
@@ -536,7 +503,7 @@ incoming_push_message(struct context *c, const struct buffer *buffer)
     goto cleanup;
 
 error:
-    register_signal(c->sig, SIGUSR1, "process-push-msg-failed");
+    register_signal(c, SIGUSR1, "process-push-msg-failed");
 cleanup:
     gc_free(&gc);
 }
@@ -564,8 +531,8 @@ send_push_request(struct context *c)
     {
         msg(D_STREAM_ERRORS, "No reply from server to push requests in %ds",
             (int)(now - ks->established));
-        /* SOFT-SIGUSR1 -- server-pushed connection reset */
-        register_signal(c->sig, SIGUSR1, "no-push-reply");
+        c->sig->signal_received = SIGUSR1; /* SOFT-SIGUSR1 -- server-pushed connection reset */
+        c->sig->signal_text = "no-push-reply";
         return false;
     }
 }
@@ -658,33 +625,9 @@ prepare_push_reply(struct context *c, struct gc_arena *gc,
     {
         push_option_fmt(gc, push_list, M_USAGE, "cipher %s", o->ciphername);
     }
-
-    struct buffer proto_flags = alloc_buf_gc(128, gc);
-
-    if (o->imported_protocol_flags & CO_USE_CC_EXIT_NOTIFY)
-    {
-        buf_printf(&proto_flags, " cc-exit");
-
-        /* if the cc exit flag is supported, pushing tls-ekm via protocol-flags
-         * is also supported */
-        if (o->imported_protocol_flags & CO_USE_TLS_KEY_MATERIAL_EXPORT)
-        {
-            buf_printf(&proto_flags, " tls-ekm");
-        }
-    }
-    else if (o->imported_protocol_flags & CO_USE_TLS_KEY_MATERIAL_EXPORT)
+    if (o->data_channel_crypto_flags & CO_USE_TLS_KEY_MATERIAL_EXPORT)
     {
         push_option_fmt(gc, push_list, M_USAGE, "key-derivation tls-ekm");
-    }
-
-    if (o->imported_protocol_flags & CO_USE_DYNAMIC_TLS_CRYPT)
-    {
-        buf_printf(&proto_flags, " dyn-tls-crypt");
-    }
-
-    if (buf_len(&proto_flags) > 0)
-    {
-        push_option_fmt(gc, push_list, M_USAGE, "protocol-flags%s", buf_str(&proto_flags));
     }
 
     /* Push our mtu to the peer if it supports pushable MTUs */
@@ -701,6 +644,10 @@ prepare_push_reply(struct context *c, struct gc_arena *gc,
                 "to client configuration.", client_max_mtu,
                 o->ce.tun_mtu, o->ce.tun_mtu);
         }
+    }
+    if (o->data_channel_crypto_flags & CO_USE_CC_EXIT_NOTIFY)
+    {
+        push_option_fmt(gc, push_list, M_USAGE, "protocol-flags cc-exit");
     }
 
     return true;
@@ -751,7 +698,6 @@ send_push_reply_auth_token(struct tls_multi *multi)
 {
     struct gc_arena gc = gc_new();
     struct push_list push_list = { 0 };
-    struct tls_session *session = &multi->session[TM_ACTIVE];
 
     prepare_auth_token_push_reply(multi, &gc, &push_list);
 
@@ -761,8 +707,8 @@ send_push_reply_auth_token(struct tls_multi *multi)
 
     /* Construct a mimimal control channel push reply message */
     struct buffer buf = alloc_buf_gc(PUSH_BUNDLE_SIZE, &gc);
-    buf_printf(&buf, "%s,%s", push_reply_cmd, e->option);
-    send_control_channel_string_dowork(session, BSTR(&buf), D_PUSH);
+    buf_printf(&buf, "%s, %s", push_reply_cmd, e->option);
+    send_control_channel_string_dowork(multi, BSTR(&buf), D_PUSH);
     gc_free(&gc);
 }
 
@@ -955,7 +901,12 @@ push_remove_option(struct options *o, const char *p)
 int
 process_incoming_push_request(struct context *c)
 {
-    int ret = PUSH_MSG_ERROR;
+    /* if we receive a message as a client we do not want to reply to it. */
+    if (c->options.pull)
+    {
+        return PUSH_MSG_ERROR;
+    }
+
 
 
     if (tls_authentication_status(c->c2.tls_multi) == TLS_AUTHENTICATION_FAILED
@@ -963,7 +914,7 @@ process_incoming_push_request(struct context *c)
     {
         const char *client_reason = tls_client_reason(c->c2.tls_multi);
         send_auth_failed(c, client_reason);
-        ret = PUSH_MSG_AUTH_FAILURE;
+        return PUSH_MSG_AUTH_FAILURE;
     }
     else if (tls_authentication_status(c->c2.tls_multi) == TLS_AUTHENTICATION_SUCCEEDED
              && c->c2.tls_multi->multi_state >= CAS_CONNECT_DONE)
@@ -973,29 +924,27 @@ process_incoming_push_request(struct context *c)
         openvpn_time(&now);
         if (c->c2.sent_push_reply_expiry > now)
         {
-            ret = PUSH_MSG_ALREADY_REPLIED;
+            return PUSH_MSG_ALREADY_REPLIED;
         }
-        else
-        {
-            /* per-client push options - peer-id, cipher, ifconfig, ipv6-ifconfig */
-            struct push_list push_list = { 0 };
-            struct gc_arena gc = gc_new();
 
-            if (prepare_push_reply(c, &gc, &push_list)
-                && send_push_reply(c, &push_list))
-            {
-                ret = PUSH_MSG_REQUEST;
-                c->c2.sent_push_reply_expiry = now + 30;
-            }
-            gc_free(&gc);
+        int ret = PUSH_MSG_ERROR;
+        /* per-client push options - peer-id, cipher, ifconfig, ipv6-ifconfig */
+        struct push_list push_list = { 0 };
+        struct gc_arena gc = gc_new();
+
+        if (prepare_push_reply(c, &gc, &push_list)
+            && send_push_reply(c, &push_list))
+        {
+            ret = PUSH_MSG_REQUEST;
+            c->c2.sent_push_reply_expiry = now + 30;
         }
+        gc_free(&gc);
+        return ret;
     }
     else
     {
-        ret = PUSH_MSG_REQUEST_DEFERRED;
+        return PUSH_MSG_REQUEST_DEFERRED;
     }
-
-    return ret;
 }
 
 static void
@@ -1004,10 +953,8 @@ push_update_digest(md_ctx_t *ctx, struct buffer *buf, const struct options *opt)
     char line[OPTION_PARM_SIZE];
     while (buf_parse(buf, ',', line, sizeof(line)))
     {
-        /* peer-id and auth-token might change on restart and this should not trigger reopening tun */
-        if (strprefix(line, "peer-id ")
-            || strprefix(line, "auth-token ")
-            || strprefix(line, "auth-token-user "))
+        /* peer-id might change on restart and this should not trigger reopening tun */
+        if (strprefix(line, "peer-id "))
         {
             continue;
         }
@@ -1105,7 +1052,7 @@ process_incoming_push_msg(struct context *c,
 void
 remove_iroutes_from_push_route_list(struct options *o)
 {
-    if (o && o->push_list.head && (o->iroutes || o->iroutes_ipv6))
+    if (o && o->push_list.head && o->iroutes)
     {
         struct gc_arena gc = gc_new();
         struct push_entry *e = o->push_list.head;
@@ -1113,16 +1060,16 @@ remove_iroutes_from_push_route_list(struct options *o)
         /* cycle through the push list */
         while (e)
         {
-            char *p[MAX_PARMS+1];
+            char *p[MAX_PARMS];
             bool enable = true;
 
             /* parse the push item */
             CLEAR(p);
             if (e->enable
-                && parse_line(e->option, p, SIZE(p)-1, "[PUSH_ROUTE_REMOVE]", 1, D_ROUTE_DEBUG, &gc))
+                && parse_line(e->option, p, SIZE(p), "[PUSH_ROUTE_REMOVE]", 1, D_ROUTE_DEBUG, &gc))
             {
                 /* is the push item a route directive? */
-                if (p[0] && !strcmp(p[0], "route") && !p[3] && o->iroutes)
+                if (p[0] && !strcmp(p[0], "route") && !p[3])
                 {
                     /* get route parameters */
                     bool status1, status2;
@@ -1138,30 +1085,6 @@ remove_iroutes_from_push_route_list(struct options *o)
                         for (ir = o->iroutes; ir != NULL; ir = ir->next)
                         {
                             if (network == ir->network && netmask == netbits_to_netmask(ir->netbits >= 0 ? ir->netbits : 32))
-                            {
-                                enable = false;
-                                break;
-                            }
-                        }
-                    }
-                }
-                else if (p[0] && !strcmp(p[0], "route-ipv6") && !p[2]
-                         && o->iroutes_ipv6)
-                {
-                    /* get route parameters */
-                    struct in6_addr network;
-                    unsigned int netbits;
-
-                    /* parse route-ipv6 arguments */
-                    if (get_ipv6_addr(p[1], &network, &netbits, D_ROUTE_DEBUG))
-                    {
-                        struct iroute_ipv6 *ir;
-
-                        /* does this route-ipv6 match an iroute-ipv6? */
-                        for (ir = o->iroutes_ipv6; ir != NULL; ir = ir->next)
-                        {
-                            if (!memcmp(&network, &ir->network, sizeof(network))
-                                && netbits == ir->netbits)
                             {
                                 enable = false;
                                 break;

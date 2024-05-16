@@ -5,7 +5,7 @@
  *             packet encryption, packet authentication, and
  *             packet compression.
  *
- *  Copyright (C) 2002-2023 OpenVPN Inc <sales@openvpn.net>
+ *  Copyright (C) 2002-2022 OpenVPN Inc <sales@openvpn.net>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2
@@ -42,7 +42,6 @@
 #include "common.h"
 #include "ssl_verify.h"
 #include "dco.h"
-#include "auth_token.h"
 
 #include "memdbg.h"
 
@@ -82,13 +81,13 @@ static void
 check_tls_errors_co(struct context *c)
 {
     msg(D_STREAM_ERRORS, "Fatal TLS error (check_tls_errors_co), restarting");
-    register_signal(c->sig, c->c2.tls_exit_signal, "tls-error"); /* SOFT-SIGUSR1 -- TLS error */
+    register_signal(c, c->c2.tls_exit_signal, "tls-error"); /* SOFT-SIGUSR1 -- TLS error */
 }
 
 static void
 check_tls_errors_nco(struct context *c)
 {
-    register_signal(c->sig, c->c2.tls_exit_signal, "tls-error"); /* SOFT-SIGUSR1 -- TLS error */
+    register_signal(c, c->c2.tls_exit_signal, "tls-error"); /* SOFT-SIGUSR1 -- TLS error */
 }
 
 /*
@@ -151,18 +150,7 @@ check_dco_key_status(struct context *c)
         return;
     }
 
-    /* no active peer (p2p tls-server mode) */
-    if (c->c2.tls_multi->dco_peer_id == -1)
-    {
-        return;
-    }
-
-    if (!dco_update_keys(&c->c1.tuntap->dco, c->c2.tls_multi))
-    {
-        /* Something bad happened. Kill the connection to
-         * be able to recover. */
-        register_signal(c->sig, SIGUSR1, "dco update keys error");
-    }
+    dco_update_keys(&c->c1.tuntap->dco, c->c2.tls_multi);
 }
 
 /*
@@ -185,14 +173,7 @@ check_tls(struct context *c)
         const int tmp_status = tls_multi_process
                                    (c->c2.tls_multi, &c->c2.to_link, &c->c2.to_link_addr,
                                    get_link_socket_info(c), &wakeup);
-
-        if (tmp_status == TLSMP_RECONNECT)
-        {
-            event_timeout_init(&c->c2.wait_for_connect, 1, now);
-            reset_coarse_timers(c);
-        }
-
-        if (tmp_status == TLSMP_ACTIVE || tmp_status == TLSMP_RECONNECT)
+        if (tmp_status == TLSMP_ACTIVE)
         {
             update_time();
             interval_action(&c->c2.tmp_int);
@@ -205,7 +186,7 @@ check_tls(struct context *c)
             }
             else
             {
-                register_signal(c->sig, SIGTERM, "auth-control-exit");
+                register_signal(c, SIGTERM, "auth-control-exit");
             }
         }
 
@@ -214,15 +195,9 @@ check_tls(struct context *c)
 
     interval_schedule_wakeup(&c->c2.tmp_int, &wakeup);
 
-    /*
-     * Our current code has no good hooks in the TLS machinery to update
+    /* Our current code has no good hooks in the TLS machinery to update
      * DCO keys. So we check the key status after the whole TLS machinery
      * has been completed and potentially update them
-     *
-     * We have a hidden state transition from secondary to primary key based
-     * on ks->auth_deferred_expire that DCO needs to check that the normal
-     * TLS state engine does not check. So we call the \c check_dco_key_status
-     * function even if tmp_status does not indicate that something has changed.
      */
     check_dco_key_status(c);
 
@@ -326,6 +301,7 @@ check_push_request(struct context *c)
 static void
 check_connection_established(struct context *c)
 {
+
     if (connection_established(c))
     {
         /* if --pull was specified, send a push request to server */
@@ -355,31 +331,26 @@ check_connection_established(struct context *c)
         }
         else
         {
-            if (!do_up(c, false, 0))
-            {
-                register_signal(c->sig, SIGUSR1, "connection initialisation failed");
-            }
+            do_up(c, false, 0);
         }
 
         event_timeout_clear(&c->c2.wait_for_connect);
     }
+
 }
 
 bool
-send_control_channel_string_dowork(struct tls_session *session,
+send_control_channel_string_dowork(struct tls_multi *multi,
                                    const char *str, int msglevel)
 {
     struct gc_arena gc = gc_new();
     bool stat;
 
-    ASSERT(session);
-    struct key_state *ks = &session->key[KS_PRIMARY];
-
     /* buffered cleartext write onto TLS control channel */
-    stat = tls_send_payload(ks, (uint8_t *) str, strlen(str) + 1);
+    stat = tls_send_payload(multi, (uint8_t *) str, strlen(str) + 1);
 
     msg(msglevel, "SENT CONTROL [%s]: '%s' (status=%d)",
-        session->common_name ? session->common_name : "UNDEF",
+        tls_common_name(multi, false),
         sanitize_control_message(str, &gc),
         (int) stat);
 
@@ -399,8 +370,8 @@ send_control_channel_string(struct context *c, const char *str, int msglevel)
 {
     if (c->c2.tls_multi)
     {
-        struct tls_session *session = &c->c2.tls_multi->session[TM_ACTIVE];
-        bool ret = send_control_channel_string_dowork(session, str, msglevel);
+        bool ret = send_control_channel_string_dowork(c->c2.tls_multi,
+                                                      str, msglevel);
         reschedule_multi_process(c);
 
         return ret;
@@ -414,16 +385,12 @@ send_control_channel_string(struct context *c, const char *str, int msglevel)
 static void
 check_add_routes_action(struct context *c, const bool errors)
 {
-    bool route_status = do_route(&c->options, c->c1.route_list, c->c1.route_ipv6_list,
-                                 c->c1.tuntap, c->plugins, c->c2.es, &c->net_ctx);
-
-    int flags = (errors ? ISC_ERRORS : 0);
-    flags |= (!route_status ? ISC_ROUTE_ERRORS : 0);
-
+    do_route(&c->options, c->c1.route_list, c->c1.route_ipv6_list,
+             c->c1.tuntap, c->plugins, c->c2.es, &c->net_ctx);
     update_time();
     event_timeout_clear(&c->c2.route_wakeup);
     event_timeout_clear(&c->c2.route_wakeup_expire);
-    initialization_sequence_completed(c, flags); /* client/p2p --route-delay was defined */
+    initialization_sequence_completed(c, errors ? ISC_ERRORS : 0); /* client/p2p --route-delay was defined */
 }
 
 static void
@@ -444,7 +411,7 @@ check_add_routes(struct context *c)
         {
             if (!tun_standby(c->c1.tuntap))
             {
-                register_signal(c->sig, SIGHUP, "ip-fail");
+                register_signal(c, SIGHUP, "ip-fail");
                 c->persist.restart_sleep_seconds = 10;
 #ifdef _WIN32
                 show_routes(M_INFO|M_NOPREFIX);
@@ -463,35 +430,12 @@ check_add_routes(struct context *c)
 
 /*
  * Should we exit due to inactivity timeout?
- *
- * In the non-dco case, the timeout is reset via register_activity()
- * whenever there is sufficient activity on tun or link, so this function
- * is only ever called to raise the TERM signal.
- *
- * With DCO, OpenVPN does not see incoming or outgoing data packets anymore
- * and the logic needs to change - we permit the event to trigger and check
- * kernel DCO counters here, returning and rearming the timer if there was
- * sufficient traffic.
  */
 static void
 check_inactivity_timeout(struct context *c)
 {
-    if (dco_enabled(&c->options) && dco_get_peer_stats(c) == 0)
-    {
-        int64_t tot_bytes = c->c2.tun_read_bytes + c->c2.tun_write_bytes;
-        int64_t new_bytes = tot_bytes - c->c2.inactivity_bytes;
-
-        if (new_bytes > c->options.inactivity_minimum_bytes)
-        {
-            c->c2.inactivity_bytes = tot_bytes;
-            event_timeout_reset(&c->c2.inactivity_interval);
-
-            return;
-        }
-    }
-
     msg(M_INFO, "Inactivity timeout (--inactive), exiting");
-    register_signal(c->sig, SIGTERM, "inactive");
+    register_signal(c, SIGTERM, "inactive");
 }
 
 int
@@ -510,7 +454,7 @@ check_server_poll_timeout(struct context *c)
     if (!tls_initial_packet_received(c->c2.tls_multi))
     {
         msg(M_INFO, "Server poll timeout, restarting");
-        register_signal(c->sig, SIGUSR1, "server_poll");
+        register_signal(c, SIGUSR1, "server_poll");
         c->persist.restart_sleep_seconds = -1;
     }
 }
@@ -535,7 +479,7 @@ schedule_exit(struct context *c, const int n_seconds, const int signal)
 static void
 check_scheduled_exit(struct context *c)
 {
-    register_signal(c->sig, c->c2.scheduled_exit_signal, "delayed-exit");
+    register_signal(c, c->c2.scheduled_exit_signal, "delayed-exit");
 }
 
 /*
@@ -687,21 +631,6 @@ encrypt_sign(struct context *c, bool comp_frag)
 }
 
 /*
- * Should we exit due to session timeout?
- */
-static void
-check_session_timeout(struct context *c)
-{
-    if (c->options.session_timeout
-        && event_timeout_trigger(&c->c2.session_interval, &c->c2.timeval,
-                                 ETT_DEFAULT))
-    {
-        msg(M_INFO, "Session timeout, exiting");
-        register_signal(c->sig, SIGTERM, "session-timeout");
-    }
-}
-
-/*
  * Coarse timers work to 1 second resolution.
  */
 static void
@@ -740,12 +669,6 @@ process_coarse_timers(struct context *c)
         check_add_routes(c);
     }
 
-    /* check if we want to refresh the auth-token */
-    if (event_timeout_trigger(&c->c2.auth_token_renewal_interval, &c->c2.timeval, ETT_DEFAULT))
-    {
-        check_send_auth_token(c);
-    }
-
     /* possibly exit due to --inactive */
     if (c->options.inactivity_timeout
         && event_timeout_trigger(&c->c2.inactivity_interval, &c->c2.timeval, ETT_DEFAULT))
@@ -753,13 +676,6 @@ process_coarse_timers(struct context *c)
         check_inactivity_timeout(c);
     }
 
-    if (c->sig->signal_received)
-    {
-        return;
-    }
-
-    /* kill session if time is over */
-    check_session_timeout(c);
     if (c->sig->signal_received)
     {
         return;
@@ -807,13 +723,6 @@ process_coarse_timers(struct context *c)
 
     /* Should we ping the remote? */
     check_ping_send(c);
-
-#ifdef ENABLE_MANAGEMENT
-    if (management)
-    {
-        management_check_bytecount(c, management, &c->c2.timeval);
-    }
-#endif /* ENABLE_MANAGEMENT */
 }
 
 static void
@@ -938,7 +847,7 @@ read_incoming_link(struct context *c)
             const struct buffer *fbuf = socket_foreign_protocol_head(c->c2.link_socket);
             const int sd = socket_foreign_protocol_sd(c->c2.link_socket);
             port_share_redirect(port_share, fbuf, sd);
-            register_signal(c->sig, SIGTERM, "port-share-redirect");
+            register_signal(c, SIGTERM, "port-share-redirect");
         }
         else
 #endif
@@ -951,7 +860,7 @@ read_incoming_link(struct context *c)
             }
             else
             {
-                register_signal(c->sig, SIGUSR1, "connection-reset"); /* SOFT-SIGUSR1 -- TCP connection reset */
+                register_signal(c, SIGUSR1, "connection-reset"); /* SOFT-SIGUSR1 -- TCP connection reset */
                 msg(D_STREAM_ERRORS, "Connection reset, restarting [%d]", status);
             }
         }
@@ -959,16 +868,8 @@ read_incoming_link(struct context *c)
         return;
     }
 
-    /* check_status() call below resets last-error code */
-    bool dco_win_timeout = tuntap_is_dco_win_timeout(c->c1.tuntap, status);
-
     /* check recvfrom status */
     check_status(status, "read", c->c2.link_socket, NULL);
-
-    if (dco_win_timeout)
-    {
-        trigger_ping_timeout_signal(c);
-    }
 
     /* Remove socks header if applicable */
     socks_postprocess_incoming_link(c);
@@ -996,7 +897,7 @@ process_incoming_link_part1(struct context *c, struct link_socket_info *lsi, boo
 #ifdef ENABLE_MANAGEMENT
         if (management)
         {
-            management_bytes_client(management, c->c2.buf.len, 0);
+            management_bytes_in(management, c->c2.buf.len);
             management_bytes_server(management, &c->c2.link_read_bytes, &c->c2.link_write_bytes, &c->c2.mda_context);
         }
 #endif
@@ -1103,7 +1004,7 @@ process_incoming_link_part1(struct context *c, struct link_socket_info *lsi, boo
         if (!decrypt_status && link_socket_connection_oriented(c->c2.link_socket))
         {
             /* decryption errors are fatal in TCP mode */
-            register_signal(c->sig, SIGUSR1, "decryption-error"); /* SOFT-SIGUSR1 -- decryption error in TCP mode */
+            register_signal(c, SIGUSR1, "decryption-error"); /* SOFT-SIGUSR1 -- decryption error in TCP mode */
             msg(D_STREAM_ERRORS, "Fatal decryption error (process_incoming_link), restarting");
         }
     }
@@ -1216,37 +1117,34 @@ process_incoming_link(struct context *c)
 static void
 process_incoming_dco(struct context *c)
 {
-#if defined(ENABLE_DCO) && (defined(TARGET_LINUX) || defined(TARGET_FREEBSD))
+#if defined(ENABLE_DCO) && defined(TARGET_LINUX)
+    struct link_socket_info *lsi = get_link_socket_info(c);
     dco_context_t *dco = &c->c1.tuntap->dco;
 
     dco_do_read(dco);
 
-    /* FreeBSD currently sends us removal notifcation with the old peer-id in
-     * p2p mode with the ping timeout reason, so ignore that one to not shoot
-     * ourselves in the foot and removing the just established session */
-    if (dco->dco_message_peer_id != c->c2.tls_multi->dco_peer_id)
+    if (dco->dco_message_type == OVPN_CMD_DEL_PEER)
     {
-        msg(D_DCO_DEBUG, "%s: received message for mismatching peer-id %d, "
-            "expected %d", __func__, dco->dco_message_peer_id,
-            c->c2.tls_multi->dco_peer_id);
+        trigger_ping_timeout_signal(c);
         return;
     }
 
-    if (dco->dco_message_type != OVPN_CMD_DEL_PEER)
+    if (dco->dco_message_type != OVPN_CMD_PACKET)
     {
         msg(D_DCO_DEBUG, "%s: received message of type %u - ignoring", __func__,
             dco->dco_message_type);
         return;
     }
 
-    if (dco->dco_del_peer_reason == OVPN_DEL_PEER_REASON_EXPIRED)
-    {
-        msg(D_DCO_DEBUG, "%s: received peer expired notification of for peer-id "
-            "%d", __func__, dco->dco_message_peer_id);
-        trigger_ping_timeout_signal(c);
-        return;
-    }
-#endif /* if defined(ENABLE_DCO) && (defined(TARGET_LINUX) || defined(TARGET_FREEBSD)) */
+    struct buffer orig_buff = c->c2.buf;
+    c->c2.buf = dco->dco_packet_in;
+    c->c2.from = lsi->lsa->actual;
+
+    process_incoming_link(c);
+
+    c->c2.buf = orig_buff;
+    buf_init(&dco->dco_packet_in, 0);
+#endif /* if defined(ENABLE_DCO) && defined(TARGET_LINUX) */
 }
 
 /*
@@ -1271,7 +1169,7 @@ read_incoming_tun(struct context *c)
         read_wintun(c->c1.tuntap, &c->c2.buf);
         if (c->c2.buf.len == -1)
         {
-            register_signal(c->sig, SIGHUP, "tun-abort");
+            register_signal(c, SIGHUP, "tun-abort");
             c->persist.restart_sleep_seconds = 1;
             msg(M_INFO, "Wintun read error, restarting");
             perf_pop();
@@ -1300,7 +1198,7 @@ read_incoming_tun(struct context *c)
     /* Was TUN/TAP interface stopped? */
     if (tuntap_stop(c->c2.buf.len))
     {
-        register_signal(c->sig, SIGTERM, "tun-stop");
+        register_signal(c, SIGTERM, "tun-stop");
         msg(M_INFO, "TUN/TAP interface has been stopped, exiting");
         perf_pop();
         return;
@@ -1309,7 +1207,7 @@ read_incoming_tun(struct context *c)
     /* Was TUN/TAP I/O operation aborted? */
     if (tuntap_abort(c->c2.buf.len))
     {
-        register_signal(c->sig, SIGHUP, "tun-abort");
+        register_signal(c, SIGHUP, "tun-abort");
         c->persist.restart_sleep_seconds = 10;
         msg(M_INFO, "TUN/TAP I/O operation aborted, restarting");
         perf_pop();
@@ -1772,7 +1670,17 @@ process_outgoing_link(struct context *c)
                 socks_preprocess_outgoing_link(c, &to_addr, &size_delta);
 
                 /* Send packet */
-                size = link_socket_write(c->c2.link_socket, &c->c2.to_link, to_addr);
+                if (c->c2.link_socket->info.dco_installed)
+                {
+                    size = dco_do_write(&c->c1.tuntap->dco,
+                                        c->c2.tls_multi->peer_id,
+                                        &c->c2.to_link);
+                }
+                else
+                {
+                    size = link_socket_write(c->c2.link_socket, &c->c2.to_link,
+                                             to_addr);
+                }
 
                 /* Undo effect of prepend */
                 link_socket_write_post_size_adjust(&size, size_delta, &c->c2.to_link);
@@ -1792,7 +1700,7 @@ process_outgoing_link(struct context *c)
 #ifdef ENABLE_MANAGEMENT
                 if (management)
                 {
-                    management_bytes_client(management, 0, size);
+                    management_bytes_out(management, size);
                     management_bytes_server(management, &c->c2.link_read_bytes, &c->c2.link_write_bytes, &c->c2.mda_context);
                 }
 #endif
@@ -1834,7 +1742,7 @@ process_outgoing_link(struct context *c)
             && !tls_initial_packet_received(c->c2.tls_multi) && c->options.mode == MODE_POINT_TO_POINT)
         {
             msg(M_INFO, "Network unreachable, restarting");
-            register_signal(c->sig, SIGUSR1, "network-unreachable");
+            register_signal(c, SIGUSR1, "network-unreachable");
         }
     }
     else
@@ -1861,6 +1769,8 @@ process_outgoing_link(struct context *c)
 void
 process_outgoing_tun(struct context *c)
 {
+    struct gc_arena gc = gc_new();
+
     /*
      * Set up for write() call to TUN/TAP
      * device.
@@ -1946,6 +1856,7 @@ process_outgoing_tun(struct context *c)
     buf_reset(&c->c2.to_tun);
 
     perf_pop();
+    gc_free(&gc);
 }
 
 void
@@ -2039,7 +1950,7 @@ io_wait_dowork(struct context *c, const unsigned int flags)
 #ifdef ENABLE_ASYNC_PUSH
     static int file_shift = FILE_SHIFT;
 #endif
-#if defined(TARGET_LINUX) || defined(TARGET_FREEBSD)
+#ifdef TARGET_LINUX
     static int dco_shift = DCO_SHIFT;    /* Event from DCO linux kernel module */
 #endif
 
@@ -2149,7 +2060,7 @@ io_wait_dowork(struct context *c, const unsigned int flags)
      */
     socket_set(c->c2.link_socket, c->c2.event_set, socket, (void *)&socket_shift, NULL);
     tun_set(c->c1.tuntap, c->c2.event_set, tuntap, (void *)&tun_shift, NULL);
-#if defined(TARGET_LINUX) || defined(TARGET_FREEBSD)
+#if defined(TARGET_LINUX)
     if (socket & EVENT_READ && c->c2.did_open_tun)
     {
         dco_event_set(&c->c1.tuntap->dco, c->c2.event_set, (void *)&dco_shift);

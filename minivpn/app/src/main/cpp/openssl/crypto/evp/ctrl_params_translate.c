@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2023 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2021-2022 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -387,7 +387,7 @@ static int default_fixup_args(enum state state,
 {
     int ret;
 
-    if ((ret = default_check(state, translation, ctx)) <= 0)
+    if ((ret = default_check(state, translation, ctx)) < 0)
         return ret;
 
     switch (state) {
@@ -1955,32 +1955,6 @@ IMPL_GET_RSA_PAYLOAD_COEFFICIENT(7)
 IMPL_GET_RSA_PAYLOAD_COEFFICIENT(8)
 IMPL_GET_RSA_PAYLOAD_COEFFICIENT(9)
 
-static int fix_group_ecx(enum state state,
-                         const struct translation_st *translation,
-                         struct translation_ctx_st *ctx)
-{
-    const char *value = NULL;
-
-    switch (state) {
-    case PRE_PARAMS_TO_CTRL:
-        if (!EVP_PKEY_CTX_IS_GEN_OP(ctx->pctx))
-            return 0;
-        ctx->action_type = NONE;
-        return 1;
-    case POST_PARAMS_TO_CTRL:
-        if (OSSL_PARAM_get_utf8_string_ptr(ctx->params, &value) == 0 ||
-            OPENSSL_strcasecmp(ctx->pctx->keytype, value) != 0) {
-            ERR_raise(ERR_LIB_EVP, ERR_R_PASSED_INVALID_ARGUMENT);
-            ctx->p1 = 0;
-            return 0;
-        }
-        ctx->p1 = 1;
-        return 1;
-    default:
-        return 0;
-    }
-}
-
 /*-
  * The translation table itself
  * ============================
@@ -2192,7 +2166,7 @@ static const struct translation_st evp_pkey_ctx_translations[] = {
       OSSL_ASYM_CIPHER_PARAM_OAEP_DIGEST, OSSL_PARAM_UTF8_STRING, fix_md },
     /*
      * The "rsa_oaep_label" ctrl_str expects the value to always be hex.
-     * This is accommodated by default_fixup_args() above, which mimics that
+     * This is accomodated by default_fixup_args() above, which mimics that
      * expectation for any translation item where |ctrl_str| is NULL and
      * |ctrl_hexstr| is non-NULL.
      */
@@ -2300,15 +2274,6 @@ static const struct translation_st evp_pkey_ctx_translations[] = {
     { GET, -1, -1, EVP_PKEY_OP_TYPE_SIG,
       EVP_PKEY_CTRL_GET_MD, NULL, NULL,
       OSSL_SIGNATURE_PARAM_DIGEST, OSSL_PARAM_UTF8_STRING, fix_md },
-
-    /*-
-     * ECX
-     * ===
-     */
-    { SET, EVP_PKEY_X25519, EVP_PKEY_X25519, EVP_PKEY_OP_KEYGEN, -1, NULL, NULL,
-      OSSL_PKEY_PARAM_GROUP_NAME, OSSL_PARAM_UTF8_STRING, fix_group_ecx },
-    { SET, EVP_PKEY_X448, EVP_PKEY_X448, EVP_PKEY_OP_KEYGEN, -1, NULL, NULL,
-      OSSL_PKEY_PARAM_GROUP_NAME, OSSL_PARAM_UTF8_STRING, fix_group_ecx },
 };
 
 static const struct translation_st evp_pkey_translations[] = {
@@ -2520,7 +2485,7 @@ lookup_translation(struct translation_st *tmpl,
             tmpl->ctrl_hexstr = ctrl_hexstr;
         } else if (tmpl->param_key != NULL) {
             /*
-             * Search criteria that originates from an OSSL_PARAM setter or
+             * Search criteria that originates from a OSSL_PARAM setter or
              * getter.
              *
              * Ctrls were fundamentally bidirectional, with only the ctrl
@@ -2727,7 +2692,7 @@ static int evp_pkey_ctx_setget_params_to_ctrl(EVP_PKEY_CTX *pctx,
 
         ret = fixup(PRE_PARAMS_TO_CTRL, translation, &ctx);
 
-        if (ret > 0 && ctx.action_type != NONE)
+        if (ret > 0 && action_type != NONE)
             ret = EVP_PKEY_CTX_ctrl(pctx, keytype, optype,
                                     ctx.ctrl_cmd, ctx.p1, ctx.p2);
 

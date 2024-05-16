@@ -59,11 +59,9 @@ __owur static int timeoutcmp(SSL_SESSION *a, SSL_SESSION *b)
  */
 void ssl_session_calculate_timeout(SSL_SESSION *ss)
 {
-#ifndef __DJGPP__ /* time_t is unsigned on djgpp */
     /* Force positive timeout */
     if (ss->timeout < 0)
         ss->timeout = 0;
-#endif
     ss->calc_timeout = ss->time + ss->timeout;
     /*
      * |timeout| is always zero or positive, so the check for
@@ -72,7 +70,7 @@ void ssl_session_calculate_timeout(SSL_SESSION *ss)
     ss->timeout_ovf = ss->time > 0 && ss->calc_timeout < ss->time;
     /*
      * N.B. Realistic overflow can only occur in our lifetimes on a
-     *      32-bit machine with signed time_t, in January 2038.
+     *      32-bit machine in January 2038.
      *      However, There are no controls to limit the |timeout|
      *      value, except to keep it positive.
      */
@@ -750,25 +748,6 @@ int SSL_CTX_add_session(SSL_CTX *ctx, SSL_SESSION *c)
         c->time = time(NULL);
         ssl_session_calculate_timeout(c);
     }
-
-    if (s == NULL) {
-        /*
-         * new cache entry -- remove old ones if cache has become too large
-         * delete cache entry *before* add, so we don't remove the one we're adding!
-         */
-
-        ret = 1;
-
-        if (SSL_CTX_sess_get_cache_size(ctx) > 0) {
-            while (SSL_CTX_sess_number(ctx) >= SSL_CTX_sess_get_cache_size(ctx)) {
-                if (!remove_session_lock(ctx, ctx->session_cache_tail, 0))
-                    break;
-                else
-                    ssl_tsan_counter(ctx, &ctx->stats.sess_cache_full);
-            }
-        }
-    }
-
     SSL_SESSION_list_add(ctx, c);
 
     if (s != NULL) {
@@ -779,6 +758,21 @@ int SSL_CTX_add_session(SSL_CTX *ctx, SSL_SESSION *c)
 
         SSL_SESSION_free(s);    /* s == c */
         ret = 0;
+    } else {
+        /*
+         * new cache entry -- remove old ones if cache has become too large
+         */
+
+        ret = 1;
+
+        if (SSL_CTX_sess_get_cache_size(ctx) > 0) {
+            while (SSL_CTX_sess_number(ctx) > SSL_CTX_sess_get_cache_size(ctx)) {
+                if (!remove_session_lock(ctx, ctx->session_cache_tail, 0))
+                    break;
+                else
+                    ssl_tsan_counter(ctx, &ctx->stats.sess_cache_full);
+            }
+        }
     }
     CRYPTO_THREAD_unlock(ctx->lock);
     return ret;

@@ -10,7 +10,7 @@
 /* We need to use some engine deprecated APIs */
 #define OPENSSL_SUPPRESS_DEPRECATED
 
-#include "internal/e_os.h"
+#include "e_os.h"
 #include "crypto/cryptlib.h"
 #include <openssl/err.h>
 #include "crypto/rand.h"
@@ -659,26 +659,28 @@ int OPENSSL_atexit(void (*handler)(void))
 #if !defined(OPENSSL_USE_NODELETE)\
     && !defined(OPENSSL_NO_PINSHARED)
     {
-# if defined(DSO_WIN32) && !defined(_WIN32_WCE)
-        HMODULE handle = NULL;
-        BOOL ret;
         union {
             void *sym;
             void (*func)(void);
         } handlersym;
 
         handlersym.func = handler;
+# if defined(DSO_WIN32) && !defined(_WIN32_WCE)
+        {
+            HMODULE handle = NULL;
+            BOOL ret;
 
-        /*
-         * We don't use the DSO route for WIN32 because there is a better
-         * way
-         */
-        ret = GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS
-                                | GET_MODULE_HANDLE_EX_FLAG_PIN,
-                                handlersym.sym, &handle);
+            /*
+             * We don't use the DSO route for WIN32 because there is a better
+             * way
+             */
+            ret = GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS
+                                    | GET_MODULE_HANDLE_EX_FLAG_PIN,
+                                    handlersym.sym, &handle);
 
-        if (!ret)
-            return 0;
+            if (!ret)
+                return 0;
+        }
 # elif !defined(DSO_NONE)
         /*
          * Deliberately leak a reference to the handler. This will force the
@@ -686,22 +688,18 @@ int OPENSSL_atexit(void (*handler)(void))
          * atexit handler. If -znodelete has been used then this is
          * unnecessary.
          */
-        DSO *dso = NULL;
-        union {
-            void *sym;
-            void (*func)(void);
-        } handlersym;
+        {
+            DSO *dso = NULL;
 
-        handlersym.func = handler;
-
-        ERR_set_mark();
-        dso = DSO_dsobyaddr(handlersym.sym, DSO_FLAG_NO_UNLOAD_ON_FREE);
-        /* See same code above in ossl_init_base() for an explanation. */
-        OSSL_TRACE1(INIT,
-                   "atexit: obtained DSO reference? %s\n",
-                   (dso == NULL ? "No!" : "Yes."));
-        DSO_free(dso);
-        ERR_pop_to_mark();
+            ERR_set_mark();
+            dso = DSO_dsobyaddr(handlersym.sym, DSO_FLAG_NO_UNLOAD_ON_FREE);
+            /* See same code above in ossl_init_base() for an explanation. */
+            OSSL_TRACE1(INIT,
+                       "atexit: obtained DSO reference? %s\n",
+                       (dso == NULL ? "No!" : "Yes."));
+            DSO_free(dso);
+            ERR_pop_to_mark();
+        }
 # endif
     }
 #endif

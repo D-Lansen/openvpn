@@ -11,7 +11,7 @@
 
 #include <stdio.h>
 #include <string.h>
-#include "internal/e_os.h" /* struct stat */
+#include "e_os.h" /* struct stat */
 #ifdef __TANDEM
 # include <sys/types.h> /* needed for stat.h */
 # include <sys/stat.h> /* struct stat */

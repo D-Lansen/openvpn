@@ -5,7 +5,7 @@
  *             packet encryption, packet authentication, and
  *             packet compression.
  *
- *  Copyright (C) 2002-2023 OpenVPN Inc <sales@openvpn.net>
+ *  Copyright (C) 2002-2022 OpenVPN Inc <sales@openvpn.net>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2
@@ -218,6 +218,11 @@ __attribute__((__noreturn__))
 #define static_assert(expr, diagnostic) \
     extern int (*__OpenVPN_static_assert_function(void)) \
     [!!sizeof(struct { int __error_if_negative : (expr) ? 2 : -1; })]
+#endif
+
+#ifdef ENABLE_DEBUG
+void crash(void);  /* force a segfault (debugging only) */
+
 #endif
 
 /* Inline functions */

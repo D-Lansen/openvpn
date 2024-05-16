@@ -5,8 +5,8 @@
  *             packet encryption, packet authentication, and
  *             packet compression.
  *
- *  Copyright (C) 2002-2023 OpenVPN Inc <sales@openvpn.net>
- *  Copyright (C) 2013-2023 Gert Doering <gert@greenie.muc.de>
+ *  Copyright (C) 2002-2022 OpenVPN Inc <sales@openvpn.net>
+ *  Copyright (C) 2013-2022 Gert Doering <gert@greenie.muc.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2
@@ -237,7 +237,6 @@ lz4_decompress(struct buffer *buf, struct buffer work,
     }
     else if (c == NO_COMPRESS_BYTE_SWAP) /* packet was not compressed */
     {
-        /* nothing to do */
     }
     else
     {

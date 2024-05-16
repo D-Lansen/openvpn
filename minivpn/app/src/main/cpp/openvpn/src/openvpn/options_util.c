@@ -5,7 +5,7 @@
  *             packet encryption, packet authentication, and
  *             packet compression.
  *
- *  Copyright (C) 2002-2023 OpenVPN Inc <sales@openvpn.net>
+ *  Copyright (C) 2002-2022 OpenVPN Inc <sales@openvpn.net>
  *  Copyright (C) 2010-2021 Fox Crypto B.V. <openvpn@foxcrypto.com>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -36,9 +36,11 @@ const char *
 parse_auth_failed_temp(struct options *o, const char *reason)
 {
     struct gc_arena gc = gc_new();
-
-    const char *message = reason;
     char *m = string_alloc(reason, &gc);
+    /* skip TEMP */
+    m += strlen("TEMP");
+    const char *message = reason + strlen("TEMP");
+
 
     /* Check if the message uses the TEMP[flags]: message format*/
     char *endofflags = strstr(m, "]");
