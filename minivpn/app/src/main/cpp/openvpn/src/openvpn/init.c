@@ -149,22 +149,6 @@ run_up_down(const char *command,
         context = "";
     }
 
-    if (plugin_defined(plugins, plugin_type))
-    {
-        struct argv argv = argv_new();
-        ASSERT(arg);
-        argv_printf(&argv,
-                    "%s %d 0 %s %s %s",
-                    arg, tun_mtu, ifconfig_local, ifconfig_remote, context);
-
-        if (plugin_call(plugins, plugin_type, &argv, NULL, es) != OPENVPN_PLUGIN_FUNC_SUCCESS)
-        {
-            msg(M_FATAL, "ERROR: up/down plugin call failed");
-        }
-
-        argv_free(&argv);
-    }
-
     if (command)
     {
         struct argv argv = argv_new();
@@ -1648,14 +1632,6 @@ do_route(const struct options *options,
         management_up_down(management, "UP", es);
     }
 #endif
-
-    if (plugin_defined(plugins, OPENVPN_PLUGIN_ROUTE_UP))
-    {
-        if (plugin_call(plugins, OPENVPN_PLUGIN_ROUTE_UP, NULL, NULL, es) != OPENVPN_PLUGIN_FUNC_SUCCESS)
-        {
-            msg(M_WARN, "WARNING: route-up plugin call failed");
-        }
-    }
 
     if (options->route_script)
     {

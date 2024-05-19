@@ -459,39 +459,6 @@ verify_cert_set_env(struct env_set *es, openvpn_x509_cert_t *peer_cert, int cert
     gc_free(&gc);
 }
 
-/*
- * call --tls-verify plug-in(s)
- */
-static result_t
-verify_cert_call_plugin(const struct plugin_list *plugins, struct env_set *es,
-                        int cert_depth, openvpn_x509_cert_t *cert, char *subject)
-{
-    if (plugin_defined(plugins, OPENVPN_PLUGIN_TLS_VERIFY))
-    {
-        int ret;
-        struct argv argv = argv_new();
-
-        argv_printf(&argv, "%d %s", cert_depth, subject);
-
-        ret = plugin_call_ssl(plugins, OPENVPN_PLUGIN_TLS_VERIFY, &argv, NULL, es, cert_depth, cert);
-
-        argv_free(&argv);
-
-        if (ret == OPENVPN_PLUGIN_FUNC_SUCCESS)
-        {
-            msg(D_HANDSHAKE, "VERIFY PLUGIN OK: depth=%d, %s",
-                cert_depth, subject);
-        }
-        else
-        {
-            msg(D_HANDSHAKE, "VERIFY PLUGIN ERROR: depth=%d, %s",
-                cert_depth, subject);
-            return FAILURE;             /* Reject connection */
-        }
-    }
-    return SUCCESS;
-}
-
 static const char *
 verify_cert_export_cert(openvpn_x509_cert_t *peercert, const char *tmp_dir, struct gc_arena *gc)
 {
@@ -773,12 +740,6 @@ verify_cert(struct tls_session *session, openvpn_x509_cert_t *cert, int cert_dep
 
     /* If this is the peer's own certificate, verify it */
     if (cert_depth == 0 && SUCCESS != verify_peer_cert(opt, cert, subject, common_name))
-    {
-        goto cleanup;
-    }
-
-    /* call --tls-verify plug-in(s), if registered */
-    if (SUCCESS != verify_cert_call_plugin(opt->plugins, opt->es, cert_depth, cert, subject))
     {
         goto cleanup;
     }
@@ -1352,52 +1313,6 @@ done:
     return retval;
 }
 
-/*
- * Verify the username and password using a plugin
- */
-static int
-verify_user_pass_plugin(struct tls_session *session, struct tls_multi *multi,
-                        const struct user_pass *up)
-{
-    int retval = OPENVPN_PLUGIN_FUNC_ERROR;
-    struct key_state *ks = &session->key[KS_PRIMARY];      /* primary key */
-
-    /* set password in private env space */
-    setenv_str(session->opt->es, "password", up->password);
-
-    /* generate filename for deferred auth control file */
-    if (!key_state_gen_auth_control_files(&ks->plugin_auth, session->opt))
-    {
-        msg(D_TLS_ERRORS, "TLS Auth Error (%s): "
-            "could not create deferred auth control file", __func__);
-        return retval;
-    }
-
-    /* call command */
-    retval = plugin_call(session->opt->plugins, OPENVPN_PLUGIN_AUTH_USER_PASS_VERIFY, NULL, NULL, session->opt->es);
-
-    if (retval == OPENVPN_PLUGIN_FUNC_DEFERRED)
-    {
-        /* Check if the plugin has written the pending auth control
-         * file and send the pending auth to the client */
-        if (!key_state_check_auth_pending_file(&ks->plugin_auth, multi))
-        {
-            retval = OPENVPN_PLUGIN_FUNC_ERROR;
-            key_state_rm_auth_control_files(&ks->plugin_auth);
-        }
-    }
-    else
-    {
-        /* purge auth control filename (and file itself) for non-deferred returns */
-        key_state_rm_auth_control_files(&ks->plugin_auth);
-    }
-
-    setenv_del(session->opt->es, "password");
-
-    return retval;
-}
-
-
 #ifdef ENABLE_MANAGEMENT
 /*
  * management deferred internal ssl_verify.c status codes
@@ -1556,10 +1471,6 @@ verify_user_pass(struct user_pass *up, struct tls_multi *multi,
             man_def_auth = verify_user_pass_management(session, multi, up);
         }
 #endif
-        if (plugin_defined(session->opt->plugins, OPENVPN_PLUGIN_AUTH_USER_PASS_VERIFY))
-        {
-            plugin_status = verify_user_pass_plugin(session, multi, up);
-        }
 
         if (session->opt->auth_user_pass_verify_script)
         {

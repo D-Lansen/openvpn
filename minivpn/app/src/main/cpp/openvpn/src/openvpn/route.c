@@ -1640,7 +1640,10 @@ add_route(struct route_ipv4 *r,
     {
         openvpn_snprintf(out, sizeof(out), "%s %s %s", network, netmask, gateway);
     }
+
+#ifdef ENABLE_MANAGEMENT
     management_android_control(management, "ROUTE", out);
+#endif
 
 #elif defined (_WIN32)
     {
@@ -1977,7 +1980,9 @@ add_route_ipv6(struct route_ipv6 *r6, const struct tuntap *tt,
 
     openvpn_snprintf(out, sizeof(out), "%s/%d %s", network, r6->netbits, device);
 
+#ifdef ENABLE_MANAGEMENT
     management_android_control(management, "ROUTE6", out);
+#endif
 
 #elif defined (_WIN32)
 

@@ -34,7 +34,14 @@
 #ifdef ENABLE_CRYPTO_MBEDTLS
 #include "ssl_verify_mbedtls.h"
 #endif
-#include "openvpn-plugin.h"
+
+#define OPENVPN_PLUGIN_FUNC_SUCCESS  0
+#define OPENVPN_PLUGIN_FUNC_ERROR    1
+#define OPENVPN_PLUGIN_FUNC_DEFERRED 2
+
+#define OPENVPN_PLUGIN_UP                        0
+#define OPENVPN_PLUGIN_DOWN                      1
+#define OPENVPN_PLUGIN_ROUTE_PREDOWN            12
 
 #ifdef ENABLE_PLUGIN
 

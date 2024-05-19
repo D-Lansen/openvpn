@@ -1170,8 +1170,12 @@ protect_fd_nonlocal(int fd, const struct sockaddr *addr)
     }
 
     msg(D_SOCKET_DEBUG, "Protecting socket fd %d", fd);
+
+#ifdef ENABLE_MANAGEMENT
     management->connection.fdtosend = fd;
     management_android_control(management, "PROTECTFD", __func__);
+#endif
+
 }
 #endif
 
@@ -2336,18 +2340,6 @@ link_socket_connection_initiated(struct link_socket_info *info,
 
     /* set environmental vars */
     setenv_str(es, "common_name", common_name);
-
-    /* Process --ipchange plugin */
-    if (plugin_defined(info->plugins, OPENVPN_PLUGIN_IPCHANGE))
-    {
-        struct argv argv = argv_new();
-        ipchange_fmt(false, &argv, info, &gc);
-        if (plugin_call(info->plugins, OPENVPN_PLUGIN_IPCHANGE, &argv, NULL, es) != OPENVPN_PLUGIN_FUNC_SUCCESS)
-        {
-            msg(M_WARN, "WARNING: ipchange plugin call failed");
-        }
-        argv_free(&argv);
-    }
 
     /* Process --ipchange option */
     if (info->ipchange_command)

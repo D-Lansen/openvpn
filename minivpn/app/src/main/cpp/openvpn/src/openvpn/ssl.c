@@ -1086,7 +1086,7 @@ static inline bool
 tls_session_user_pass_enabled(struct tls_session *session)
 {
     return (session->opt->auth_user_pass_verify_script
-            || plugin_defined(session->opt->plugins, OPENVPN_PLUGIN_AUTH_USER_PASS_VERIFY)
+            || false
 #ifdef ENABLE_MANAGEMENT
             || management_enable_def_auth(management)
 #endif
@@ -2440,23 +2440,6 @@ key_method_2_read(struct buffer *buf, struct tls_multi *multi, struct tls_sessio
     }
 
     buf_clear(buf);
-
-    /*
-     * Call OPENVPN_PLUGIN_TLS_FINAL plugin if defined, for final
-     * veto opportunity over authentication decision.
-     */
-    if ((ks->authenticated > KS_AUTH_FALSE)
-        && plugin_defined(session->opt->plugins, OPENVPN_PLUGIN_TLS_FINAL))
-    {
-        export_user_keying_material(&ks->ks_ssl, session);
-
-        if (plugin_call(session->opt->plugins, OPENVPN_PLUGIN_TLS_FINAL, NULL, NULL, session->opt->es) != OPENVPN_PLUGIN_FUNC_SUCCESS)
-        {
-            ks->authenticated = KS_AUTH_FALSE;
-        }
-
-        setenv_del(session->opt->es, "exported_keying_material");
-    }
 
     if (!session->opt->server && !session->opt->pull && ks->key_id == 0)
     {

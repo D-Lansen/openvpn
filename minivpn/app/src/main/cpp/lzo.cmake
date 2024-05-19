@@ -72,6 +72,3 @@ set(lzo_srcs
 
 add_library(lzo ${lzo_srcs})
 target_include_directories(lzo PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/lzo/include")
-if (${ANDROID_ABI} STREQUAL "armeabi-v7a")
-    target_compile_options(lzo PRIVATE -O0)
-endif()

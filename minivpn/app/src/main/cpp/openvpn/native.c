@@ -1,3 +1,5 @@
+#ifdef TARGET_ANDROID
+
 #include <jni.h>
 
 jstring
@@ -14,3 +16,5 @@ jstring
 Java_de_blinkt_openvpn_core_NativeUtils_getJNIAPI(JNIEnv *env, jclass jo){
     return (*env)->NewStringUTF(env, TARGET_ABI);
 }
+
+#endif

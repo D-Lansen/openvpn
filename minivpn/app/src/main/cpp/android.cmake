@@ -1,0 +1,11 @@
+
+message("android")
+#include(output.cmake)
+include(lz4.cmake)
+include(lzo.cmake)
+include(openssl.cmake)
+include(openvpn.cmake)
+target_link_libraries(openvpn crypto ssl lzo lz4)
+add_executable(libovpnexec.so minivpn/minivpn.c)
+target_compile_options(libovpnexec.so PRIVATE -fPIE)
+target_link_libraries(libovpnexec.so PRIVATE openvpn -fPIE -pie)

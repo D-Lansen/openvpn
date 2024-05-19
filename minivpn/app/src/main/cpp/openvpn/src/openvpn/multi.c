@@ -121,24 +121,6 @@ learn_address_script(const struct multi_context *m,
         plugins = m->top.plugins;
     }
 
-    if (plugin_defined(plugins, OPENVPN_PLUGIN_LEARN_ADDRESS))
-    {
-        struct argv argv = argv_new();
-        argv_printf(&argv, "%s %s",
-                    op,
-                    mroute_addr_print(addr, &gc));
-        if (mi)
-        {
-            argv_printf_cat(&argv, "%s", tls_common_name(mi->context.c2.tls_multi, false));
-        }
-        if (plugin_call(plugins, OPENVPN_PLUGIN_LEARN_ADDRESS, &argv, NULL, es) != OPENVPN_PLUGIN_FUNC_SUCCESS)
-        {
-            msg(M_WARN, "WARNING: learn-address plugin call failed");
-            ret = false;
-        }
-        argv_free(&argv);
-    }
-
     if (m->top.options.learn_address_script)
     {
         struct argv argv = argv_new();
@@ -561,14 +543,6 @@ static void
 multi_client_disconnect_script(struct multi_instance *mi)
 {
     multi_client_disconnect_setenv(mi);
-
-    if (plugin_defined(mi->context.plugins, OPENVPN_PLUGIN_CLIENT_DISCONNECT))
-    {
-        if (plugin_call(mi->context.plugins, OPENVPN_PLUGIN_CLIENT_DISCONNECT, NULL, NULL, mi->context.c2.es) != OPENVPN_PLUGIN_FUNC_SUCCESS)
-        {
-            msg(M_WARN, "WARNING: client-disconnect plugin call failed");
-        }
-    }
 
     if (mi->context.options.client_disconnect_script)
     {

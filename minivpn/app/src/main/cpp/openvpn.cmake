@@ -43,6 +43,7 @@ set(openvpn_srcs
         openvpn/src/openvpn/mtu.c
         openvpn/src/openvpn/mudp.c
         openvpn/src/openvpn/multi.c
+        openvpn/src/openvpn/networking_sitnl.c
         openvpn/src/openvpn/ntlm.c
         openvpn/src/openvpn/occ.c
         openvpn/src/openvpn/openvpn.c
@@ -55,7 +56,6 @@ set(openvpn_srcs
         openvpn/src/openvpn/pkcs11.c
         openvpn/src/openvpn/pkcs11_openssl.c
         openvpn/src/openvpn/platform.c
-        openvpn/src/openvpn/plugin.c
         openvpn/src/openvpn/pool.c
         openvpn/src/openvpn/proto.c
         openvpn/src/openvpn/proxy.c
@@ -85,19 +85,36 @@ set(openvpn_srcs
         openvpn/src/openvpn/xkey_provider.c
         )
 
-add_library(openvpn SHARED ${openvpn_srcs})
+if (${CMAKE_SYSTEM_NAME} STREQUAL "Android")
+    add_library(openvpn ${openvpn_srcs})
+elseif (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
+    add_executable(openvpn ${openvpn_srcs})
+endif()
 
 target_include_directories(openvpn PRIVATE
-        openvpn/src/compat
-        lzo/include
-        openvpn
+        "${CMAKE_CURRENT_SOURCE_DIR}/openvpn/include"
+        "${CMAKE_CURRENT_SOURCE_DIR}/openvpn/src/compat"
+        "${CMAKE_CURRENT_SOURCE_DIR}/openvpn"
         )
 
-target_compile_definitions(openvpn PRIVATE
-        -DHAVE_CONFIG_H
-        -DENABLE_CRYPTO_OPENSSL=1
-        -DCONFIGURE_GIT_FLAGS=\"\"
-        -DTARGET_ABI=\"${ANDROID_ABI}\"
-        -DOPENSSL_API_COMPAT=0x11000000L
-        -DENABLE_CRYPTO_OPENSSL=1
-        )
+if (${CMAKE_SYSTEM_NAME} STREQUAL "Android")
+
+    target_compile_definitions(openvpn PRIVATE
+            -DHAVE_CONFIG_H
+            -DCONFIGURE_GIT_FLAGS=\"\"
+            -DOPENSSL_API_COMPAT=0x11000000L
+            -DTARGET_ANDROID
+            -DTARGET_ABI=\"${ANDROID_ABI}\"
+            )
+
+elseif (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
+
+    target_compile_definitions(openvpn PRIVATE
+            -DHAVE_CONFIG_H
+            -DCONFIGURE_GIT_FLAGS=\"\"
+            -DOPENSSL_API_COMPAT=0x11000000L
+            -DTARGET_LINUX
+            -DHAVE_BASENAME
+            )
+
+endif()

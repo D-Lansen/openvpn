@@ -1034,7 +1034,11 @@ do_ifconfig_ipv6(struct tuntap *tt, const char *ifname, int tun_mtu,
 
     openvpn_snprintf(out6, sizeof(out6), "%s/%d %d",
                      ifconfig_ipv6_local, tt->netbits_ipv6, tun_mtu);
+
+#ifdef ENABLE_MANAGEMENT
     management_android_control(management, "IFCONFIG6", out6);
+#endif
+
 #elif defined(TARGET_SOLARIS)
     argv_printf(&argv, "%s %s inet6 unplumb", IFCONFIG_PATH, ifname);
     argv_msg(M_INFO, &argv);
@@ -1276,7 +1280,10 @@ do_ifconfig_ipv4(struct tuntap *tt, const char *ifname, int tun_mtu,
 
     openvpn_snprintf(out, sizeof(out), "%s %s %d %s", ifconfig_local,
                      ifconfig_remote_netmask, tun_mtu, top);
+
+#ifdef ENABLE_MANAGEMENT
     management_android_control(management, "IFCONFIG", out);
+#endif
 
 #elif defined(TARGET_SOLARIS)
     /* Solaris 2.6 (and 7?) cannot set all parameters in one go...
@@ -1985,6 +1992,7 @@ open_tun(const char *dev, const char *dev_type, const char *dev_node, struct tun
     {
         close(oldtunfd);
     }
+
 
     /* Set the actual name to a dummy name */
     tt->actual_name = string_alloc(ANDROID_TUNNAME, NULL);

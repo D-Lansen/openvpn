@@ -71,7 +71,6 @@ const char title_string[] =
 #ifdef CONFIGURE_GIT_REVISION
     " [git:" CONFIGURE_GIT_REVISION CONFIGURE_GIT_FLAGS "]"
 #endif
-    " " TARGET_ALIAS
 #if defined(ENABLE_CRYPTO_MBEDTLS)
     " [SSL (mbed TLS)]"
 #elif defined(ENABLE_CRYPTO_OPENSSL)
@@ -2273,7 +2272,7 @@ check_ca_required(const struct options *options)
                             " or CA path (--capath)"
 #endif
                             " and/or peer fingerprint verification (--peer-fingerprint)";
-    msg(M_USAGE, str);
+    msg(M_USAGE, "%s", str);
 }
 
 static void
