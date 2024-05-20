@@ -86,7 +86,7 @@ set(openvpn_srcs
         )
 
 if (${CMAKE_SYSTEM_NAME} STREQUAL "Android")
-    add_library(openvpn ${openvpn_srcs})
+    add_library(openvpn SHARED ${openvpn_srcs})
 elseif (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
     add_executable(openvpn ${openvpn_srcs})
 endif()
