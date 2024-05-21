@@ -45,13 +45,11 @@
 #include "ssl_common.h"
 #include "base64.h"
 #include "openssl_compat.h"
-#include "xkey_common.h"
 
 #ifdef ENABLE_CRYPTOAPI
 #include "cryptoapi.h"
 #endif
 
-#include "ssl_verify_openssl.h"
 
 #include <openssl/bn.h>
 #include <openssl/crypto.h>
@@ -354,9 +352,6 @@ tls_ctx_set_options(struct tls_root_ctx *ctx, unsigned int ssl_flags)
     {
         verify_flags = SSL_VERIFY_PEER;
     }
-    SSL_CTX_set_verify(ctx->ctx, verify_flags, verify_callback);
-
-    SSL_CTX_set_info_callback(ctx->ctx, info_callback);
 
     return true;
 }
@@ -2050,276 +2045,12 @@ key_state_read_plaintext(struct key_state_ssl *ks_ssl, struct buffer *buf)
     return ret;
 }
 
-/**
- * Print human readable information about the certifcate into buf
- * @param cert      the certificate being used
- * @param buf       output buffer
- * @param buflen    output buffer length
- */
-static void
-print_cert_details(X509 *cert, char *buf, size_t buflen)
-{
-    const char *curve = "";
-    const char *type = "(error getting type)";
-    EVP_PKEY *pkey = X509_get_pubkey(cert);
-
-    if (pkey == NULL)
-    {
-        buf[0] = 0;
-        return;
-    }
-
-    int typeid = EVP_PKEY_id(pkey);
-
-#ifndef OPENSSL_NO_EC
-    char groupname[256];
-    if (typeid == EVP_PKEY_EC)
-    {
-        size_t len;
-        if (EVP_PKEY_get_group_name(pkey, groupname, sizeof(groupname), &len))
-        {
-            curve = groupname;
-        }
-        else
-        {
-            curve = "(error getting curve name)";
-        }
-    }
-#endif
-    if (EVP_PKEY_id(pkey) != 0)
-    {
-        int typeid = EVP_PKEY_id(pkey);
-        type = OBJ_nid2sn(typeid);
-
-        /* OpenSSL reports rsaEncryption, dsaEncryption and
-        * id-ecPublicKey, map these values to nicer ones */
-        if (typeid == EVP_PKEY_RSA)
-        {
-            type = "RSA";
-        }
-        else if (typeid == EVP_PKEY_DSA)
-        {
-            type = "DSA";
-        }
-        else if (typeid == EVP_PKEY_EC)
-        {
-            /* EC gets the curve appended after the type */
-            type = "EC, curve ";
-        }
-        else if (type == NULL)
-        {
-            type = "unknown type";
-        }
-    }
-
-    char sig[128] = { 0 };
-    int signature_nid = X509_get_signature_nid(cert);
-    if (signature_nid != 0)
-    {
-        openvpn_snprintf(sig, sizeof(sig), ", signature: %s",
-                         OBJ_nid2sn(signature_nid));
-    }
-
-    openvpn_snprintf(buf, buflen, ", peer certificate: %d bit %s%s%s",
-                     EVP_PKEY_bits(pkey), type, curve, sig);
-
-    EVP_PKEY_free(pkey);
-}
-
-/* **************************************
- *
- * Information functions
- *
- * Print information for the end user.
- *
- ***************************************/
-void
-print_details(struct key_state_ssl *ks_ssl, const char *prefix)
-{
-    const SSL_CIPHER *ciph;
-    char s1[256];
-    char s2[256];
-
-    s1[0] = s2[0] = 0;
-    ciph = SSL_get_current_cipher(ks_ssl->ssl);
-    openvpn_snprintf(s1, sizeof(s1), "%s %s, cipher %s %s",
-                     prefix,
-                     SSL_get_version(ks_ssl->ssl),
-                     SSL_CIPHER_get_version(ciph),
-                     SSL_CIPHER_get_name(ciph));
-    X509 *cert = SSL_get_peer_certificate(ks_ssl->ssl);
-
-    if (cert)
-    {
-        print_cert_details(cert, s2, sizeof(s2));
-        X509_free(cert);
-    }
-    msg(D_HANDSHAKE, "%s%s", s1, s2);
-}
-
-void
-show_available_tls_ciphers_list(const char *cipher_list,
-                                const char *tls_cert_profile,
-                                bool tls13)
-{
-    struct tls_root_ctx tls_ctx;
-
-    tls_ctx.ctx = SSL_CTX_new(SSLv23_method());
-    if (!tls_ctx.ctx)
-    {
-        crypto_msg(M_FATAL, "Cannot create SSL_CTX object");
-    }
-
-#if defined(TLS1_3_VERSION)
-    if (tls13)
-    {
-        SSL_CTX_set_min_proto_version(tls_ctx.ctx,
-                                      openssl_tls_version(TLS_VER_1_3));
-        tls_ctx_restrict_ciphers_tls13(&tls_ctx, cipher_list);
-    }
-    else
-#endif
-    {
-        SSL_CTX_set_max_proto_version(tls_ctx.ctx, TLS1_2_VERSION);
-        tls_ctx_restrict_ciphers(&tls_ctx, cipher_list);
-    }
-
-    tls_ctx_set_cert_profile(&tls_ctx, tls_cert_profile);
-
-    SSL *ssl = SSL_new(tls_ctx.ctx);
-    if (!ssl)
-    {
-        crypto_msg(M_FATAL, "Cannot create SSL object");
-    }
-
-#if OPENSSL_VERSION_NUMBER < 0x1010000fL
-    STACK_OF(SSL_CIPHER) *sk = SSL_get_ciphers(ssl);
-#else
-    STACK_OF(SSL_CIPHER) *sk = SSL_get1_supported_ciphers(ssl);
-#endif
-    for (int i = 0; i < sk_SSL_CIPHER_num(sk); i++)
-    {
-        const SSL_CIPHER *c = sk_SSL_CIPHER_value(sk, i);
-
-        const char *cipher_name = SSL_CIPHER_get_name(c);
-
-        const tls_cipher_name_pair *pair =
-            tls_get_cipher_name_pair(cipher_name, strlen(cipher_name));
-
-        if (tls13)
-        {
-            printf("%s\n", cipher_name);
-        }
-        else if (NULL == pair)
-        {
-            /* No translation found, print warning */
-            printf("%s (No IANA name known to OpenVPN, use OpenSSL name.)\n",
-                   cipher_name);
-        }
-        else
-        {
-            printf("%s\n", pair->iana_name);
-        }
-    }
-#if (OPENSSL_VERSION_NUMBER >= 0x1010000fL)
-    sk_SSL_CIPHER_free(sk);
-#endif
-    SSL_free(ssl);
-    SSL_CTX_free(tls_ctx.ctx);
-}
-
-/*
- * Show the Elliptic curves that are available for us to use
- * in the OpenSSL library.
- */
-void
-show_available_curves(void)
-{
-    printf("Consider using openssl 'ecparam -list_curves' as\n"
-           "alternative to running this command.\n");
-#ifndef OPENSSL_NO_EC
-    EC_builtin_curve *curves = NULL;
-    size_t crv_len = 0;
-    size_t n = 0;
-
-    crv_len = EC_get_builtin_curves(NULL, 0);
-    ALLOC_ARRAY(curves, EC_builtin_curve, crv_len);
-    if (EC_get_builtin_curves(curves, crv_len))
-    {
-        printf("\nAvailable Elliptic curves/groups:\n");
-        for (n = 0; n < crv_len; n++)
-        {
-            const char *sname;
-            sname   = OBJ_nid2sn(curves[n].nid);
-            if (sname == NULL)
-            {
-                sname = "";
-            }
-
-            printf("%s\n", sname);
-        }
-    }
-    else
-    {
-        crypto_msg(M_FATAL, "Cannot get list of builtin curves");
-    }
-    free(curves);
-#else  /* ifndef OPENSSL_NO_EC */
-    msg(M_WARN, "Your OpenSSL library was built without elliptic curve support. "
-        "No curves available.");
-#endif /* ifndef OPENSSL_NO_EC */
-}
-
-void
-get_highest_preference_tls_cipher(char *buf, int size)
-{
-    SSL_CTX *ctx;
-    SSL *ssl;
-    const char *cipher_name;
-
-    ctx = SSL_CTX_new(SSLv23_method());
-    if (!ctx)
-    {
-        crypto_msg(M_FATAL, "Cannot create SSL_CTX object");
-    }
-    ssl = SSL_new(ctx);
-    if (!ssl)
-    {
-        crypto_msg(M_FATAL, "Cannot create SSL object");
-    }
-
-    cipher_name = SSL_get_cipher_list(ssl, 0);
-    strncpynt(buf, cipher_name, size);
-
-    SSL_free(ssl);
-    SSL_CTX_free(ctx);
-}
-
 const char *
 get_ssl_library_version(void)
 {
-    return OpenSSL_version(OPENSSL_VERSION);
+    return "OpenSSL_version(OPENSSL_VERSION)";
 }
 
-
-/** Some helper routines for provider load/unload */
-#ifdef HAVE_XKEY_PROVIDER
-static int
-provider_load(OSSL_PROVIDER *prov, void *dest_libctx)
-{
-    const char *name = OSSL_PROVIDER_get0_name(prov);
-    OSSL_PROVIDER_load(dest_libctx, name);
-    return 1;
-}
-
-static int
-provider_unload(OSSL_PROVIDER *prov, void *unused)
-{
-    (void) unused;
-    OSSL_PROVIDER_unload(prov);
-    return 1;
-}
-#endif /* HAVE_XKEY_PROVIDER */
 
 /**
  * Setup ovpn.xey provider for signing with external keys.

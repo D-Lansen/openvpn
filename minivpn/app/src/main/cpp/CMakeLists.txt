@@ -8,7 +8,7 @@ if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
     #File->Settings->CMake->Name:Linux
     #File->Settings->CMake->Cmake options:-DCMAKE_SYSTEM_NAME=Linux
 
-    #include(linux.cmake)
+    include(linux.cmake)
 
 elseif (${CMAKE_SYSTEM_NAME} STREQUAL "Android")
     #File->Settings->ToolChains->Build tool:/home/lichen/Android/Sdk/ndk/22.1.7171670/prebuilt/linux-x86_64/bin/make

@@ -503,12 +503,6 @@ void prng_bytes(uint8_t *output, int len);
 /* an analogue to the random() function, but use prng_bytes */
 long int get_random(void);
 
-/** Print a cipher list entry */
-void print_cipher(const char *cipher);
-
-void test_crypto(struct crypto_options *co, struct frame *f);
-
-
 /* key direction functions */
 
 void key_direction_state_init(struct key_direction_state *kds, int key_direction);

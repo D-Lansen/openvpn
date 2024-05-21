@@ -34,7 +34,6 @@
 
 #ifdef ENABLE_CRYPTO_OPENSSL
 #include "ssl_openssl.h"
-#include "ssl_verify_openssl.h"
 #define SSLAPI SSLAPI_OPENSSL
 #endif
 #ifdef ENABLE_CRYPTO_MBEDTLS
@@ -534,32 +533,6 @@ int key_state_read_plaintext(struct key_state_ssl *ks_ssl, struct buffer *buf);
  * Print a one line summary of SSL/TLS session handshake.
  */
 void print_details(struct key_state_ssl *ks_ssl, const char *prefix);
-
-/*
- * Show the TLS ciphers that are available for us to use in the
- * library depending on the TLS version. This function prints
- * a list of ciphers without headers/footers.
- *
- * @param cipher_list       list of allowed TLS cipher, or NULL.
- * @param tls_cert_profile  TLS certificate crypto profile name.
- * @param tls13             Select if <=TLS1.2 or TLS1.3+ ciphers
- *                          should be shown
- */
-void
-show_available_tls_ciphers_list(const char *cipher_list,
-                                const char *tls_cert_profile,
-                                bool tls13);
-
-/*
- * Show the available elliptic curves in the crypto library
- */
-void show_available_curves(void);
-
-/*
- * The OpenSSL library has a notion of preference in TLS ciphers.  Higher
- * preference == more secure. Return the highest preference cipher.
- */
-void get_highest_preference_tls_cipher(char *buf, int size);
 
 /**
  * return a pointer to a static memory area containing the

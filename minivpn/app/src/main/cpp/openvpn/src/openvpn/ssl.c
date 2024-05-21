@@ -1069,30 +1069,6 @@ key_state_free(struct key_state *ks, bool clear)
     }
 }
 
-/** @} name Functions for initialization and cleanup of key_state structures */
-
-/** @} addtogroup control_processor */
-
-
-/**
- * Returns whether or not the server should check for username/password
- *
- * @param session       The current TLS session
- *
- * @return              true if username and password verification is enabled,
- *                      false if not.
- */
-static inline bool
-tls_session_user_pass_enabled(struct tls_session *session)
-{
-    return (session->opt->auth_user_pass_verify_script
-            || false
-#ifdef ENABLE_MANAGEMENT
-            || management_enable_def_auth(management)
-#endif
-            );
-}
-
 
 /** @addtogroup control_processor
  *  @{ */
@@ -2084,7 +2060,6 @@ push_peer_info(struct buffer *buf, struct tls_session *session)
             {
                 buf_printf(&out, "IV_HWADDR=%s\n", format_hex_ex(rgi.hwaddr, 6, 0, 1, ":", &gc));
             }
-            buf_printf(&out, "IV_SSL=%s\n", get_ssl_library_version() );
 #if defined(_WIN32)
             buf_printf(&out, "IV_PLAT_VER=%s\n", win32_version_string(&gc, false));
 #endif
@@ -2380,41 +2355,13 @@ key_method_2_read(struct buffer *buf, struct tls_multi *multi, struct tls_sessio
         multi->remote_ciphername = string_alloc("none", NULL);
     }
 
-    if (tls_session_user_pass_enabled(session))
     {
-        /* Perform username/password authentication */
-        if (!username_status || !password_status)
-        {
-            CLEAR(*up);
-            if (!(session->opt->ssl_flags & SSLF_AUTH_USER_PASS_OPTIONAL))
-            {
-                msg(D_TLS_ERRORS, "TLS Error: Auth Username/Password was not provided by peer");
-                goto error;
-            }
-        }
-
-        verify_user_pass(up, multi, session);
-    }
-    else
-    {
-        /* Session verification should have occurred during TLS negotiation*/
-        if (!session->verified)
-        {
-            msg(D_TLS_ERRORS,
-                "TLS Error: Certificate verification failed (key-method 2)");
-            goto error;
-        }
         ks->authenticated = KS_AUTH_TRUE;
     }
 
     /* clear username and password from memory */
     secure_memzero(up, sizeof(*up));
 
-    /* Perform final authentication checks */
-    if (ks->authenticated > KS_AUTH_FALSE)
-    {
-        verify_final_auth_checks(multi, session);
-    }
 
     /* check options consistency */
     if (!session->opt->disable_occ
@@ -2544,7 +2491,7 @@ session_move_active(struct tls_multi *multi, struct tls_session *session,
     ks->established = now;
     if (check_debug_level(D_HANDSHAKE))
     {
-        print_details(&ks->ks_ssl, "Control Channel:");
+        //print_details(&ks->ks_ssl, "Control Channel:");
     }
     ks->state = S_ACTIVE;
     /* Cancel negotiation timeout */
@@ -4030,29 +3977,6 @@ tls_update_remote_addr(struct tls_multi *multi, const struct link_socket_actual 
         }
     }
     gc_free(&gc);
-}
-
-void
-show_available_tls_ciphers(const char *cipher_list,
-                           const char *cipher_list_tls13,
-                           const char *tls_cert_profile)
-{
-    printf("Available TLS Ciphers, listed in order of preference:\n");
-
-    if (tls_version_max() >= TLS_VER_1_3)
-    {
-        printf("\nFor TLS 1.3 and newer (--tls-ciphersuites):\n\n");
-        show_available_tls_ciphers_list(cipher_list_tls13, tls_cert_profile, true);
-    }
-
-    printf("\nFor TLS 1.2 and older (--tls-cipher):\n\n");
-    show_available_tls_ciphers_list(cipher_list, tls_cert_profile, false);
-
-    printf("\n"
-           "Be aware that that whether a cipher suite in this list can actually work\n"
-           "depends on the specific setup of both peers. See the man page entries of\n"
-           "--tls-cipher and --show-tls for more details.\n\n"
-           );
 }
 
 /*

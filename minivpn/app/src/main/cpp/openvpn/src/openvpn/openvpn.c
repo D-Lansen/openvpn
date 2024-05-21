@@ -267,12 +267,6 @@ openvpn_main(int argc, char *argv[])
             /* misc stuff */
             pre_setup(&c.options);
 
-            /* test crypto? */
-            if (do_test_crypto(&c.options))
-            {
-                break;
-            }
-
             /* Query passwords before becoming a daemon if we don't use the
              * management interface to get them. */
 #ifdef ENABLE_MANAGEMENT

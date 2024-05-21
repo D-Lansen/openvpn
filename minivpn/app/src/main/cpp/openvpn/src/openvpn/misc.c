@@ -37,7 +37,6 @@
 #include "tun.h"
 #include "error.h"
 #include "otime.h"
-#include "plugin.h"
 #include "options.h"
 #include "manage.h"
 #include "crypto.h"

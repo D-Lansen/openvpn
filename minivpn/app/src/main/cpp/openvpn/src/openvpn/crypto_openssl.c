@@ -354,54 +354,6 @@ collect_ciphers(EVP_CIPHER *cipher, void *list)
 }
 
 void
-show_available_ciphers(void)
-{
-    struct collect_ciphers cipher_list = { 0 };
-
-#ifndef ENABLE_SMALL
-    printf("The following ciphers and cipher modes are available for use\n"
-           "with " PACKAGE_NAME ".  Each cipher shown below may be used as a\n"
-           "parameter to the --data-ciphers (or --cipher) option. In static \n"
-           "key mode only CBC mode is allowed.\n");
-    printf("See also openssl list -cipher-algorithms\n\n");
-#endif
-
-#if OPENSSL_VERSION_NUMBER >= 0x30000000L
-    EVP_CIPHER_do_all_provided(NULL, collect_ciphers, &cipher_list);
-#else
-    for (int nid = 0; nid < 10000; ++nid)
-    {
-        const EVP_CIPHER *cipher = EVP_get_cipherbynid(nid);
-        /* We cast the const away so we can keep the function prototype
-         * compatible with EVP_CIPHER_do_all_provided */
-        collect_ciphers((EVP_CIPHER *) cipher, &cipher_list);
-    }
-#endif
-
-    /* cast to non-const to prevent warning */
-    qsort((EVP_CIPHER *)cipher_list.list, cipher_list.num, sizeof(*cipher_list.list), cipher_name_cmp);
-
-    for (size_t i = 0; i < cipher_list.num; i++)
-    {
-        if (!cipher_kt_insecure(EVP_CIPHER_get0_name(cipher_list.list[i])))
-        {
-            print_cipher(EVP_CIPHER_get0_name(cipher_list.list[i]));
-        }
-    }
-
-    printf("\nThe following ciphers have a block size of less than 128 bits, \n"
-           "and are therefore deprecated.  Do not use unless you have to.\n\n");
-    for (int i = 0; i < cipher_list.num; i++)
-    {
-        if (cipher_kt_insecure(EVP_CIPHER_get0_name(cipher_list.list[i])))
-        {
-            print_cipher(EVP_CIPHER_get0_name(cipher_list.list[i]));
-        }
-    }
-    printf("\n");
-}
-
-void
 print_digest(EVP_MD *digest, void *unused)
 {
     printf("%s %d bit digest size\n", md_kt_name(EVP_MD_get0_name(digest)),
@@ -573,7 +525,6 @@ static evp_cipher_type *
 cipher_get(const char *ciphername)
 {
     ASSERT(ciphername);
-
     ciphername = translate_cipher_name_from_openvpn(ciphername);
     return EVP_CIPHER_fetch(NULL, ciphername, NULL);
 }
@@ -798,7 +749,6 @@ cipher_kt_mode_aead(const char *ciphername)
     }
 
     EVP_CIPHER_free(cipher);
-
     return isaead;
 }
 
@@ -850,57 +800,11 @@ cipher_ctx_iv_length(const EVP_CIPHER_CTX *ctx)
     return EVP_CIPHER_CTX_iv_length(ctx);
 }
 
-int
-cipher_ctx_get_tag(EVP_CIPHER_CTX *ctx, uint8_t *tag_buf, int tag_size)
-{
-    return EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_GET_TAG, tag_size, tag_buf);
-}
 
 int
 cipher_ctx_block_size(const EVP_CIPHER_CTX *ctx)
 {
     return EVP_CIPHER_CTX_block_size(ctx);
-}
-
-int
-cipher_ctx_mode(const EVP_CIPHER_CTX *ctx)
-{
-    return EVP_CIPHER_CTX_mode(ctx);
-}
-
-
-bool
-cipher_ctx_mode_cbc(const cipher_ctx_t *ctx)
-{
-    if (!ctx)
-    {
-        return false;
-    }
-
-    int flags = EVP_CIPHER_CTX_flags(ctx);
-    int mode = EVP_CIPHER_CTX_mode(ctx);
-
-    return mode == EVP_CIPH_CBC_MODE
-           /* Exclude AEAD cipher modes, they require a different API */
-#ifdef EVP_CIPH_FLAG_CTS
-           && !(flags & EVP_CIPH_FLAG_CTS)
-#endif
-           && !(flags & EVP_CIPH_FLAG_AEAD_CIPHER);
-}
-
-bool
-cipher_ctx_mode_ofb_cfb(const cipher_ctx_t *ctx)
-{
-    if (!ctx)
-    {
-        return false;
-    }
-
-    int mode = EVP_CIPHER_CTX_get_mode(ctx);
-
-    return (mode == EVP_CIPH_OFB_MODE || mode == EVP_CIPH_CFB_MODE)
-           /* Exclude AEAD cipher modes, they require a different API */
-           && !(EVP_CIPHER_CTX_flags(ctx) & EVP_CIPH_FLAG_AEAD_CIPHER);
 }
 
 bool

@@ -921,13 +921,9 @@ print_openssl_info(const struct options *options)
     /*
      * OpenSSL info print mode?
      */
-    if (options->show_ciphers || options->show_digests || options->show_engines
-        || options->show_tls_ciphers || options->show_curves)
+    if (options->show_digests || options->show_engines
+        || options->show_curves)
     {
-        if (options->show_ciphers)
-        {
-            show_available_ciphers();
-        }
         if (options->show_digests)
         {
             show_available_digests();
@@ -935,16 +931,6 @@ print_openssl_info(const struct options *options)
         if (options->show_engines)
         {
             show_available_engines();
-        }
-        if (options->show_tls_ciphers)
-        {
-            show_available_tls_ciphers(options->cipher_list,
-                                       options->cipher_list_tls13,
-                                       options->tls_cert_profile);
-        }
-        if (options->show_curves)
-        {
-            show_available_curves();
         }
         return true;
     }
@@ -1799,7 +1785,7 @@ do_open_tun(struct context *c)
     /* run the up script */
     run_up_down(c->options.up_script,
                 c->plugins,
-                OPENVPN_PLUGIN_UP,
+                0,
                 c->c1.tuntap->actual_name,
 #ifdef _WIN32
                 c->c1.tuntap->adapter_index,
@@ -1848,7 +1834,7 @@ else
     {
         run_up_down(c->options.up_script,
                     c->plugins,
-                    OPENVPN_PLUGIN_UP,
+                    0,
                     c->c1.tuntap->actual_name,
 #ifdef _WIN32
                     c->c1.tuntap->adapter_index,
@@ -1927,7 +1913,7 @@ do_close_tun(struct context *c, bool force)
             {
                 run_up_down(c->options.route_predown_script,
                             c->plugins,
-                            OPENVPN_PLUGIN_ROUTE_PREDOWN,
+                            0,
                             tuntap_actual,
 #ifdef _WIN32
                             adapter_index,
@@ -1957,7 +1943,7 @@ do_close_tun(struct context *c, bool force)
              * privilege if, for example, "--user nobody" was used. */
             run_up_down(c->options.down_script,
                         c->plugins,
-                        OPENVPN_PLUGIN_DOWN,
+                        0,
                         tuntap_actual,
 #ifdef _WIN32
                         adapter_index,
@@ -1995,7 +1981,7 @@ do_close_tun(struct context *c, bool force)
             {
                 run_up_down(c->options.down_script,
                             c->plugins,
-                            OPENVPN_PLUGIN_DOWN,
+                            0,
                             tuntap_actual,
 #ifdef _WIN32
                             adapter_index,
@@ -4667,52 +4653,4 @@ remove_pid_file(void)
     {
         platform_unlink(saved_pid_file_name);
     }
-}
-
-
-/*
- * Do a loopback test
- * on the crypto subsystem.
- */
-static void *
-test_crypto_thread(void *arg)
-{
-    struct context *c = (struct context *) arg;
-    const struct options *options = &c->options;
-
-    ASSERT(options->test_crypto);
-    init_verb_mute(c, IVM_LEVEL_1);
-    context_init_1(c);
-    next_connection_entry(c);
-    do_init_crypto_static(c, 0);
-
-    frame_finalize_options(c, options);
-
-    test_crypto(&c->c2.crypto_options, &c->c2.frame);
-
-    key_schedule_free(&c->c1.ks, true);
-    packet_id_free(&c->c2.crypto_options.packet_id);
-
-    context_gc_free(c);
-    return NULL;
-}
-
-bool
-do_test_crypto(const struct options *o)
-{
-    if (o->test_crypto)
-    {
-        struct context c;
-
-        /* print version number */
-        msg(M_INFO, "%s", title_string);
-
-        context_clear(&c);
-        c.options = *o;
-        options_detach(&c.options);
-        c.first_time = true;
-        test_crypto_thread((void *) &c);
-        return true;
-    }
-    return false;
 }

@@ -43,7 +43,6 @@
 #include "misc.h"
 #include "mbuf.h"
 #include "pool.h"
-#include "plugin.h"
 #include "manage.h"
 
 /*

@@ -38,7 +38,6 @@
 #include "socket.h"
 #include "mtu.h"
 #include "options.h"
-#include "plugin.h"
 
 #include "ssl_common.h"
 #include "ssl_backend.h"

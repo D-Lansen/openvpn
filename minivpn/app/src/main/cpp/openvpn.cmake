@@ -76,13 +76,10 @@ set(openvpn_srcs
         openvpn/src/openvpn/ssl_pkt.c
         openvpn/src/openvpn/ssl_util.c
         openvpn/src/openvpn/ssl_verify.c
-        openvpn/src/openvpn/ssl_verify_openssl.c
         openvpn/src/openvpn/status.c
         openvpn/src/openvpn/tls_crypt.c
         openvpn/src/openvpn/tun.c
         openvpn/src/openvpn/vlan.c
-        openvpn/src/openvpn/xkey_helper.c
-        openvpn/src/openvpn/xkey_provider.c
         )
 
 if (${CMAKE_SYSTEM_NAME} STREQUAL "Android")

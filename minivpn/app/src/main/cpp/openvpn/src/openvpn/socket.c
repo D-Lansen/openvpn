@@ -33,7 +33,6 @@
 #include "fdmisc.h"
 #include "misc.h"
 #include "gremlin.h"
-#include "plugin.h"
 #include "ps.h"
 #include "run_command.h"
 #include "manage.h"

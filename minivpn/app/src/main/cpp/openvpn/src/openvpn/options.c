@@ -60,7 +60,6 @@
 #include "forward.h"
 #include "ssl_verify.h"
 #include "platform.h"
-#include "xkey_common.h"
 #include "dco.h"
 #include <ctype.h>
 
@@ -1784,7 +1783,6 @@ show_settings(const struct options *o)
     SHOW_BOOL(genkey);
     SHOW_STR(genkey_filename);
     SHOW_STR(key_pass_file);
-    SHOW_BOOL(show_tls_ciphers);
 
     SHOW_INT(connect_retry_max);
     show_connection_entries(o);
@@ -1930,7 +1928,6 @@ show_settings(const struct options *o)
     SHOW_INT(replay_window);
     SHOW_INT(replay_time);
     SHOW_STR(packet_id_file);
-    SHOW_BOOL(test_crypto);
 #ifdef ENABLE_PREDICTION_RESISTANCE
     SHOW_BOOL(use_prediction_resistance);
 #endif
@@ -4038,7 +4035,7 @@ options_postprocess(struct options *options, struct env_set *es)
     options_postprocess_mutate(options, es);
     options_postprocess_verify(options);
 #ifndef ENABLE_SMALL
-    options_postprocess_filechecks(options);
+    //options_postprocess_filechecks(options);
 #endif /* !ENABLE_SMALL */
 }
 
@@ -8595,11 +8592,6 @@ add_option(struct options *options,
         VERIFY_PERMISSION(OPT_P_GENERAL);
         options->show_tls_ciphers = true;
     }
-    else if ((streq(p[0], "show-curves") || streq(p[0], "show-groups")) && !p[1])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        options->show_curves = true;
-    }
     else if (streq(p[0], "ecdh-curve") && p[1] && !p[2])
     {
         VERIFY_PERMISSION(OPT_P_GENERAL);
@@ -9074,11 +9066,6 @@ add_option(struct options *options,
     {
         VERIFY_PERMISSION(OPT_P_GENERAL);
         options->tls_crypt_v2_verify_script = p[1];
-    }
-    else if (streq(p[0], "x509-track") && p[1] && !p[2])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        x509_track_add(&options->x509_track, p[1], msglevel, &options->gc);
     }
 #ifdef ENABLE_X509ALTUSERNAME
     else if (streq(p[0], "x509-username-field") && p[1])

@@ -35,13 +35,10 @@
 
 /* Include OpenSSL-specific code */
 #ifdef ENABLE_CRYPTO_OPENSSL
-#include "ssl_verify_openssl.h"
 #endif
 #ifdef ENABLE_CRYPTO_MBEDTLS
 #include "ssl_verify_mbedtls.h"
 #endif
-
-#include "ssl_verify_backend.h"
 
 /*
  * Keep track of certificate hashes at various depths
@@ -160,33 +157,6 @@ const char *tls_username(const struct tls_multi *multi, const bool null);
  * @param chs2 cert 2 hash set
  */
 bool cert_hash_compare(const struct cert_hash_set *chs1, const struct cert_hash_set *chs2);
-
-/**
- * Verify the given username and password, using either an external script, a
- * plugin, or the management interface.
- *
- * If authentication succeeds, the appropriate state is filled into the
- * session's primary key state's authenticated field. Authentication may also
- * be deferred, in which case the key state's auth_deferred field is filled in.
- *
- * @param up            The username and password to verify.
- * @param multi         The TLS multi structure to verify usernames against.
- * @param session       The current TLS session
- *
- */
-void verify_user_pass(struct user_pass *up, struct tls_multi *multi,
-                      struct tls_session *session);
-
-/**
- * Perform final authentication checks, including locking of the cn, the allowed
- * certificate hashes, and whether a client config entry exists in the
- * client config directory.
- *
- * @param multi         The TLS multi structure to verify locked structures.
- * @param session       The current TLS session
- *
- */
-void verify_final_auth_checks(struct tls_multi *multi, struct tls_session *session);
 
 struct x509_track
 {
