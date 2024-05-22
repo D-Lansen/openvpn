@@ -134,9 +134,6 @@ get_user_pass(struct user_pass *up,
     return get_user_pass_cr(up, auth_file, prefix, flags, NULL);
 }
 
-void fail_user_pass(const char *prefix,
-                    const unsigned int flags,
-                    const char *reason);
 
 void purge_user_pass(struct user_pass *up, const bool force);
 

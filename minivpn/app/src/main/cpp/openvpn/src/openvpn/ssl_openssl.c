@@ -177,140 +177,6 @@ key_state_export_keying_material(struct tls_session *session,
     }
 }
 
-/*
- * Print debugging information on SSL/TLS session negotiation.
- */
-
-#ifndef INFO_CALLBACK_SSL_CONST
-#define INFO_CALLBACK_SSL_CONST const
-#endif
-static void
-info_callback(INFO_CALLBACK_SSL_CONST SSL *s, int where, int ret)
-{
-    if (where & SSL_CB_LOOP)
-    {
-        dmsg(D_HANDSHAKE_VERBOSE, "SSL state (%s): %s",
-             where & SSL_ST_CONNECT ? "connect" :
-             where &SSL_ST_ACCEPT ? "accept" :
-             "undefined", SSL_state_string_long(s));
-    }
-    else if (where & SSL_CB_ALERT)
-    {
-        dmsg(D_HANDSHAKE_VERBOSE, "SSL alert (%s): %s: %s",
-             where & SSL_CB_READ ? "read" : "write",
-             SSL_alert_type_string_long(ret),
-             SSL_alert_desc_string_long(ret));
-    }
-}
-
-/*
- * Return maximum TLS version supported by local OpenSSL library.
- * Assume that presence of SSL_OP_NO_TLSvX macro indicates that
- * TLSvX is supported.
- */
-int
-tls_version_max(void)
-{
-#if defined(TLS1_3_VERSION)
-    /* If this is defined we can safely assume TLS 1.3 support */
-    return TLS_VER_1_3;
-#elif OPENSSL_VERSION_NUMBER >= 0x10100000L
-    /*
-     * If TLS_VER_1_3 is not defined, we were compiled against a version that
-     * did not support TLS 1.3.
-     *
-     * However, the library we are *linked* against might be OpenSSL 1.1.1
-     * and therefore supports TLS 1.3. This needs to be checked at runtime
-     * since we can be compiled against 1.1.0 and then the library can be
-     * upgraded to 1.1.1.
-     * We only need to check this for OpenSSL versions that can be
-     * upgraded to 1.1.1 without recompile (>= 1.1.0)
-     */
-    if (OpenSSL_version_num() >= 0x1010100fL)
-    {
-        return TLS_VER_1_3;
-    }
-    else
-    {
-        return TLS_VER_1_2;
-    }
-#elif defined(TLS1_2_VERSION) || defined(SSL_OP_NO_TLSv1_2)
-    return TLS_VER_1_2;
-#elif defined(TLS1_1_VERSION) || defined(SSL_OP_NO_TLSv1_1)
-    return TLS_VER_1_1;
-#else  /* if defined(TLS1_3_VERSION) */
-    return TLS_VER_1_0;
-#endif
-}
-
-/** Convert internal version number to openssl version number */
-static int
-openssl_tls_version(int ver)
-{
-    if (ver == TLS_VER_1_0)
-    {
-        return TLS1_VERSION;
-    }
-    else if (ver == TLS_VER_1_1)
-    {
-        return TLS1_1_VERSION;
-    }
-    else if (ver == TLS_VER_1_2)
-    {
-        return TLS1_2_VERSION;
-    }
-    else if (ver == TLS_VER_1_3)
-    {
-        /*
-         * Supporting the library upgraded to TLS1.3 without recompile
-         * is enough to support here with a simple constant that the same
-         * as in the TLS 1.3, so spec it is very unlikely that OpenSSL
-         * will change this constant
-         */
-#ifndef TLS1_3_VERSION
-        /*
-         * We do not want to define TLS_VER_1_3 if not defined
-         * since other parts of the code use the existance of this macro
-         * as proxy for TLS 1.3 support
-         */
-        return 0x0304;
-#else
-        return TLS1_3_VERSION;
-#endif
-    }
-    return 0;
-}
-
-static bool
-tls_ctx_set_tls_versions(struct tls_root_ctx *ctx, unsigned int ssl_flags)
-{
-    int tls_ver_min = openssl_tls_version(
-        (ssl_flags >> SSLF_TLS_VERSION_MIN_SHIFT) & SSLF_TLS_VERSION_MIN_MASK);
-    int tls_ver_max = openssl_tls_version(
-        (ssl_flags >> SSLF_TLS_VERSION_MAX_SHIFT) & SSLF_TLS_VERSION_MAX_MASK);
-
-    if (!tls_ver_min)
-    {
-        /* Enforce at least TLS 1.0 */
-        int cur_min = SSL_CTX_get_min_proto_version(ctx->ctx);
-        tls_ver_min = cur_min < TLS1_VERSION ? TLS1_VERSION : cur_min;
-    }
-
-    if (!SSL_CTX_set_min_proto_version(ctx->ctx, tls_ver_min))
-    {
-        msg(D_TLS_ERRORS, "%s: failed to set minimum TLS version", __func__);
-        return false;
-    }
-
-    if (tls_ver_max && !SSL_CTX_set_max_proto_version(ctx->ctx, tls_ver_max))
-    {
-        msg(D_TLS_ERRORS, "%s: failed to set maximum TLS version", __func__);
-        return false;
-    }
-
-    return true;
-}
-
 bool
 tls_ctx_set_options(struct tls_root_ctx *ctx, unsigned int ssl_flags)
 {
@@ -331,27 +197,22 @@ tls_ctx_set_options(struct tls_root_ctx *ctx, unsigned int ssl_flags)
 
     SSL_CTX_set_options(ctx->ctx, sslopt);
 
-    if (!tls_ctx_set_tls_versions(ctx, ssl_flags))
-    {
-        return false;
-    }
-
 #ifdef SSL_MODE_RELEASE_BUFFERS
     SSL_CTX_set_mode(ctx->ctx, SSL_MODE_RELEASE_BUFFERS);
 #endif
     SSL_CTX_set_session_cache_mode(ctx->ctx, SSL_SESS_CACHE_OFF);
     SSL_CTX_set_default_passwd_cb(ctx->ctx, pem_password_callback);
 
-    /* Require peer certificate verification */
-    int verify_flags = SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT;
-    if (ssl_flags & SSLF_CLIENT_CERT_NOT_REQUIRED)
-    {
-        verify_flags = 0;
-    }
-    else if (ssl_flags & SSLF_CLIENT_CERT_OPTIONAL)
-    {
-        verify_flags = SSL_VERIFY_PEER;
-    }
+//    /* Require peer certificate verification */
+//    int verify_flags = SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT;
+//    if (ssl_flags & SSLF_CLIENT_CERT_NOT_REQUIRED)
+//    {
+//        verify_flags = 0;
+//    }
+//    else if (ssl_flags & SSLF_CLIENT_CERT_OPTIONAL)
+//    {
+//        verify_flags = SSL_VERIFY_PEER;
+//    }
 
     return true;
 }
@@ -1071,10 +932,10 @@ tls_ctx_load_priv_file(struct tls_root_ctx *ctx, const char *priv_key_file,
     }
 
     /* Check Private Key */
-    if (!SSL_CTX_check_private_key(ssl_ctx))
-    {
-        crypto_msg(M_FATAL, "Private key does not match the certificate");
-    }
+//    if (!SSL_CTX_check_private_key(ssl_ctx))
+//    {
+//        crypto_msg(M_FATAL, "Private key does not match the certificate");
+//    }
     ret = 0;
 
 end:

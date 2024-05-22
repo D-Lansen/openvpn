@@ -551,42 +551,6 @@ ssl_put_auth_challenge(const char *cr_str)
 }
 
 #endif
-
-/*
- * Parse a TLS version string, returning a TLS_VER_x constant.
- * If version string is not recognized and extra == "or-highest",
- * return tls_version_max().
- */
-int
-tls_version_parse(const char *vstr, const char *extra)
-{
-    const int max_version = tls_version_max();
-    if (!strcmp(vstr, "1.0") && TLS_VER_1_0 <= max_version)
-    {
-        return TLS_VER_1_0;
-    }
-    else if (!strcmp(vstr, "1.1") && TLS_VER_1_1 <= max_version)
-    {
-        return TLS_VER_1_1;
-    }
-    else if (!strcmp(vstr, "1.2") && TLS_VER_1_2 <= max_version)
-    {
-        return TLS_VER_1_2;
-    }
-    else if (!strcmp(vstr, "1.3") && TLS_VER_1_3 <= max_version)
-    {
-        return TLS_VER_1_3;
-    }
-    else if (extra && !strcmp(extra, "or-highest"))
-    {
-        return max_version;
-    }
-    else
-    {
-        return TLS_VER_BAD;
-    }
-}
-
 /**
  * Load (or possibly reload) the CRL file into the SSL context.
  * No reload is performed under the following conditions:
@@ -664,12 +628,6 @@ init_ssl(const struct options *options, struct tls_root_ctx *new_ctx, bool in_ch
     if (options->tls_server)
     {
         tls_ctx_server_new(new_ctx);
-
-        if (options->dh_file)
-        {
-            tls_ctx_load_dh_params(new_ctx, options->dh_file,
-                                   options->dh_file_inline);
-        }
     }
     else                        /* if client */
     {
@@ -696,14 +654,6 @@ init_ssl(const struct options *options, struct tls_root_ctx *new_ctx, bool in_ch
         goto err;
     }
 
-    if (options->pkcs12_file)
-    {
-        if (0 != tls_ctx_load_pkcs12(new_ctx, options->pkcs12_file,
-                                     options->pkcs12_file_inline, !options->ca_file))
-        {
-            goto err;
-        }
-    }
 #ifdef ENABLE_PKCS11
     else if (options->pkcs11_providers[0])
     {
@@ -753,51 +703,6 @@ init_ssl(const struct options *options, struct tls_root_ctx *new_ctx, bool in_ch
         }
     }
 #endif
-
-    if (options->ca_file || options->ca_path)
-    {
-        tls_ctx_load_ca(new_ctx, options->ca_file, options->ca_file_inline,
-                        options->ca_path, options->tls_server);
-    }
-
-    /* Load extra certificates that are part of our own certificate
-     * chain but shouldn't be included in the verify chain */
-    if (options->extra_certs_file)
-    {
-        tls_ctx_load_extra_certs(new_ctx, options->extra_certs_file, options->extra_certs_file_inline);
-    }
-
-    /* Check certificate notBefore and notAfter */
-    tls_ctx_check_cert_time(new_ctx);
-
-    /* Read CRL */
-    if (options->crl_file && !(options->ssl_flags & SSLF_CRL_VERIFY_DIR))
-    {
-        /* If we're running with the chroot option, we may run init_ssl() before
-         * and after chroot-ing. We can use the crl_file path as-is if we're
-         * not going to chroot, or if we already are inside the chroot.
-         *
-         * If we're going to chroot later, we need to prefix the path of the
-         * chroot directory to crl_file.
-         */
-        if (!options->chroot_dir || in_chroot || options->crl_file_inline)
-        {
-            tls_ctx_reload_crl(new_ctx, options->crl_file, options->crl_file_inline);
-        }
-        else
-        {
-            struct gc_arena gc = gc_new();
-            struct buffer crl_file_buf = prepend_dir(options->chroot_dir, options->crl_file, &gc);
-            tls_ctx_reload_crl(new_ctx, BSTR(&crl_file_buf), options->crl_file_inline);
-            gc_free(&gc);
-        }
-    }
-
-    /* Once keys and cert are loaded, load ECDH parameters */
-    if (options->tls_server)
-    {
-        tls_ctx_load_ecdh_params(new_ctx, options->ecdh_curve);
-    }
 
 #ifdef ENABLE_CRYPTO_MBEDTLS
     /* Personalise the random by mixing in the certificate */
@@ -1016,12 +921,12 @@ key_state_init(struct tls_session *session, struct key_state *ks)
      * Attempt CRL reload before TLS negotiation. Won't be performed if
      * the file was not modified since the last reload
      */
-    if (session->opt->crl_file
-        && !(session->opt->ssl_flags & SSLF_CRL_VERIFY_DIR))
-    {
-        tls_ctx_reload_crl(&session->opt->ssl_ctx,
-                           session->opt->crl_file, session->opt->crl_file_inline);
-    }
+//    if (session->opt->crl_file
+//        && !(session->opt->ssl_flags & SSLF_CRL_VERIFY_DIR))
+//    {
+//        tls_ctx_reload_crl(&session->opt->ssl_ctx,
+//                           session->opt->crl_file, session->opt->crl_file_inline);
+//    }
 }
 
 
@@ -2743,6 +2648,7 @@ write_outgoing_tls_ciphertext(struct tls_session *session, bool *state_change)
     }
 
     gc_free(&gc);
+
     return true;
 }
 
@@ -2839,6 +2745,7 @@ tls_process_state(struct tls_multi *multi,
     struct buffer *buf = &ks->plaintext_read_buf;
     if (!buf->len)
     {
+        //ssl_bio read
         if (!read_incoming_tls_plaintext(ks, buf, wakeup, &state_change))
         {
             goto error;
@@ -2881,6 +2788,7 @@ tls_process_state(struct tls_multi *multi,
     if (buf->len)
     {
         int status = key_state_write_plaintext(&ks->ks_ssl, buf);
+
         if (status == -1)
         {
             msg(D_TLS_ERRORS,

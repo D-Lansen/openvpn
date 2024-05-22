@@ -1934,9 +1934,7 @@ show_settings(const struct options *o)
 
     SHOW_BOOL(tls_server);
     SHOW_BOOL(tls_client);
-    SHOW_STR_INLINE(ca_file);
     SHOW_STR(ca_path);
-    SHOW_STR_INLINE(dh_file);
 #ifdef ENABLE_MANAGEMENT
     if ((o->management_flags & MF_EXTERNAL_CERT))
     {
@@ -1968,7 +1966,6 @@ show_settings(const struct options *o)
     SHOW_STR(tls_export_cert);
     SHOW_INT(verify_x509_type);
     SHOW_STR(verify_x509_name);
-    SHOW_STR_INLINE(crl_file);
     SHOW_INT(ns_cert_type);
     {
         int i;
@@ -2251,28 +2248,6 @@ connection_entry_preload_key(const char **key_file, bool *key_inline,
 }
 
 static void
-check_ca_required(const struct options *options)
-{
-    if (options->verify_hash_no_ca
-        || options->pkcs12_file
-        || options->ca_file
-#ifndef ENABLE_CRYPTO_MBEDTLS
-        || options->ca_path
-#endif
-        )
-    {
-        return;
-    }
-
-    const char *const str = "You must define CA file (--ca)"
-#ifndef ENABLE_CRYPTO_MBEDTLS
-                            " or CA path (--capath)"
-#endif
-                            " and/or peer fingerprint verification (--peer-fingerprint)";
-    msg(M_USAGE, "%s", str);
-}
-
-static void
 options_postprocess_verify_ce(const struct options *options,
                               const struct connection_entry *ce)
 {
@@ -2411,8 +2386,7 @@ options_postprocess_verify_ce(const struct options *options,
 #endif /* ifdef ENABLE_MANAGEMENT */
 
 #if defined(ENABLE_MANAGEMENT) && !defined(HAVE_XKEY_PROVIDER)
-    if ((tls_version_max() >= TLS_VER_1_3)
-        && (options->management_flags & MF_EXTERNAL_KEY)
+    if ((options->management_flags & MF_EXTERNAL_KEY)
         && !(options->management_flags & (MF_EXTERNAL_KEY_NOPADDING))
         )
     {
@@ -2785,21 +2759,9 @@ options_postprocess_verify_ce(const struct options *options,
             "may accept clients which do not present a certificate");
     }
 
-    const int tls_version_max =
-        (options->ssl_flags >> SSLF_TLS_VERSION_MAX_SHIFT)
-        & SSLF_TLS_VERSION_MAX_MASK;
-    const int tls_version_min =
-        (options->ssl_flags >> SSLF_TLS_VERSION_MIN_SHIFT)
-        & SSLF_TLS_VERSION_MIN_MASK;
-
-    if (tls_version_max > 0 && tls_version_max < tls_version_min)
-    {
-        msg(M_USAGE, "--tls-version-min bigger than --tls-version-max");
-    }
-
     if (options->tls_server || options->tls_client)
     {
-        check_ca_required(options);
+        //check_ca_required(options);
 #ifdef ENABLE_PKCS11
         if (options->pkcs11_providers[0])
         {
@@ -2893,10 +2855,6 @@ options_postprocess_verify_ce(const struct options *options,
 #ifdef ENABLE_CRYPTO_MBEDTLS
             msg(M_USAGE, "Parameter --pkcs12 cannot be used with the mbed TLS version version of OpenVPN.");
 #else
-            if (options->ca_path)
-            {
-                msg(M_USAGE, "Parameter --capath cannot be used when --pkcs12 is also specified.");
-            }
             if (options->cert_file)
             {
                 msg(M_USAGE, "Parameter --cert cannot be used when --pkcs12 is also specified.");
@@ -2954,17 +2912,6 @@ options_postprocess_verify_ce(const struct options *options,
                     msg(M_USAGE, "If you use one of --cert or --key, you must use them both");
                 }
             }
-            else
-            {
-#ifdef ENABLE_MANAGEMENT
-                if (!(options->management_flags & MF_EXTERNAL_CERT))
-#endif
-                notnull(options->cert_file, "certificate file (--cert) or PKCS#12 file (--pkcs12)");
-#ifdef ENABLE_MANAGEMENT
-                if (!(options->management_flags & MF_EXTERNAL_KEY))
-#endif
-                notnull(options->priv_key_file, "private key file (--key) or PKCS#12 file (--pkcs12)");
-            }
         }
         if (ce->tls_auth_file && ce->tls_crypt_file)
         {
@@ -2988,9 +2935,7 @@ options_postprocess_verify_ce(const struct options *options,
 
         const char err[] = "Parameter %s can only be specified in TLS-mode, i.e. where --tls-server or --tls-client is also specified.";
 
-        MUST_BE_UNDEF(ca_file);
         MUST_BE_UNDEF(ca_path);
-        MUST_BE_UNDEF(dh_file);
         MUST_BE_UNDEF(cert_file);
         MUST_BE_UNDEF(priv_key_file);
 #ifndef ENABLE_CRYPTO_MBEDTLS
@@ -3014,7 +2959,6 @@ options_postprocess_verify_ce(const struct options *options,
         MUST_BE_UNDEF(single_session);
         MUST_BE_UNDEF(push_peer_info);
         MUST_BE_UNDEF(tls_exit);
-        MUST_BE_UNDEF(crl_file);
         MUST_BE_UNDEF(ns_cert_type);
         MUST_BE_UNDEF(remote_cert_ku[0]);
         MUST_BE_UNDEF(remote_cert_eku);
@@ -3518,21 +3462,8 @@ options_set_backwards_compatible_options(struct options *o)
     {
         int tls_ver_max = (o->ssl_flags >> SSLF_TLS_VERSION_MAX_SHIFT)
                           & SSLF_TLS_VERSION_MAX_MASK;
-        if (need_compatibility_before(o, 20307))
-        {
-            /* 2.3.6 and earlier have TLS 1.0 only, set minimum to TLS 1.0 */
-            o->ssl_flags |= (TLS_VER_1_0 << SSLF_TLS_VERSION_MIN_SHIFT);
-        }
-        else if (tls_ver_max == 0 || tls_ver_max >= TLS_VER_1_2)
-        {
-            /* Use TLS 1.2 as proper default */
-            o->ssl_flags |= (TLS_VER_1_2 << SSLF_TLS_VERSION_MIN_SHIFT);
-        }
-        else
-        {
-            /* Maximize the minimum version */
-            o->ssl_flags |= (tls_ver_max << SSLF_TLS_VERSION_MIN_SHIFT);
-        }
+        /* Maximize the minimum version */
+        o->ssl_flags |= (tls_ver_max << SSLF_TLS_VERSION_MIN_SHIFT);
     }
 
     if (need_compatibility_before(o, 20400))
@@ -3631,35 +3562,19 @@ options_postprocess_mutate(struct options *o, struct env_set *es)
         options_postprocess_mutate_ce(o, o->connection_list->array[i]);
     }
 
-    if (o->tls_server)
-    {
-        /* Check that DH file is specified, or explicitly disabled */
-        notnull(o->dh_file, "DH file (--dh)");
-        if (streq(o->dh_file, "none"))
-        {
-            o->dh_file = NULL;
-        }
-    }
-    else if (o->dh_file)
-    {
-        /* DH file is only meaningful in a tls-server context. */
-        msg(M_WARN, "WARNING: Ignoring option 'dh' in tls-client mode, please only "
-            "include this in your server configuration");
-        o->dh_file = NULL;
-    }
 #if ENABLE_MANAGEMENT
     if (o->http_proxy_override)
     {
         options_postprocess_http_proxy_override(o);
     }
 #endif
-    if (!o->ca_file && !o->ca_path && o->verify_hash
-        && o->verify_hash_depth == 0)
-    {
-        msg(M_INFO, "Using certificate fingerprint to verify peer (no CA "
-            "option set). ");
-        o->verify_hash_no_ca = true;
-    }
+//    if (!o->ca_file && !o->ca_path && o->verify_hash
+//        && o->verify_hash_depth == 0)
+//    {
+//        msg(M_INFO, "Using certificate fingerprint to verify peer (no CA "
+//            "option set). ");
+//        o->verify_hash_no_ca = true;
+//    }
 
     if (o->config && streq(o->config, "stdin") && o->remap_sigusr1 == SIGHUP)
     {
@@ -3819,38 +3734,7 @@ check_file_access_chroot(const char *chroot, const int type, const char *file, c
     return ret;
 }
 
-/**
- * A wrapper for check_file_access_chroot() that returns false immediately if
- * the file is inline (and therefore there is no access to check)
- */
-static bool
-check_file_access_chroot_inline(bool is_inline, const char *chroot,
-                                const int type, const char *file,
-                                const int mode, const char *opt)
-{
-    if (is_inline)
-    {
-        return false;
-    }
 
-    return check_file_access_chroot(chroot, type, file, mode, opt);
-}
-
-/**
- * A wrapper for check_file_access() that returns false immediately if the file
- * is inline (and therefore there is no access to check)
- */
-static bool
-check_file_access_inline(bool is_inline, const int type, const char *file,
-                         const int mode, const char *opt)
-{
-    if (is_inline)
-    {
-        return false;
-    }
-
-    return check_file_access(type, file, mode, opt);
-}
 
 /*
  * Verifies that the path in the "command" that comes after certain script options (e.g., --up) is a
@@ -3905,123 +3789,7 @@ check_cmd_access(const char *command, const char *opt, const char *chroot)
     return return_code;
 }
 
-/*
- * Sanity check of all file/dir options.  Checks that file/dir
- * is accessible by OpenVPN
- */
-static void
-options_postprocess_filechecks(struct options *options)
-{
-    bool errs = false;
 
-    /* ** SSL/TLS/crypto related files ** */
-    errs |= check_file_access_inline(options->dh_file_inline, CHKACC_FILE,
-                                     options->dh_file, R_OK, "--dh");
-
-    if (!options->verify_hash_no_ca)
-    {
-        errs |= check_file_access_inline(options->ca_file_inline, CHKACC_FILE,
-                                         options->ca_file, R_OK, "--ca");
-    }
-
-    errs |= check_file_access_chroot(options->chroot_dir, CHKACC_FILE,
-                                     options->ca_path, R_OK, "--capath");
-
-    errs |= check_file_access_inline(options->cert_file_inline, CHKACC_FILE,
-                                     options->cert_file, R_OK, "--cert");
-
-    errs |= check_file_access_inline(options->extra_certs_file, CHKACC_FILE,
-                                     options->extra_certs_file, R_OK,
-                                     "--extra-certs");
-
-#ifdef ENABLE_MANAGMENT
-    if (!(options->management_flags & MF_EXTERNAL_KEY))
-#endif
-    {
-        errs |= check_file_access_inline(options->priv_key_file_inline,
-                                         CHKACC_FILE|CHKACC_PRIVATE,
-                                         options->priv_key_file, R_OK, "--key");
-    }
-
-    errs |= check_file_access_inline(options->pkcs12_file_inline,
-                                     CHKACC_FILE|CHKACC_PRIVATE,
-                                     options->pkcs12_file, R_OK, "--pkcs12");
-
-    if (options->ssl_flags & SSLF_CRL_VERIFY_DIR)
-    {
-        errs |= check_file_access_chroot(options->chroot_dir, CHKACC_FILE,
-                                         options->crl_file, R_OK|X_OK,
-                                         "--crl-verify directory");
-    }
-    else
-    {
-        errs |= check_file_access_chroot_inline(options->crl_file_inline,
-                                                options->chroot_dir,
-                                                CHKACC_FILE, options->crl_file,
-                                                R_OK, "--crl-verify");
-    }
-
-    ASSERT(options->connection_list);
-    for (int i = 0; i < options->connection_list->len; ++i)
-    {
-        struct connection_entry *ce = options->connection_list->array[i];
-
-        errs |= check_file_access_inline(ce->tls_auth_file_inline,
-                                         CHKACC_FILE|CHKACC_PRIVATE,
-                                         ce->tls_auth_file, R_OK,
-                                         "--tls-auth");
-        errs |= check_file_access_inline(ce->tls_crypt_file_inline,
-                                         CHKACC_FILE|CHKACC_PRIVATE,
-                                         ce->tls_crypt_file, R_OK,
-                                         "--tls-crypt");
-        errs |= check_file_access_inline(ce->tls_crypt_v2_file_inline,
-                                         CHKACC_FILE|CHKACC_PRIVATE,
-                                         ce->tls_crypt_v2_file, R_OK,
-                                         "--tls-crypt-v2");
-    }
-
-    errs |= check_file_access_inline(options->shared_secret_file_inline,
-                                     CHKACC_FILE|CHKACC_PRIVATE,
-                                     options->shared_secret_file, R_OK,
-                                     "--secret");
-
-    errs |= check_file_access(CHKACC_DIRPATH|CHKACC_FILEXSTWR,
-                              options->packet_id_file, R_OK|W_OK, "--replay-persist");
-
-    /* ** Password files ** */
-    errs |= check_file_access(CHKACC_FILE|CHKACC_ACPTSTDIN|CHKACC_PRIVATE,
-                              options->key_pass_file, R_OK, "--askpass");
-#ifdef ENABLE_MANAGEMENT
-    errs |= check_file_access(CHKACC_FILE|CHKACC_ACPTSTDIN|CHKACC_PRIVATE,
-                              options->management_user_pass, R_OK,
-                              "--management user/password file");
-#endif /* ENABLE_MANAGEMENT */
-    errs |= check_file_access(CHKACC_FILE|CHKACC_ACPTSTDIN|CHKACC_PRIVATE,
-                              options->auth_user_pass_file, R_OK,
-                              "--auth-user-pass");
-    /* ** System related ** */
-    errs |= check_file_access(CHKACC_FILE, options->chroot_dir,
-                              R_OK|X_OK, "--chroot directory");
-    errs |= check_file_access(CHKACC_DIRPATH|CHKACC_FILEXSTWR, options->writepid,
-                              R_OK|W_OK, "--writepid");
-
-    /* ** Log related ** */
-    errs |= check_file_access(CHKACC_DIRPATH|CHKACC_FILEXSTWR, options->status_file,
-                              R_OK|W_OK, "--status");
-
-    /* ** Config related ** */
-    errs |= check_file_access_chroot(options->chroot_dir, CHKACC_FILE, options->tls_export_cert,
-                                     R_OK|W_OK|X_OK, "--tls-export-cert");
-    errs |= check_file_access_chroot(options->chroot_dir, CHKACC_FILE, options->client_config_dir,
-                                     R_OK|X_OK, "--client-config-dir");
-    errs |= check_file_access_chroot(options->chroot_dir, CHKACC_FILE, options->tmp_dir,
-                                     R_OK|W_OK|X_OK, "Temporary directory (--tmp-dir)");
-
-    if (errs)
-    {
-        msg(M_USAGE, "Please correct these errors.");
-    }
-}
 #endif /* !ENABLE_SMALL */
 
 /*
@@ -8259,6 +8027,9 @@ add_option(struct options *options,
         show_compression_warning(&options->comp);
 #endif /* if defined(ENABLE_LZO) */
     }
+    else if (streq(p[0], "dh"))
+    {
+    }
     else if (streq(p[0], "comp-noadapt") && !p[1])
     {
         /*
@@ -8612,22 +8383,8 @@ add_option(struct options *options,
     }
     else if (streq(p[0], "ca") && p[1] && !p[2])
     {
-        VERIFY_PERMISSION(OPT_P_GENERAL|OPT_P_INLINE);
-        options->ca_file = p[1];
+        options->ca_file = NULL;
         options->ca_file_inline = is_inline;
-    }
-#ifndef ENABLE_CRYPTO_MBEDTLS
-    else if (streq(p[0], "capath") && p[1] && !p[2])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        options->ca_path = p[1];
-    }
-#endif /* ENABLE_CRYPTO_MBEDTLS */
-    else if (streq(p[0], "dh") && p[1] && !p[2])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL|OPT_P_INLINE);
-        options->dh_file = p[1];
-        options->dh_file_inline = is_inline;
     }
     else if (streq(p[0], "cert") && p[1] && !p[2])
     {
@@ -8717,34 +8474,6 @@ add_option(struct options *options,
         options->priv_key_file = p[1];
         options->priv_key_file_inline = is_inline;
     }
-    else if (streq(p[0], "tls-version-min") && p[1] && !p[3])
-    {
-        int ver;
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        ver = tls_version_parse(p[1], p[2]);
-        if (ver == TLS_VER_BAD)
-        {
-            msg(msglevel, "unknown tls-version-min parameter: %s", p[1]);
-            goto err;
-        }
-        options->ssl_flags &=
-            ~(SSLF_TLS_VERSION_MIN_MASK << SSLF_TLS_VERSION_MIN_SHIFT);
-        options->ssl_flags |= (ver << SSLF_TLS_VERSION_MIN_SHIFT);
-    }
-    else if (streq(p[0], "tls-version-max") && p[1] && !p[2])
-    {
-        int ver;
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        ver = tls_version_parse(p[1], NULL);
-        if (ver == TLS_VER_BAD)
-        {
-            msg(msglevel, "unknown tls-version-max parameter: %s", p[1]);
-            goto err;
-        }
-        options->ssl_flags &=
-            ~(SSLF_TLS_VERSION_MAX_MASK << SSLF_TLS_VERSION_MAX_SHIFT);
-        options->ssl_flags |= (ver << SSLF_TLS_VERSION_MAX_SHIFT);
-    }
 #ifndef ENABLE_CRYPTO_MBEDTLS
     else if (streq(p[0], "pkcs12") && p[1] && !p[2])
     {
@@ -8824,13 +8553,7 @@ add_option(struct options *options,
     else if (streq(p[0], "crl-verify") && p[1] && ((p[2] && streq(p[2], "dir"))
                                                    || !p[2]))
     {
-        VERIFY_PERMISSION(OPT_P_GENERAL|OPT_P_INLINE);
-        if (p[2] && streq(p[2], "dir"))
-        {
-            options->ssl_flags |= SSLF_CRL_VERIFY_DIR;
-        }
-        options->crl_file = p[1];
-        options->crl_file_inline = is_inline;
+        //options->crl_file = NULL;
     }
     else if (streq(p[0], "tls-verify") && p[1])
     {
