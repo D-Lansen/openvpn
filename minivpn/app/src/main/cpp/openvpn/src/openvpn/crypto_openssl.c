@@ -311,47 +311,11 @@ const size_t cipher_name_translation_table_count =
     sizeof(cipher_name_translation_table) / sizeof(*cipher_name_translation_table);
 
 
-static int
-cipher_name_cmp(const void *a, const void *b)
-{
-    const EVP_CIPHER *const *cipher_a = a;
-    const EVP_CIPHER *const *cipher_b = b;
-
-    return strcmp(EVP_CIPHER_get0_name(*cipher_a), EVP_CIPHER_get0_name(*cipher_b));
-}
-
 struct collect_ciphers {
     /* If we ever exceed this, we must be more selective */
     const EVP_CIPHER *list[1000];
     size_t num;
 };
-
-static void
-collect_ciphers(EVP_CIPHER *cipher, void *list)
-{
-    if (!cipher)
-    {
-        return;
-    }
-    struct collect_ciphers *cipher_list = list;
-    if (cipher_list->num == SIZE(cipher_list->list))
-    {
-        msg(M_WARN, "WARNING: Too many ciphers, not showing all");
-        return;
-    }
-
-    const char *ciphername = EVP_CIPHER_get0_name(cipher);
-
-    if (ciphername && (cipher_kt_mode_cbc(ciphername)
-#ifdef ENABLE_OFB_CFB_MODE
-                       || cipher_kt_mode_ofb_cfb(ciphername)
-#endif
-                       || cipher_kt_mode_aead(ciphername)
-                       ))
-    {
-        cipher_list->list[cipher_list->num++] = cipher;
-    }
-}
 
 void
 print_digest(EVP_MD *digest, void *unused)
@@ -795,56 +759,15 @@ cipher_ctx_init(EVP_CIPHER_CTX *ctx, const uint8_t *key,
 }
 
 int
-cipher_ctx_iv_length(const EVP_CIPHER_CTX *ctx)
-{
-    return EVP_CIPHER_CTX_iv_length(ctx);
-}
-
-
-int
 cipher_ctx_block_size(const EVP_CIPHER_CTX *ctx)
 {
     return EVP_CIPHER_CTX_block_size(ctx);
 }
 
-bool
-cipher_ctx_mode_aead(const cipher_ctx_t *ctx)
-{
-    if (ctx)
-    {
-        int flags = EVP_CIPHER_CTX_flags(ctx);
-        if (flags & EVP_CIPH_FLAG_AEAD_CIPHER)
-        {
-            return true;
-        }
-
-#if defined(NID_chacha20_poly1305) && OPENSSL_VERSION_NUMBER < 0x30000000L
-        if (EVP_CIPHER_CTX_nid(ctx) == NID_chacha20_poly1305)
-        {
-            return true;
-        }
-#endif
-    }
-
-    return false;
-}
-
-
 int
 cipher_ctx_reset(EVP_CIPHER_CTX *ctx, const uint8_t *iv_buf)
 {
     return EVP_CipherInit_ex(ctx, NULL, NULL, NULL, iv_buf, -1);
-}
-
-int
-cipher_ctx_update_ad(EVP_CIPHER_CTX *ctx, const uint8_t *src, int src_len)
-{
-    int len;
-    if (!EVP_CipherUpdate(ctx, NULL, &len, src, src_len))
-    {
-        crypto_msg(M_FATAL, "%s: EVP_CipherUpdate() failed", __func__);
-    }
-    return 1;
 }
 
 int
@@ -862,19 +785,6 @@ int
 cipher_ctx_final(EVP_CIPHER_CTX *ctx, uint8_t *dst, int *dst_len)
 {
     return EVP_CipherFinal(ctx, dst, dst_len);
-}
-
-int
-cipher_ctx_final_check_tag(EVP_CIPHER_CTX *ctx, uint8_t *dst, int *dst_len,
-                           uint8_t *tag, size_t tag_len)
-{
-    ASSERT(tag_len < SIZE_MAX);
-    if (!EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_SET_TAG, tag_len, tag))
-    {
-        return 0;
-    }
-
-    return cipher_ctx_final(ctx, dst, dst_len);
 }
 
 void
@@ -927,7 +837,6 @@ cipher_des_encrypt_ecb(const unsigned char key[DES_KEY_LENGTH],
  * Generic message digest information functions
  *
  */
-
 
 static evp_md_type *
 md_get(const char *digest)

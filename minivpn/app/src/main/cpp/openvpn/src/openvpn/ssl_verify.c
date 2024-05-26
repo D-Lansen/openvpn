@@ -44,63 +44,6 @@
 #include "push.h"
 #include "ssl_util.h"
 
-/** Maximum length of common name */
-#define TLS_USERNAME_LEN 64
-
-static void
-string_mod_remap_name(char *str)
-{
-    string_mod(str, CC_PRINT, CC_CRLF, '_');
-}
-
-/*
- * Export the untrusted IP address and port to the environment
- */
-static void
-setenv_untrusted(struct tls_session *session)
-{
-    setenv_link_socket_actual(session->opt->es, "untrusted", &session->untrusted_addr, SA_IP_PORT);
-}
-
-/*
- * Remove authenticated state from all sessions in the given tunnel
- */
-static void
-tls_deauthenticate(struct tls_multi *multi)
-{
-    if (multi)
-    {
-        wipe_auth_token(multi);
-        for (int i = 0; i < TM_SIZE; ++i)
-        {
-            for (int j = 0; j < KS_SIZE; ++j)
-            {
-                multi->session[i].key[j].authenticated = KS_AUTH_FALSE;
-            }
-        }
-    }
-}
-
-/*
- * Set the given session's common_name
- */
-static void
-set_common_name(struct tls_session *session, const char *common_name)
-{
-    if (session->common_name)
-    {
-        free(session->common_name);
-        session->common_name = NULL;
-    }
-    if (common_name)
-    {
-        /* FIXME: Last alloc will never be freed */
-        session->common_name = string_alloc(common_name, NULL);
-    }
-    /* update common name in env */
-    setenv_str(session->opt->es, "common_name", common_name);
-}
-
 /*
  * Retrieve the common name for the given tunnel's active session. If the
  * common name is NULL or empty, return NULL if null is true, or "UNDEF" if
@@ -141,35 +84,6 @@ tls_lock_common_name(struct tls_multi *multi)
     }
 }
 
-/*
- * Lock the username for the given tunnel
- */
-static bool
-tls_lock_username(struct tls_multi *multi, const char *username)
-{
-    if (multi->locked_username)
-    {
-        if (!username || strcmp(username, multi->locked_username))
-        {
-            msg(D_TLS_ERRORS, "TLS Auth Error: username attempted to change from '%s' to '%s' -- tunnel disabled",
-                multi->locked_username,
-                np(username));
-
-            /* disable the tunnel */
-            tls_deauthenticate(multi);
-            return false;
-        }
-    }
-    else
-    {
-        if (username)
-        {
-            multi->locked_username = string_alloc(username, NULL);
-        }
-    }
-    return true;
-}
-
 const char *
 tls_username(const struct tls_multi *multi, const bool null)
 {
@@ -189,27 +103,6 @@ tls_username(const struct tls_multi *multi, const bool null)
     else
     {
         return "UNDEF";
-    }
-}
-
-void
-cert_hash_remember(struct tls_session *session, const int error_depth,
-                   const struct buffer *cert_hash)
-{
-    if (error_depth >= 0 && error_depth < MAX_CERT_DEPTH)
-    {
-        if (!session->cert_hash_set)
-        {
-            ALLOC_OBJ_CLEAR(session->cert_hash_set, struct cert_hash_set);
-        }
-        if (!session->cert_hash_set->ch[error_depth])
-        {
-            ALLOC_OBJ(session->cert_hash_set->ch[error_depth], struct cert_hash);
-        }
-
-        struct cert_hash *ch = session->cert_hash_set->ch[error_depth];
-        ASSERT(sizeof(ch->sha256_hash) == BLEN(cert_hash));
-        memcpy(ch->sha256_hash, BPTR(cert_hash), sizeof(ch->sha256_hash));
     }
 }
 
@@ -294,26 +187,6 @@ tls_lock_cert_hash_set(struct tls_multi *multi)
         multi->locked_cert_hash_set = cert_hash_copy(chs);
     }
 }
-
-/*
- * Returns the string associated with the given certificate type.
- */
-static const char *
-print_nsCertType(int type)
-{
-    switch (type)
-    {
-        case NS_CERT_CHECK_SERVER:
-            return "SERVER";
-
-        case NS_CERT_CHECK_CLIENT:
-            return "CLIENT";
-
-        default:
-            return "?";
-    }
-}
-
 
 void
 auth_set_client_reason(struct tls_multi *multi, const char *client_reason)

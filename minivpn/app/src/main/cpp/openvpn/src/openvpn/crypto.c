@@ -136,15 +136,13 @@ openvpn_decrypt_v0(struct buffer *buf, struct buffer work,
 
     if (buf->len > 0 && opt)
     {
-        struct packet_id_net pin;
+        work = *buf;
+        if (packet_id_initialized(&opt->packet_id))
         {
-            work = *buf;
-            if (packet_id_initialized(&opt->packet_id))
+            struct packet_id_net pin;
+            if (!packet_id_read(&pin, &work, BOOL_CAST(opt->flags & CO_PACKET_ID_LONG_FORM)))
             {
-                if (!packet_id_read(&pin, &work, BOOL_CAST(opt->flags & CO_PACKET_ID_LONG_FORM)))
-                {
-                    CRYPT_ERROR("error reading packet-id");
-                }
+                CRYPT_ERROR("error reading packet-id");
             }
         }
         *buf = work;
@@ -335,20 +333,14 @@ init_key_ctx(struct key_ctx *ctx, const struct key *key,
     CLEAR(*ctx);
     if (cipher_defined(kt->cipher))
     {
-
         ctx->cipher = cipher_ctx_new();
         cipher_ctx_init(ctx->cipher, key->cipher, kt->cipher, enc);
-
-        const char *ciphername = cipher_kt_name(kt->cipher);
-        msg(D_HANDSHAKE, "%s: Cipher '%s' initialized with %d bit key",
-            prefix, ciphername, cipher_kt_key_size(kt->cipher) * 8);
 
         dmsg(D_SHOW_KEYS, "%s: CIPHER KEY: %s", prefix,
              format_hex(key->cipher, cipher_kt_key_size(kt->cipher), 0, &gc));
         dmsg(D_CRYPTO_DEBUG, "%s: CIPHER block_size=%d iv_size=%d",
              prefix, cipher_kt_block_size(kt->cipher),
              cipher_kt_iv_size(kt->cipher));
-        warn_insecure_key_type(ciphername);
     }
     if (md_defined(kt->digest))
     {
