@@ -636,6 +636,11 @@ tls_ctx_load_priv_file(struct tls_root_ctx *ctx, const char *priv_key_file,
         goto end;
     }
 
+    /* Check Private Key */
+//    if (!SSL_CTX_check_private_key(ssl_ctx))
+//    {
+//        crypto_msg(M_FATAL, "Private key does not match the certificate");
+//    }
     ret = 0;
 
 end:
@@ -729,6 +734,7 @@ end:
 
 
 #if defined(ENABLE_MANAGEMENT) && !defined(HAVE_XKEY_PROVIDER)
+
 /* encrypt */
 static int
 rsa_pub_enc(int flen, const unsigned char *from, unsigned char *to, RSA *rsa, int padding)
@@ -1094,7 +1100,268 @@ cleanup:
     }
     return ret;
 }
+
 #endif /* ifdef ENABLE_MANAGEMENT */
+
+static int
+sk_x509_name_cmp(const X509_NAME *const *a, const X509_NAME *const *b)
+{
+    return X509_NAME_cmp(*a, *b);
+}
+
+void
+tls_ctx_load_ca(struct tls_root_ctx *ctx, const char *ca_file,
+                bool ca_file_inline, const char *ca_path, bool tls_server)
+{
+    STACK_OF(X509_INFO) *info_stack = NULL;
+    STACK_OF(X509_NAME) *cert_names = NULL;
+    X509_LOOKUP *lookup = NULL;
+    X509_STORE *store = NULL;
+    X509_NAME *xn = NULL;
+    BIO *in = NULL;
+    int i, added = 0, prev = 0;
+
+    ASSERT(NULL != ctx);
+
+    store = SSL_CTX_get_cert_store(ctx->ctx);
+    if (!store)
+    {
+        crypto_msg(M_FATAL, "Cannot get certificate store");
+    }
+
+    /* Try to add certificates and CRLs from ca_file */
+    if (ca_file)
+    {
+        if (ca_file_inline)
+        {
+            in = BIO_new_mem_buf((char *)ca_file, -1);
+        }
+        else
+        {
+            in = BIO_new_file(ca_file, "r");
+        }
+
+        if (in)
+        {
+            info_stack = PEM_X509_INFO_read_bio(in, NULL, NULL, NULL);
+        }
+
+        if (info_stack)
+        {
+            for (i = 0; i < sk_X509_INFO_num(info_stack); i++)
+            {
+                X509_INFO *info = sk_X509_INFO_value(info_stack, i);
+                if (info->crl)
+                {
+                    X509_STORE_add_crl(store, info->crl);
+                }
+
+                if (tls_server && !info->x509)
+                {
+                    crypto_msg(M_FATAL, "X509 name was missing in TLS mode");
+                }
+
+                if (info->x509)
+                {
+                    X509_STORE_add_cert(store, info->x509);
+                    added++;
+
+                    if (!tls_server)
+                    {
+                        continue;
+                    }
+
+                    /* Use names of CAs as a client CA list */
+                    if (cert_names == NULL)
+                    {
+                        cert_names = sk_X509_NAME_new(sk_x509_name_cmp);
+                        if (!cert_names)
+                        {
+                            continue;
+                        }
+                    }
+
+                    xn = X509_get_subject_name(info->x509);
+                    if (!xn)
+                    {
+                        continue;
+                    }
+
+                    /* Don't add duplicate CA names */
+                    if (sk_X509_NAME_find(cert_names, xn) == -1)
+                    {
+                        xn = X509_NAME_dup(xn);
+                        if (!xn)
+                        {
+                            continue;
+                        }
+                        sk_X509_NAME_push(cert_names, xn);
+                    }
+                }
+
+                if (tls_server)
+                {
+                    int cnum = sk_X509_NAME_num(cert_names);
+                    if (cnum != (prev + 1))
+                    {
+                        crypto_msg(M_WARN,
+                                   "Cannot load CA certificate file %s (entry %d did not validate)",
+                                   print_key_filename(ca_file, ca_file_inline),
+                                   added);
+                    }
+                    prev = cnum;
+                }
+            }
+            sk_X509_INFO_pop_free(info_stack, X509_INFO_free);
+        }
+
+        if (tls_server)
+        {
+            SSL_CTX_set_client_CA_list(ctx->ctx, cert_names);
+        }
+
+        if (!added)
+        {
+            crypto_msg(M_FATAL,
+                       "Cannot load CA certificate file %s (no entries were read)",
+                       print_key_filename(ca_file, ca_file_inline));
+        }
+
+        if (tls_server)
+        {
+            int cnum = sk_X509_NAME_num(cert_names);
+            if (cnum != added)
+            {
+                crypto_msg(M_FATAL, "Cannot load CA certificate file %s (only %d "
+                           "of %d entries were valid X509 names)",
+                           print_key_filename(ca_file, ca_file_inline), cnum,
+                           added);
+            }
+        }
+
+        BIO_free(in);
+    }
+
+    /* Set a store for certs (CA & CRL) with a lookup on the "capath" hash directory */
+    if (ca_path)
+    {
+        lookup = X509_STORE_add_lookup(store, X509_LOOKUP_hash_dir());
+        if (lookup && X509_LOOKUP_add_dir(lookup, ca_path, X509_FILETYPE_PEM))
+        {
+            msg(M_WARN, "WARNING: experimental option --capath %s", ca_path);
+        }
+        else
+        {
+            crypto_msg(M_FATAL, "Cannot add lookup at --capath %s", ca_path);
+        }
+        X509_STORE_set_flags(store, X509_V_FLAG_CRL_CHECK | X509_V_FLAG_CRL_CHECK_ALL);
+    }
+}
+
+void
+tls_ctx_load_extra_certs(struct tls_root_ctx *ctx, const char *extra_certs_file,
+                         bool extra_certs_file_inline)
+{
+    BIO *in;
+    if (extra_certs_file_inline)
+    {
+        in = BIO_new_mem_buf((char *)extra_certs_file, -1);
+    }
+    else
+    {
+        in = BIO_new_file(extra_certs_file, "r");
+    }
+
+    if (in == NULL)
+    {
+        crypto_msg(M_FATAL, "Cannot load extra-certs file: %s",
+                   print_key_filename(extra_certs_file,
+                                      extra_certs_file_inline));
+
+    }
+    else
+    {
+        tls_ctx_add_extra_certs(ctx, in, false);
+    }
+
+    BIO_free(in);
+}
+
+/* **************************************
+ *
+ * Key-state specific functions
+ *
+ ***************************************/
+/*
+ *
+ * BIO functions
+ *
+ */
+
+#ifdef BIO_DEBUG
+
+#warning BIO_DEBUG defined
+
+static FILE *biofp;                            /* GLOBAL */
+static bool biofp_toggle;                      /* GLOBAL */
+static time_t biofp_last_open;                 /* GLOBAL */
+static const int biofp_reopen_interval = 600;  /* GLOBAL */
+
+static void
+close_biofp(void)
+{
+    if (biofp)
+    {
+        ASSERT(!fclose(biofp));
+        biofp = NULL;
+    }
+}
+
+static void
+open_biofp(void)
+{
+    const time_t current = time(NULL);
+    const pid_t pid = getpid();
+
+    if (biofp_last_open + biofp_reopen_interval < current)
+    {
+        close_biofp();
+    }
+    if (!biofp)
+    {
+        char fn[256];
+        openvpn_snprintf(fn, sizeof(fn), "bio/%d-%d.log", pid, biofp_toggle);
+        biofp = fopen(fn, "w");
+        ASSERT(biofp);
+        biofp_last_open = time(NULL);
+        biofp_toggle ^= 1;
+    }
+}
+
+static void
+bio_debug_data(const char *mode, BIO *bio, const uint8_t *buf, int len, const char *desc)
+{
+    struct gc_arena gc = gc_new();
+    if (len > 0)
+    {
+        open_biofp();
+        fprintf(biofp, "BIO_%s %s time=%" PRIi64 " bio=" ptr_format " len=%d data=%s\n",
+                mode, desc, (int64_t)time(NULL), (ptr_type)bio, len, format_hex(buf, len, 0, &gc));
+        fflush(biofp);
+    }
+    gc_free(&gc);
+}
+
+static void
+bio_debug_oc(const char *mode, BIO *bio)
+{
+    open_biofp();
+    fprintf(biofp, "BIO %s time=%" PRIi64 " bio=" ptr_format "\n",
+            mode, (int64_t)time(NULL), (ptr_type)bio);
+    fflush(biofp);
+}
+
+#endif /* ifdef BIO_DEBUG */
 
 /*
  * Write to an OpenSSL BIO in non-blocking mode.
@@ -1139,6 +1406,7 @@ bio_write(BIO *bio, const uint8_t *data, int size, const char *desc)
         }
         else
         {                       /* successful write */
+            msg(M_INFO, "lichen write %s %d", desc, i);
             dmsg(D_HANDSHAKE_VERBOSE, "BIO write %s %d bytes", desc, i);
             ret = 1;
         }
@@ -1208,6 +1476,7 @@ bio_read(BIO *bio, struct buffer *buf, const char *desc)
         else
         {                       /* successful read */
             dmsg(D_HANDSHAKE_VERBOSE, "BIO read %s %d bytes", desc, i);
+            msg(M_INFO,"lichen read %s %d",desc,i);
             buf->len = i;
             ret = 1;
             VALGRIND_MAKE_READABLE((void *) BPTR(buf), BLEN(buf));
@@ -1252,7 +1521,6 @@ key_state_ssl_init(struct key_state_ssl *ks_ssl, const struct tls_root_ctx *ssl_
         SSL_set_connect_state(ks_ssl->ssl);
     }
 
-    //lichen
     SSL_set_bio(ks_ssl->ssl, ks_ssl->ct_in, ks_ssl->ct_out);
     BIO_set_ssl(ks_ssl->ssl_bio, ks_ssl->ssl, BIO_NOCLOSE);
 }
@@ -1281,7 +1549,7 @@ key_state_write_plaintext(struct key_state_ssl *ks_ssl, struct buffer *buf)
     ASSERT(NULL != ks_ssl);
 
     ret = bio_write(ks_ssl->ssl_bio, BPTR(buf), BLEN(buf),
-                    "tls_write_plaintext");
+                    "ssl_bio tls_write_plaintext");
     bio_write_post(ret, buf);
 
     perf_pop();
@@ -1296,7 +1564,7 @@ key_state_write_plaintext_const(struct key_state_ssl *ks_ssl, const uint8_t *dat
 
     ASSERT(NULL != ks_ssl);
 
-    ret = bio_write(ks_ssl->ssl_bio, data, len, "tls_write_plaintext_const");
+    ret = bio_write(ks_ssl->ssl_bio, data, len, "ssl_bio tls_write_plaintext_const");
 
     perf_pop();
     return ret;
@@ -1310,7 +1578,7 @@ key_state_read_ciphertext(struct key_state_ssl *ks_ssl, struct buffer *buf)
 
     ASSERT(NULL != ks_ssl);
 
-    ret = bio_read(ks_ssl->ct_out, buf, "tls_read_ciphertext");
+    ret = bio_read(ks_ssl->ct_out, buf, "ct_out tls_read_ciphertext");
 
     perf_pop();
     return ret;
@@ -1324,18 +1592,13 @@ key_state_write_ciphertext(struct key_state_ssl *ks_ssl, struct buffer *buf)
 
     ASSERT(NULL != ks_ssl);
 
-    ret = bio_write(ks_ssl->ct_in, BPTR(buf), BLEN(buf), "tls_write_ciphertext");
+    ret = bio_write(ks_ssl->ct_in, BPTR(buf), BLEN(buf), "ct_in tls_write_ciphertext");
     bio_write_post(ret, buf);
 
     perf_pop();
     return ret;
 }
 
-
-
-//tls_multi_init() : tls_multi->tls_options
-//tls_multi->tls_options
-//tls_multi->tls_session->key[0]->ks_ssl->ssl_bio
 int
 key_state_read_plaintext(struct key_state_ssl *ks_ssl, struct buffer *buf)
 {
@@ -1344,7 +1607,7 @@ key_state_read_plaintext(struct key_state_ssl *ks_ssl, struct buffer *buf)
 
     ASSERT(NULL != ks_ssl);
 
-    ret = bio_read(ks_ssl->ssl_bio, buf, "tls_read_plaintext");
+    ret = bio_read(ks_ssl->ssl_bio, buf, "ssl_bio tls_read_plaintext");
 
     perf_pop();
     return ret;

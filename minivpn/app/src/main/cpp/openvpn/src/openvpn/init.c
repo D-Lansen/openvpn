@@ -2384,12 +2384,12 @@ do_deferred_options(struct context *c, const unsigned int found)
         }
     }
 
-    struct tls_session *session = &c->c2.tls_multi->session[TM_ACTIVE];
-    if (!check_session_cipher(session, &c->options))
-    {
-        /* The update_session_cipher method will already print an error */
-        return false;
-    }
+//    struct tls_session *session = &c->c2.tls_multi->session[TM_ACTIVE];
+//    if (!check_session_cipher(session, &c->options))
+//    {
+//        /* The update_session_cipher method will already print an error */
+//        return false;
+//    }
 
 
     /* Cipher is considered safe, so we can use it to calculate the max
@@ -2790,6 +2790,7 @@ do_init_tls_wrap_key(struct context *c)
 
 
 }
+
 /*
  * Initialize the persistent component of OpenVPN's TLS mode,
  * which is preserved across SIGUSR1 resets.
@@ -3080,6 +3081,7 @@ do_init_crypto_tls(struct context *c, const unsigned int flags)
         to.tls_wrap.opt.key_ctx_bi = c->c1.ks.tls_wrap_key;
         to.tls_wrap.opt.pid_persist = &c->c1.pid_persist;
         to.tls_wrap.opt.flags |= CO_PACKET_ID_LONG_FORM;
+
         if (options->ce.tls_crypt_v2_file)
         {
             to.tls_wrap.tls_crypt_v2_wkc = &c->c1.ks.tls_crypt_v2_wkc;

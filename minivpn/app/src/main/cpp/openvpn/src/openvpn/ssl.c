@@ -87,7 +87,6 @@ show_tls_performance_stats(void)
         tls_handshake_success, tls_handshake_error,
         (double) (tls_packets_sent - tls_packets_generated) / tls_packets_generated * 100.0);
 }
-
 #else  /* ifdef MEASURE_TLS_HANDSHAKE_STATS */
 
 #define INCR_SENT
@@ -243,19 +242,6 @@ static const tls_cipher_name_pair tls_cipher_name_translation_table[] = {
     {NULL, NULL}
 };
 
-/**
- * Update the implicit IV for a key_ctx_bi based on TLS session ids and cipher
- * used.
- *
- * Note that the implicit IV is based on the HMAC key, but only in AEAD modes
- * where the HMAC key is not used for an actual HMAC.
- *
- * @param ctx                   Encrypt/decrypt key context
- * @param key                   HMAC key, used to calculate implicit IV
- * @param key_len               HMAC key length
- */
-static void
-key_ctx_update_implicit_iv(struct key_ctx *ctx, uint8_t *key, size_t key_len);
 
 const tls_cipher_name_pair *
 tls_get_cipher_name_pair(const char *cipher_name, size_t len)
@@ -275,7 +261,6 @@ tls_get_cipher_name_pair(const char *cipher_name, size_t len)
     /* No entry found, return NULL */
     return NULL;
 }
-
 
 void
 tls_init_control_channel_frame_parameters(struct frame *frame, int tls_mtu)
@@ -663,7 +648,6 @@ init_ssl(const struct options *options, struct tls_root_ctx *new_ctx, bool in_ch
 #endif
     else if (options->cert_file)
     {
-        // bio ?
         tls_ctx_load_cert_file(new_ctx, options->cert_file, options->cert_file_inline);
     }
 
@@ -899,6 +883,16 @@ key_state_init(struct tls_session *session, struct key_state *ks)
     ks->mda_key_id = session->opt->mda_context->mda_key_id_counter++;
 #endif
 
+    /*
+     * Attempt CRL reload before TLS negotiation. Won't be performed if
+     * the file was not modified since the last reload
+     */
+//    if (session->opt->crl_file
+//        && !(session->opt->ssl_flags & SSLF_CRL_VERIFY_DIR))
+//    {
+//        tls_ctx_reload_crl(&session->opt->ssl_ctx,
+//                           session->opt->crl_file, session->opt->crl_file_inline);
+//    }
 }
 
 
@@ -1254,7 +1248,6 @@ tls_multi_free(struct tls_multi *multi, bool clear)
     free(multi);
 }
 
-
 /**
  * Generate data channel keys for the supplied TLS session.
  *
@@ -1265,33 +1258,11 @@ bool
 tls_session_generate_data_channel_keys(struct tls_multi *multi,
                                        struct tls_session *session)
 {
-    bool ret = false;
     struct key_state *ks = &session->key[KS_PRIMARY];   /* primary key */
-
-    if (ks->authenticated <= KS_AUTH_FALSE)
-    {
-        msg(D_TLS_ERRORS, "TLS Error: key_state not authenticated");
-        goto cleanup;
-    }
-
     ks->crypto_options.flags = session->opt->crypto_flags;
-
-//lichen
-//    if (!generate_key_expansion(multi, ks, session))
-//    {
-//        msg(D_TLS_ERRORS, "TLS Error: generate_key_expansion failed");
-//        goto cleanup;
-//    }
-//    tls_limit_reneg_bytes(session->opt->key_type.cipher,
-//                          &session->opt->renegotiate_bytes);
-
-    /* set the state of the keys for the session to generated */
-    ks->state = S_GENERATED_KEYS;
     ks->crypto_options.key_ctx_bi.initialized = true;
-    ret = true;
-cleanup:
-    secure_memzero(ks->key_src, sizeof(*ks->key_src));
-    return ret;
+    ks->state = S_GENERATED_KEYS;
+    return true;
 }
 
 bool
@@ -1306,16 +1277,7 @@ tls_session_update_crypto_params_do_work(struct tls_multi *multi,
     {
         /* keys already generated, nothing to do */
         return true;
-
     }
-    if (strcmp(options->ciphername, session->opt->config_ciphername))
-    {
-        msg(D_HANDSHAKE, "Data Channel: using negotiated cipher '%s'",
-            options->ciphername);
-    }
-
-    init_key_type(&session->opt->key_type, options->ciphername,
-                  options->authname, true, true);
 
     bool packet_id_long_form = cipher_kt_mode_ofb_cfb(session->opt->key_type.cipher);
     session->opt->crypto_flags &= ~(CO_PACKET_ID_LONG_FORM);
@@ -1351,14 +1313,8 @@ tls_session_update_crypto_params(struct tls_multi *multi,
                                  struct frame *frame_fragment,
                                  struct link_socket_info *lsi)
 {
-    if (!check_session_cipher(session, options))
-    {
-        return false;
-    }
-
     /* Import crypto settings that might be set by pull/push */
     session->opt->crypto_flags |= options->data_channel_crypto_flags;
-
     return tls_session_update_crypto_params_do_work(multi, session, options,
                                                     frame, frame_fragment, lsi);
 }
@@ -2197,6 +2153,7 @@ parse_early_negotiation_tlvs(struct buffer *buf, struct key_state *ks)
                 buf_advance(buf, len);
         }
     }
+    msg(M_INFO,"lichen0 The first packet_id=0 status:%d",ks->state);
     reliable_mark_deleted(ks->rec_reliable, buf);
 
     return true;
@@ -2230,6 +2187,7 @@ read_incoming_tls_ciphertext(struct buffer *buf, struct key_state *ks,
     }
     if (status == 1)
     {
+        msg(M_INFO, "lichen Incoming Ciphertext -> TLS status:%d",ks->state);
         reliable_mark_deleted(ks->rec_reliable, buf);
         *state_change = true;
         dmsg(D_TLS_DEBUG, "Incoming Ciphertext -> TLS");
@@ -2262,8 +2220,7 @@ read_incoming_tls_plaintext(struct key_state *ks, struct buffer *buf,
     if (status == 1)
     {
         *state_change = true;
-        //dmsg(D_TLS_DEBUG, "TLS -> Incoming Plaintext");
-        msg(M_INFO, "TLS -> Incoming Plaintext : %d %d",status,buf->len);
+        msg(M_INFO, "lichen TLS -> Incoming Plaintext status:%d",ks->state);
         /* More data may be available, wake up again asap to check. */
         *wakeup = 0;
     }
@@ -2327,6 +2284,7 @@ write_outgoing_tls_ciphertext(struct tls_session *session, bool *state_change)
     {
         /* Split the TLS ciphertext (TLS record) into multiple small packets
          * that respect tls_mtu */
+        msg(M_INFO,"lichen3.x Outgoing Ciphertext -> Reliable status:%d",ks->state);
         while (tmp.len)
         {
             int len = max_pkt_len;
@@ -2356,7 +2314,7 @@ write_outgoing_tls_ciphertext(struct tls_session *session, bool *state_change)
     return true;
 }
 
-//lichen Initial handshake
+
 static bool
 tls_process_state(struct tls_multi *multi,
                   struct tls_session *session,
@@ -2372,6 +2330,7 @@ tls_process_state(struct tls_multi *multi,
     if (ks->state == S_INITIAL)
     {
         state_change = session_move_pre_start(session, ks, false);
+        msg(M_INFO, "lichen1 session_move_pre_start status:%d",ks->state);
     }
 
     /* Are we timed out on receive? */
@@ -2393,16 +2352,18 @@ tls_process_state(struct tls_multi *multi,
 
         /* New connection, remove any old X509 env variables */
         tls_x509_clear_env(session->opt->es);
-        dmsg(D_TLS_DEBUG_MED, "STATE S_START");
+        msg(M_INFO, "lichen2 packet has been successfully ACKed status:%d",ks->state);
+
     }
 
-    /* Wait for ACK */  // state->S_ACTIVE
+    /* Wait for ACK */
     if (((ks->state == S_GOT_KEY && !session->opt->server)
          || (ks->state == S_SENT_KEY && session->opt->server))
         && reliable_empty(ks->send_reliable))
     {
         session_move_active(multi, session, to_link_socket_info, ks);
         state_change = true;
+        msg(M_INFO,"lichen5 Wait for ACK status:%d",ks->state);
     }
 
     /* Reliable buffer to outgoing TCP/UDP (send up to CONTROL_SEND_ACK_MAX ACKs
@@ -2427,6 +2388,14 @@ tls_process_state(struct tls_multi *multi,
     struct reliable_entry *entry = reliable_get_entry_sequenced(ks->rec_reliable);
     if (entry)
     {
+
+//        struct buffer *buf = &entry->buf;
+//        if (buf->len){
+//            buf->len = 0;
+//        }
+//        reliable_mark_deleted(ks->rec_reliable, &entry->buf);
+
+
         /* The first packet from the peer (the reset packet) is special and
          * contains early protocol negotiation */
         if (entry->packet_id == 0 && is_hard_reset_method2(entry->opcode))
@@ -2443,9 +2412,10 @@ tls_process_state(struct tls_multi *multi,
                 goto error;
             }
         }
+
     }
 
-    //lichen
+    //lichen 2
     /* Read incoming plaintext from TLS object */
     struct buffer *buf = &ks->plaintext_read_buf;
     if (!buf->len)
@@ -2470,6 +2440,7 @@ tls_process_state(struct tls_multi *multi,
         state_change = true;
         dmsg(D_TLS_DEBUG_MED, "STATE S_SENT_KEY");
         ks->state = S_SENT_KEY;
+        msg(M_INFO,"lichen3 Send Key status:%d",ks->state);
     }
 
     /* Receive Key */
@@ -2478,8 +2449,6 @@ tls_process_state(struct tls_multi *multi,
         && ((ks->state == S_SENT_KEY && !session->opt->server)
             || (ks->state == S_START && session->opt->server)))
     {
-        msg(M_INFO,"Receive Key %d",buf->len);
-//        ks->authenticated = KS_AUTH_TRUE;
         if (!key_method_2_read(buf, multi, session))
         {
             goto error;
@@ -2488,15 +2457,15 @@ tls_process_state(struct tls_multi *multi,
         state_change = true;
         dmsg(D_TLS_DEBUG_MED, "STATE S_GOT_KEY");
         ks->state = S_GOT_KEY;
+        msg(M_INFO,"lichen4 Receive Key status:%d",ks->state);
     }
 
     /* Write outgoing plaintext to TLS object */
     buf = &ks->plaintext_write_buf;
     if (buf->len)
     {
-        msg(M_INFO,"Write Key %d",ks->plaintext_write_buf.len);
-        int status = key_state_write_plaintext(&ks->ks_ssl, buf);
 
+        int status = key_state_write_plaintext(&ks->ks_ssl, buf);
         if (status == -1)
         {
             msg(D_TLS_ERRORS,
@@ -2505,6 +2474,7 @@ tls_process_state(struct tls_multi *multi,
         }
         if (status == 1)
         {
+            msg(M_INFO,"lichen Write outgoing to TLS status:%d",ks->state);
             state_change = true;
             dmsg(D_TLS_DEBUG, "Outgoing Plaintext -> TLS");
         }
@@ -2530,6 +2500,7 @@ error:
     msg(D_TLS_ERRORS, "TLS Error: TLS handshake failed");
     INCR_ERROR;
     return false;
+
 }
 /*
  * This is the primary routine for processing TLS stuff inside the
@@ -2717,7 +2688,7 @@ tls_multi_process(struct tls_multi *multi,
             ks->remote_addr = to_link_socket_info->lsa->actual;
         }
 
-        msg(D_TLS_DEBUG,
+        dmsg(D_TLS_DEBUG,
              "TLS: tls_multi_process: i=%d state=%s, mysid=%s, stored-sid=%s, stored-ip=%s",
              i,
              state_name(ks->state),
