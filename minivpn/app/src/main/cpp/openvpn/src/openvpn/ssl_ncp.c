@@ -184,7 +184,6 @@ mutate_ncp_cipher_list(const char *list, struct gc_arena *gc)
     return ret;
 }
 
-
 void
 append_cipher_to_ncp_list(struct options *o, const char *ciphername)
 {
@@ -215,139 +214,6 @@ tls_item_in_cipher_list(const char *item, const char *list)
     free(tmp_ciphers_orig);
 
     return token != NULL;
-}
-
-const char *
-tls_peer_ncp_list(const char *peer_info, struct gc_arena *gc)
-{
-    /* Check if the peer sends the IV_CIPHERS list */
-    const char *iv_ciphers = extract_var_peer_info(peer_info, "IV_CIPHERS=", gc);
-    if (iv_ciphers)
-    {
-        return iv_ciphers;
-    }
-    else if (tls_peer_info_ncp_ver(peer_info)>=2)
-    {
-        /* If the peer announces IV_NCP=2 then it supports the AES GCM
-         * ciphers */
-        return "AES-256-GCM:AES-128-GCM";
-    }
-    else
-    {
-        return "";
-    }
-}
-
-char *
-ncp_get_best_cipher(const char *server_list, const char *peer_info,
-                    const char *remote_cipher, struct gc_arena *gc)
-{
-    /*
-     * The gc of the parameter is tied to the VPN session, create a
-     * short lived gc arena that is only valid for the duration of
-     * this function
-     */
-
-    struct gc_arena gc_tmp = gc_new();
-
-    const char *peer_ncp_list = tls_peer_ncp_list(peer_info, &gc_tmp);
-
-    /* non-NCP client without OCC?  "assume nothing" */
-    /* For client doing the newer version of NCP (that send IV_CIPHER)
-     * we cannot assume that they will accept remote_cipher */
-    if (remote_cipher == NULL
-        || (peer_info && strstr(peer_info, "IV_CIPHERS=")))
-    {
-        remote_cipher = "";
-    }
-
-    char *tmp_ciphers = string_alloc(server_list, &gc_tmp);
-
-    const char *token;
-    while ((token = strsep(&tmp_ciphers, ":")))
-    {
-        if (tls_item_in_cipher_list(token, peer_ncp_list)
-            || streq(token, remote_cipher))
-        {
-            break;
-        }
-    }
-
-    char *ret = NULL;
-    if (token != NULL)
-    {
-        ret = string_alloc(token, gc);
-    }
-
-    gc_free(&gc_tmp);
-    return ret;
-}
-
-/**
- * "Poor man's NCP": Use peer cipher if it is an allowed (NCP) cipher.
- * Allows non-NCP peers to upgrade their cipher individually.
- *
- * Returns true if we switched to the peer's cipher
- *
- * Make sure to call tls_session_update_crypto_params() after calling this
- * function.
- */
-static bool
-tls_poor_mans_ncp(struct options *o, const char *remote_ciphername)
-{
-    if (remote_ciphername
-        && tls_item_in_cipher_list(remote_ciphername, o->ncp_ciphers))
-    {
-        o->ciphername = string_alloc(remote_ciphername, &o->gc);
-        msg(D_TLS_DEBUG_LOW, "Using peer cipher '%s'", o->ciphername);
-        return true;
-    }
-    return false;
-}
-
-bool
-check_pull_client_ncp(struct context *c, const int found)
-{
-    if (found & OPT_P_NCP)
-    {
-        msg(D_PUSH, "OPTIONS IMPORT: data channel crypto options modified");
-        return true;
-    }
-
-    /* If the server did not push a --cipher, we will switch to the
-     * remote cipher if it is in our ncp-ciphers list */
-    if (tls_poor_mans_ncp(&c->options, c->c2.tls_multi->remote_ciphername))
-    {
-        return true;
-    }
-
-    /* We could not figure out the peer's cipher but we have fallback
-     * enabled */
-    if (!c->c2.tls_multi->remote_ciphername && c->options.enable_ncp_fallback)
-    {
-        return true;
-    }
-
-    /* We failed negotiation, give appropiate error message */
-    if (c->c2.tls_multi->remote_ciphername)
-    {
-        msg(D_TLS_ERRORS, "OPTIONS ERROR: failed to negotiate "
-            "cipher with server.  Add the server's "
-            "cipher ('%s') to --data-ciphers (currently '%s') if "
-            "you want to connect to this server.",
-            c->c2.tls_multi->remote_ciphername,
-            c->options.ncp_ciphers);
-        return false;
-
-    }
-    else
-    {
-        msg(D_TLS_ERRORS, "OPTIONS ERROR: failed to negotiate "
-            "cipher with server. Configure "
-            "--data-ciphers-fallback if you want to connect "
-            "to this server.");
-        return false;
-    }
 }
 
 const char *
@@ -494,26 +360,4 @@ p2p_mode_ncp(struct tls_multi *multi, struct tls_session *session)
         multi->use_peer_id, multi->peer_id, common_cipher);
 
     gc_free(&gc);
-}
-
-
-bool
-check_session_cipher(struct tls_session *session, struct options *options)
-{
-    bool cipher_allowed_as_fallback = options->enable_ncp_fallback
-                                      && streq(options->ciphername, session->opt->config_ciphername);
-
-    if (!session->opt->server && !cipher_allowed_as_fallback
-        && !tls_item_in_cipher_list(options->ciphername, options->ncp_ciphers))
-    {
-        msg(D_TLS_ERRORS, "Error: negotiated cipher not allowed - %s not in %s",
-            options->ciphername, options->ncp_ciphers);
-        /* undo cipher push, abort connection setup */
-        options->ciphername = session->opt->config_ciphername;
-        return false;
-    }
-    else
-    {
-        return true;
-    }
 }

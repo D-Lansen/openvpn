@@ -517,63 +517,6 @@ ssl_put_auth_challenge(const char *cr_str)
 }
 
 #endif
-/**
- * Load (or possibly reload) the CRL file into the SSL context.
- * No reload is performed under the following conditions:
- * - the CRL file was passed inline
- * - the CRL file was not modified since the last (re)load
- *
- * @param ssl_ctx       The TLS context to use when reloading the CRL
- * @param crl_file      The file name to load the CRL from, or
- *                      "[[INLINE]]" in the case of inline files.
- * @param crl_inline    A string containing the CRL
- */
-static void
-tls_ctx_reload_crl(struct tls_root_ctx *ssl_ctx, const char *crl_file,
-                   bool crl_file_inline)
-{
-    /* if something goes wrong with stat(), we'll store 0 as mtime */
-    platform_stat_t crl_stat = {0};
-
-    /*
-     * an inline CRL can't change at runtime, therefore there is no need to
-     * reload it. It will be reloaded upon config change + SIGHUP.
-     * Use always '1' as dummy timestamp in this case: it will trigger the
-     * first load, but will prevent any future reload.
-     */
-    if (crl_file_inline)
-    {
-        crl_stat.st_mtime = 1;
-    }
-    else if (platform_stat(crl_file, &crl_stat) < 0)
-    {
-        /* If crl_last_mtime is zero, the CRL file has not been read before. */
-        if (ssl_ctx->crl_last_mtime == 0)
-        {
-            msg(M_FATAL, "ERROR: Failed to stat CRL file during initialization, exiting.");
-        }
-        else
-        {
-            msg(M_WARN, "WARNING: Failed to stat CRL file, not reloading CRL.");
-        }
-        return;
-    }
-
-    /*
-     * Store the CRL if this is the first time or if the file was changed since
-     * the last load.
-     * Note: Windows does not support tv_nsec.
-     */
-    if ((ssl_ctx->crl_last_size == crl_stat.st_size)
-        && (ssl_ctx->crl_last_mtime == crl_stat.st_mtime))
-    {
-        return;
-    }
-
-    ssl_ctx->crl_last_mtime = crl_stat.st_mtime;
-    ssl_ctx->crl_last_size = crl_stat.st_size;
-    backend_tls_ctx_reload_crl(ssl_ctx, crl_file, crl_file_inline);
-}
 
 /*
  * Initialize SSL context.
@@ -1902,25 +1845,13 @@ key_method_2_read(struct buffer *buf, struct tls_multi *multi, struct tls_sessio
     /* get peer info from control channel */
     free(multi->peer_info);
     multi->peer_info = read_string_alloc(buf);
-    if (multi->peer_info)
-    {
-        output_peer_info_env(session->opt->es, multi->peer_info);
-    }
-
-    free(multi->remote_ciphername);
-    multi->remote_ciphername =
-        options_string_extract_option(options, "cipher", NULL);
-    multi->remote_usescomp = strstr(options, ",comp-lzo,");
-
-    /* In OCC we send '[null-cipher]' instead 'none' */
-    if (multi->remote_ciphername
-        && strcmp(multi->remote_ciphername, "[null-cipher]") == 0)
-    {
-        free(multi->remote_ciphername);
-        multi->remote_ciphername = string_alloc("none", NULL);
-    }
+//    if (multi->peer_info)
+//    {
+//        output_peer_info_env(session->opt->es, multi->peer_info);
+//    }
 
     {
+        multi->remote_ciphername = NULL;
         ks->authenticated = KS_AUTH_TRUE;
     }
 
@@ -2380,7 +2311,7 @@ tls_process_state(struct tls_multi *multi,
         write_control_auth(session, ks, &b, to_link_addr, opcode,
                            CONTROL_SEND_ACK_MAX, true);
         *to_link = b;
-        dmsg(D_TLS_DEBUG, "Reliable -> TCP/UDP");
+        msg(M_INFO, "lichen0 Reliable->TCP/UDP %d status:%d",buf->len,ks->state);
         return true;
     }
 
@@ -2388,14 +2319,6 @@ tls_process_state(struct tls_multi *multi,
     struct reliable_entry *entry = reliable_get_entry_sequenced(ks->rec_reliable);
     if (entry)
     {
-
-//        struct buffer *buf = &entry->buf;
-//        if (buf->len){
-//            buf->len = 0;
-//        }
-//        reliable_mark_deleted(ks->rec_reliable, &entry->buf);
-
-
         /* The first packet from the peer (the reset packet) is special and
          * contains early protocol negotiation */
         if (entry->packet_id == 0 && is_hard_reset_method2(entry->opcode))
@@ -2449,15 +2372,14 @@ tls_process_state(struct tls_multi *multi,
         && ((ks->state == S_SENT_KEY && !session->opt->server)
             || (ks->state == S_START && session->opt->server)))
     {
+        msg(M_INFO,"lichen4 Receive Key status:%d",ks->state);
         if (!key_method_2_read(buf, multi, session))
         {
             goto error;
         }
-
         state_change = true;
         dmsg(D_TLS_DEBUG_MED, "STATE S_GOT_KEY");
         ks->state = S_GOT_KEY;
-        msg(M_INFO,"lichen4 Receive Key status:%d",ks->state);
     }
 
     /* Write outgoing plaintext to TLS object */

@@ -132,7 +132,6 @@ tls_wrap_control(struct tls_wrap_ctx *ctx, uint8_t header, struct buffer *buf,
     if (ctx->mode == TLS_WRAP_AUTH)
     {
         struct buffer null = clear_buf();
-
         /* no encryption, only write hmac */
         openvpn_encrypt(buf, null, &ctx->opt);
         ASSERT(swap_hmac(buf, &ctx->opt, false));
@@ -244,6 +243,7 @@ read_control_auth(struct buffer *buf,
         }
 
     }
+
     else if (ctx->mode == TLS_WRAP_CRYPT)
     {
         struct buffer tmp = alloc_buf_gc(buf_forward_capacity_total(buf), &gc);
@@ -257,6 +257,7 @@ read_control_auth(struct buffer *buf,
         ASSERT(buf_copy(buf, &tmp));
         buf_clear(&tmp);
     }
+
     else if (ctx->tls_crypt_v2_server_key.cipher)
     {
         /* If tls-crypt-v2 is enabled, require *some* wrapping */

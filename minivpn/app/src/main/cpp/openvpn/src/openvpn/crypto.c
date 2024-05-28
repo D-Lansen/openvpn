@@ -67,8 +67,7 @@ openvpn_encrypt_v0(struct buffer *buf, struct buffer work, struct crypto_options
     {
         {
             if (packet_id_initialized(&opt->packet_id)
-                && !packet_id_write(&opt->packet_id.send, buf,
-                                    opt->flags & CO_PACKET_ID_LONG_FORM, true))
+                && !packet_id_write(&opt->packet_id.send, buf, false, true))
             {
                 msg(D_CRYPT_ERRORS, "ENCRYPT ERROR: packet ID roll over");
                 goto err;
@@ -132,17 +131,16 @@ static bool
 openvpn_decrypt_v0(struct buffer *buf, struct buffer work,
                    struct crypto_options *opt, const struct frame *frame)
 {
-    static const char error_prefix[] = "Authenticate/Decrypt packet error";
-
     if (buf->len > 0 && opt)
     {
         work = *buf;
         if (packet_id_initialized(&opt->packet_id))
         {
             struct packet_id_net pin;
-            if (!packet_id_read(&pin, &work, BOOL_CAST(opt->flags & CO_PACKET_ID_LONG_FORM)))
+            if (!packet_id_read(&pin, &work, false))
             {
-                CRYPT_ERROR("error reading packet-id");
+                msg(D_CRYPT_ERRORS,"error reading packet-id");
+                goto error_exit;
             }
         }
         *buf = work;
@@ -240,7 +238,6 @@ warn_insecure_key_type(const char *ciphername)
             ciphername, cipher_kt_block_size(ciphername)*8);
     }
 }
-
 /*
  * Build a struct key_type.
  */
@@ -492,33 +489,6 @@ generate_key_random(struct key *key, const struct key_type *kt)
 
     gc_free(&gc);
 }
-
-/*
- * Print key material
- */
-void
-key2_print(const struct key2 *k,
-           const struct key_type *kt,
-           const char *prefix0,
-           const char *prefix1)
-{
-    struct gc_arena gc = gc_new();
-    ASSERT(k->n == 2);
-    dmsg(D_SHOW_KEY_SOURCE, "%s (cipher): %s",
-         prefix0,
-         format_hex(k->keys[0].cipher, cipher_kt_key_size(kt->cipher), 0, &gc));
-    dmsg(D_SHOW_KEY_SOURCE, "%s (hmac): %s",
-         prefix0,
-         format_hex(k->keys[0].hmac, md_kt_size(kt->digest), 0, &gc));
-    dmsg(D_SHOW_KEY_SOURCE, "%s (cipher): %s",
-         prefix1,
-         format_hex(k->keys[1].cipher, cipher_kt_key_size(kt->cipher), 0, &gc));
-    dmsg(D_SHOW_KEY_SOURCE, "%s (hmac): %s",
-         prefix1,
-         format_hex(k->keys[1].hmac, md_kt_size(kt->digest), 0, &gc));
-    gc_free(&gc);
-}
-
 
 const char *
 print_key_filename(const char *str, bool is_inline)
@@ -1100,44 +1070,6 @@ translate_cipher_name_to_openvpn(const char *cipher_name)
     }
 
     return pair->openvpn_name;
-}
-
-void
-write_pem_key_file(const char *filename, const char *pem_name)
-{
-    struct gc_arena gc = gc_new();
-    struct key server_key = { 0 };
-    struct buffer server_key_buf = clear_buf();
-    struct buffer server_key_pem = clear_buf();
-
-    if (!rand_bytes((void *)&server_key, sizeof(server_key)))
-    {
-        msg(M_NONFATAL, "ERROR: could not generate random key");
-        goto cleanup;
-    }
-    buf_set_read(&server_key_buf, (void *)&server_key, sizeof(server_key));
-    if (!crypto_pem_encode(pem_name, &server_key_pem,
-                           &server_key_buf, &gc))
-    {
-        msg(M_WARN, "ERROR: could not PEM-encode key");
-        goto cleanup;
-    }
-
-    if (!filename || strcmp(filename, "")==0)
-    {
-        printf("%.*s", BLEN(&server_key_pem), BPTR(&server_key_pem));
-    }
-    else if (!buffer_write_file(filename, &server_key_pem))
-    {
-        msg(M_ERR, "ERROR: could not write key file");
-        goto cleanup;
-    }
-
-cleanup:
-    secure_memzero(&server_key, sizeof(server_key));
-    buf_clear(&server_key_pem);
-    gc_free(&gc);
-    return;
 }
 
 bool

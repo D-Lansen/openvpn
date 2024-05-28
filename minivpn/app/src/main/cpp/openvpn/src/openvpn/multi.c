@@ -1748,7 +1748,6 @@ multi_client_set_protocol_options(struct context *c)
     const char *const peer_info = tls_multi->peer_info;
     struct options *o = &c->options;
 
-
     unsigned int proto = extract_iv_proto(peer_info);
     if (proto & IV_PROTO_DATA_V2)
     {
@@ -1781,81 +1780,8 @@ multi_client_set_protocol_options(struct context *c)
         o->data_channel_crypto_flags |= CO_USE_CC_EXIT_NOTIFY;
     }
 
-    /* Select cipher if client supports Negotiable Crypto Parameters */
-
-    /* if we have already created our key, we cannot *change* our own
-     * cipher -> so log the fact and push the "what we have now" cipher
-     * (so the client is always told what we expect it to use)
-     */
-    if (get_primary_key(tls_multi)->crypto_options.key_ctx_bi.initialized)
-    {
-        msg(M_INFO, "PUSH: client wants to negotiate cipher (NCP), but "
-            "server has already generated data channel keys, "
-            "re-sending previously negotiated cipher '%s'",
-            o->ciphername );
-        return true;
-    }
-
-    /*
-     * Push the first cipher from --data-ciphers to the client that
-     * the client announces to be supporting.
-     */
-    char *push_cipher = ncp_get_best_cipher(o->ncp_ciphers, peer_info,
-                                            tls_multi->remote_ciphername,
-                                            &o->gc);
-
-    if (push_cipher)
-    {
-        o->ciphername = push_cipher;
-        return true;
-    }
-
-    /* NCP cipher negotiation failed. Try to figure out why exactly it
-     * failed and give good error messages and potentially do a fallback
-     * for non NCP clients */
-    struct gc_arena gc = gc_new();
-    bool ret = false;
-
-    const char *peer_ciphers = tls_peer_ncp_list(peer_info, &gc);
-    /* If we are in a situation where we know the client ciphers, there is no
-     * reason to fall back to a cipher that will not be accepted by the other
-     * side, in this situation we fail the auth*/
-    if (strlen(peer_ciphers) > 0)
-    {
-        msg(M_INFO, "PUSH: No common cipher between server and client. "
-            "Server data-ciphers: '%s', client supported ciphers '%s'",
-            o->ncp_ciphers, peer_ciphers);
-    }
-    else if (tls_multi->remote_ciphername)
-    {
-        msg(M_INFO, "PUSH: No common cipher between server and client. "
-            "Server data-ciphers: '%s', client supports cipher '%s'",
-            o->ncp_ciphers, tls_multi->remote_ciphername);
-    }
-    else
-    {
-        msg(M_INFO, "PUSH: No NCP or OCC cipher data received from peer.");
-
-        if (o->enable_ncp_fallback && !tls_multi->remote_ciphername)
-        {
-            msg(M_INFO, "Using data channel cipher '%s' since "
-                "--data-ciphers-fallback is set.", o->ciphername);
-            ret = true;
-        }
-        else
-        {
-            msg(M_INFO, "Use --data-ciphers-fallback with the cipher the "
-                "client is using if you want to allow the client to connect");
-        }
-    }
-    if (!ret)
-    {
-        auth_set_client_reason(tls_multi, "Data channel cipher negotiation "
-                               "failed (no shared cipher)");
-    }
-
-    gc_free(&gc);
-    return ret;
+    o->ciphername = NULL;
+    return true;
 }
 
 /**

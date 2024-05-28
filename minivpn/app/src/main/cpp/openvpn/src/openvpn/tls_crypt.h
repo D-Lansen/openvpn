@@ -197,27 +197,6 @@ bool tls_crypt_v2_extract_client_key(struct buffer *buf,
                                      struct tls_wrap_ctx *ctx,
                                      const struct tls_options *opt);
 
-/**
- * Generate a tls-crypt-v2 server key, and write to file.
- *
- * @param filename          Filename of the server key file to create.
- */
-void tls_crypt_v2_write_server_key_file(const char *filename);
-
-/**
- * Generate a tls-crypt-v2 client key, and write to file.
- *
- * @param filename          Filename of the client key file to create.
- * @param b64_metadata      Base64 metadata to be included in the client key.
- * @param key_file          File path of the server key to use for wrapping the
- *                          client key or the key itself if key_inline is true.
- * @param key_inline        True if key_file contains an inline key, False
- *                          otherwise.
- */
-void tls_crypt_v2_write_client_key_file(const char *filename,
-                                        const char *b64_metadata,
-                                        const char *key_file, bool key_inline);
-
 /** @} */
 
 #endif /* TLSCRYPT_H */

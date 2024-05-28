@@ -8160,45 +8160,7 @@ add_option(struct options *options,
     }
     else if (streq(p[0], "genkey") && !p[4])
     {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        options->genkey = true;
-        if (!p[1])
-        {
-            options->genkey_type = GENKEY_SECRET;
-        }
-        else
-        {
-            if (streq(p[1], "secret") || streq(p[1], "tls-auth")
-                || streq(p[1], "tls-crypt"))
-            {
-                options->genkey_type = GENKEY_SECRET;
-            }
-            else if (streq(p[1], "tls-crypt-v2-server"))
-            {
-                options->genkey_type = GENKEY_TLS_CRYPTV2_SERVER;
-            }
-            else if (streq(p[1], "tls-crypt-v2-client"))
-            {
-                options->genkey_type = GENKEY_TLS_CRYPTV2_CLIENT;
-                if (p[3])
-                {
-                    options->genkey_extra_data = p[3];
-                }
-            }
-            else if (streq(p[1], "auth-token"))
-            {
-                options->genkey_type = GENKEY_AUTH_TOKEN;
-            }
-            else
-            {
-                msg(msglevel, "unknown --genkey type: %s", p[1]);
-            }
-
-        }
-        if (p[2])
-        {
-            options->genkey_filename = p[2];
-        }
+        options->genkey = false;
     }
     else if (streq(p[0], "auth") && p[1] && !p[2])
     {
@@ -8704,45 +8666,6 @@ add_option(struct options *options,
     {
         VERIFY_PERMISSION(OPT_P_TLS_PARMS);
         options->transition_window = positive_atoi(p[1]);
-    }
-    else if (streq(p[0], "tls-auth") && p[1] && !p[3])
-    {
-        int key_direction = -1;
-
-        VERIFY_PERMISSION(OPT_P_GENERAL|OPT_P_CONNECTION|OPT_P_INLINE);
-
-        if (permission_mask & OPT_P_GENERAL)
-        {
-            options->tls_auth_file = p[1];
-            options->tls_auth_file_inline = is_inline;
-
-            if (!is_inline && p[2])
-            {
-                key_direction = ascii2keydirection(msglevel, p[2]);
-                if (key_direction < 0)
-                {
-                    goto err;
-                }
-                options->key_direction = key_direction;
-            }
-
-        }
-        else if (permission_mask & OPT_P_CONNECTION)
-        {
-            options->ce.tls_auth_file = p[1];
-            options->ce.tls_auth_file_inline = is_inline;
-            options->ce.key_direction = KEY_DIRECTION_BIDIRECTIONAL;
-
-            if (!is_inline && p[2])
-            {
-                key_direction = ascii2keydirection(msglevel, p[2]);
-                if (key_direction < 0)
-                {
-                    goto err;
-                }
-                options->ce.key_direction = key_direction;
-            }
-        }
     }
     else if (streq(p[0], "tls-crypt") && p[1] && !p[3])
     {

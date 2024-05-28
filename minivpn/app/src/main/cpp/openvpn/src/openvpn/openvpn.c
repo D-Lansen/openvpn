@@ -233,24 +233,6 @@ openvpn_main(int argc, char *argv[])
             /* set dev options */
             init_options_dev(&c.options);
 
-            /* openssl print info? */
-            if (print_openssl_info(&c.options))
-            {
-                break;
-            }
-
-            /* --genkey mode? */
-            if (do_genkey(&c.options))
-            {
-                break;
-            }
-
-            /* tun/tap persist command? */
-            if (do_persist_tuntap(&c.options, &c.net_ctx))
-            {
-                break;
-            }
-
             /* sanity check on options */
             options_postprocess(&c.options, c.es);
 

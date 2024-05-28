@@ -938,149 +938,6 @@ print_openssl_info(const struct options *options)
 }
 
 /*
- * Static pre-shared key generation mode?
- */
-bool
-do_genkey(const struct options *options)
-{
-    /* should we disable paging? */
-    if (options->mlock && (options->genkey))
-    {
-        platform_mlockall(true);
-    }
-
-    /*
-     * We do not want user to use --genkey with --secret. In the transistion
-     * phase we for secret.
-     */
-    if (options->genkey && options->genkey_type != GENKEY_SECRET
-        && options->shared_secret_file)
-    {
-        msg(M_USAGE, "Using --genkey type with --secret filename is "
-            "not supported.  Use --genkey type filename instead.");
-    }
-    if (options->genkey && options->genkey_type == GENKEY_SECRET)
-    {
-        int nbits_written;
-        const char *genkey_filename = options->genkey_filename;
-        if (options->shared_secret_file && options->genkey_filename)
-        {
-            msg(M_USAGE, "You must provide a filename to either --genkey "
-                "or --secret, not both");
-        }
-
-        /*
-         * Copy filename from shared_secret_file to genkey_filename to support
-         * the old --genkey --secret foo.file syntax.
-         */
-        if (options->shared_secret_file)
-        {
-            msg(M_WARN, "WARNING: Using --genkey --secret filename is "
-                "DEPRECATED.  Use --genkey secret filename instead.");
-            genkey_filename = options->shared_secret_file;
-        }
-
-        nbits_written = write_key_file(2, genkey_filename);
-        if (nbits_written < 0)
-        {
-            msg(M_FATAL, "Failed to write key file");
-        }
-
-        msg(D_GENKEY | M_NOPREFIX,
-            "Randomly generated %d bit key written to %s", nbits_written,
-            options->shared_secret_file);
-        return true;
-    }
-    else if (options->genkey && options->genkey_type == GENKEY_TLS_CRYPTV2_SERVER)
-    {
-        tls_crypt_v2_write_server_key_file(options->genkey_filename);
-        return true;
-    }
-    else if (options->genkey && options->genkey_type == GENKEY_TLS_CRYPTV2_CLIENT)
-    {
-        if (!options->tls_crypt_v2_file)
-        {
-            msg(M_USAGE,
-                "--genkey tls-crypt-v2-client requires a server key to be set via --tls-crypt-v2 to create a client key");
-        }
-
-        tls_crypt_v2_write_client_key_file(options->genkey_filename,
-                                           options->genkey_extra_data, options->tls_crypt_v2_file,
-                                           options->tls_crypt_v2_file_inline);
-        return true;
-    }
-    else if (options->genkey && options->genkey_type == GENKEY_AUTH_TOKEN)
-    {
-        auth_token_write_server_key_file(options->genkey_filename);
-        return true;
-    }
-    else
-    {
-        return false;
-    }
-}
-
-/*
- * Persistent TUN/TAP device management mode?
- */
-bool
-do_persist_tuntap(struct options *options, openvpn_net_ctx_t *ctx)
-{
-    if (options->persist_config)
-    {
-        /* sanity check on options for --mktun or --rmtun */
-        notnull(options->dev, "TUN/TAP device (--dev)");
-        if (options->ce.remote || options->ifconfig_local
-            || options->ifconfig_remote_netmask
-            || options->shared_secret_file
-            || options->tls_server || options->tls_client
-            )
-        {
-            msg(M_FATAL|M_OPTERR,
-                "options --mktun or --rmtun should only be used together with --dev");
-        }
-
-#if defined(ENABLE_DCO)
-        if (dco_enabled(options))
-        {
-            /* creating a DCO interface via --mktun is not supported as it does not
-             * make much sense. Since DCO is enabled by default, people may run into
-             * this without knowing, therefore this case should be properly handled.
-             *
-             * Disable DCO if --mktun was provided and print a message to let
-             * user know.
-             */
-            if (dev_type_enum(options->dev, options->dev_type) == DEV_TYPE_TUN)
-            {
-                msg(M_WARN, "Note: --mktun does not support DCO. Creating TUN interface.");
-            }
-
-            options->tuntap_options.disable_dco = true;
-        }
-#endif
-
-#ifdef ENABLE_FEATURE_TUN_PERSIST
-        tuncfg(options->dev, options->dev_type, options->dev_node,
-               options->persist_mode,
-               options->username, options->groupname, &options->tuntap_options,
-               ctx);
-        if (options->persist_mode && options->lladdr)
-        {
-            set_lladdr(ctx, options->dev, options->lladdr, NULL);
-        }
-        return true;
-#else  /* ifdef ENABLE_FEATURE_TUN_PERSIST */
-        msg( M_FATAL|M_OPTERR,
-             "options --mktun and --rmtun are not available on your operating "
-             "system.  Please check 'man tun' (or 'tap'), whether your system "
-             "supports using 'ifconfig %s create' / 'destroy' to create/remove "
-             "persistent tunnel interfaces.", options->dev );
-#endif
-    }
-    return false;
-}
-
-/*
  * Should we become a daemon?
  * Return true if we did it.
  */
@@ -2368,10 +2225,10 @@ do_deferred_options(struct context *c, const unsigned int found)
     /* process (potentially) pushed options */
     if (c->options.pull)
     {
-        if (!check_pull_client_ncp(c, found))
-        {
-            return false;
-        }
+//        if (!check_pull_client_ncp(c, found))
+//        {
+//            return false;
+//        }
 
         /* Check if pushed options are compatible with DCO, if enabled */
         if (dco_enabled(&c->options)
@@ -2676,62 +2533,6 @@ init_crypto_pre(struct context *c, const unsigned int flags)
     }
 #endif
 }
-
-/*
- * Static Key Mode (using a pre-shared key)
- */
-static void
-do_init_crypto_static(struct context *c, const unsigned int flags)
-{
-    const struct options *options = &c->options;
-    ASSERT(options->shared_secret_file);
-
-    init_crypto_pre(c, flags);
-
-    /* Initialize flags */
-    if (c->options.mute_replay_warnings)
-    {
-        c->c2.crypto_options.flags |= CO_MUTE_REPLAY_WARNINGS;
-    }
-
-    /* Initialize packet ID tracking */
-    if (options->replay)
-    {
-        packet_id_init(&c->c2.crypto_options.packet_id,
-                       options->replay_window,
-                       options->replay_time,
-                       "STATIC", 0);
-        c->c2.crypto_options.pid_persist = &c->c1.pid_persist;
-        c->c2.crypto_options.flags |= CO_PACKET_ID_LONG_FORM;
-        packet_id_persist_load_obj(&c->c1.pid_persist,
-                                   &c->c2.crypto_options.packet_id);
-    }
-
-    if (!key_ctx_bi_defined(&c->c1.ks.static_key))
-    {
-        /* Get cipher & hash algorithms */
-        init_key_type(&c->c1.ks.key_type, options->ciphername, options->authname,
-                      options->test_crypto, true);
-
-        /* Read cipher and hmac keys from shared secret file */
-        crypto_read_openvpn_key(&c->c1.ks.key_type, &c->c1.ks.static_key,
-                                options->shared_secret_file,
-                                options->shared_secret_file_inline,
-                                options->key_direction, "Static Key Encryption",
-                                "secret");
-    }
-    else
-    {
-        msg(M_INFO, "Re-using pre-shared static key");
-    }
-
-    /* Get key schedule */
-    c->c2.crypto_options.key_ctx_bi = c->c1.ks.static_key;
-
-    /* Sanity check on sequence number, and cipher mode options */
-    check_replay_consistency(&c->c1.ks.key_type, options->replay);
-}
-
 /*
  * Initialize the tls-auth/crypt key context
  */
@@ -2889,6 +2690,15 @@ do_init_crypto_tls_c1(struct context *c)
          */
         do_init_tls_wrap_key(c);
     }
+}
+
+static void
+do_init_crypto_tls_v0(struct context *c, const unsigned int flags)
+{
+    const struct options *options = &c->options;
+    struct tls_options to;
+    ASSERT(options->tls_server || options->tls_client);
+    ASSERT(options->tls_server == !options->tls_client);
 }
 
 static void
@@ -3172,11 +2982,12 @@ do_init_crypto_none(struct context *c)
 static void
 do_init_crypto(struct context *c, const unsigned int flags)
 {
-    if (c->options.shared_secret_file)
-    {
-        do_init_crypto_static(c, flags);
-    }
-    else if (c->options.tls_server || c->options.tls_client)
+//    if (c->options.shared_secret_file)
+//    {
+//        do_init_crypto_static(c, flags);
+//    }
+//    else
+    if (c->options.tls_server || c->options.tls_client)
     {
         do_init_crypto_tls(c, flags);
     }

@@ -682,13 +682,7 @@ cipher_kt_mode_cbc(const char *ciphername)
 bool
 cipher_kt_mode_ofb_cfb(const char *ciphername)
 {
-    evp_cipher_type *cipher = cipher_get(ciphername);
-    bool ofb_cfb = cipher && (cipher_kt_mode(cipher) == OPENVPN_MODE_OFB
-                              || cipher_kt_mode(cipher) == OPENVPN_MODE_CFB)
-                   /* Exclude AEAD cipher modes, they require a different API */
-                   && !(EVP_CIPHER_flags(cipher) & EVP_CIPH_FLAG_AEAD_CIPHER);
-    EVP_CIPHER_free(cipher);
-    return ofb_cfb;
+    return false;
 }
 
 bool
