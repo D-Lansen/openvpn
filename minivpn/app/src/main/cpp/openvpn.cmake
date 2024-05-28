@@ -41,7 +41,6 @@ set(openvpn_srcs
         openvpn/src/openvpn/mstats.c
         openvpn/src/openvpn/mtcp.c
         openvpn/src/openvpn/mtu.c
-        openvpn/src/openvpn/mudp.c
         openvpn/src/openvpn/multi.c
         openvpn/src/openvpn/networking_sitnl.c
         openvpn/src/openvpn/ntlm.c

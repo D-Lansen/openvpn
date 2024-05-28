@@ -80,78 +80,6 @@ struct tls_auth_standalone
     struct frame frame;
 };
 
-enum first_packet_verdict {
-    /** This packet is a valid reset packet from the peer (all but tls-crypt-v2) */
-    VERDICT_VALID_RESET_V2,
-    /** This is a valid v3 reset (tls-crypt-v2) */
-    VERDICT_VALID_RESET_V3,
-    /** This packet is a valid control packet from the peer */
-    VERDICT_VALID_CONTROL_V1,
-    /** This packet is a valid ACK control packet from the peer,
-     * i.e. it has a valid session id hmac in it */
-    VERDICT_VALID_ACK_V1,
-    /** The packet is a valid control packet with appended wrapped client key */
-    VERDICT_VALID_WKC_V1,
-    /** the packet failed on of the various checks */
-    VERDICT_INVALID
-};
-
-/**
- * struct that stores the temporary data for the tls lite decrypt
- * functions
- */
-struct tls_pre_decrypt_state {
-    struct tls_wrap_ctx tls_wrap_tmp;
-    struct buffer newbuf;
-    struct session_id peer_session_id;
-    struct session_id server_session_id;
-};
-
-/**
- *
- * @param state
- */
-void free_tls_pre_decrypt_state(struct tls_pre_decrypt_state *state);
-
-/**
- * Inspect an incoming packet for which no VPN tunnel is active, and
- * determine whether a new VPN tunnel should be created.
- * @ingroup data_crypto
- *
- * This function receives the initial incoming packet from a client that
- * wishes to establish a new VPN tunnel, and determines the packet is a
- * valid initial packet.  It is only used when OpenVPN is running in
- * server mode.
- *
- * The tests performed by this function are whether the packet's opcode is
- * correct for establishing a new VPN tunnel, whether its key ID is 0, and
- * whether its size is not too large.  This function also performs the
- * initial HMAC firewall test, if configured to do so.
- *
- * The incoming packet and the local VPN tunnel state are not modified by
- * this function.  Its sole purpose is to inspect the packet and determine
- * whether a new VPN tunnel should be created.  If so, that new VPN tunnel
- * instance will handle processing of the packet.
- *
- * This function is only used in the UDP p2mp server code path
- *
- * @param tas - The standalone TLS authentication setting structure for
- *     this process.
- * @param from - The source address of the packet.
- * @param buf - A buffer structure containing the incoming packet.
- *
- * @return
- * @li True if the packet is valid and a new VPN tunnel should be created
- *     for this client.
- * @li False if the packet is not valid, did not pass the HMAC firewall
- *     test, or some other error occurred.
- */
-enum first_packet_verdict
-tls_pre_decrypt_lite(const struct tls_auth_standalone *tas,
-                     struct tls_pre_decrypt_state *state,
-                     const struct link_socket_actual *from,
-                     const struct buffer *buf);
-
 /* Creates an SHA256 HMAC context with a random key that is used for the
  * session id.
  *
@@ -161,37 +89,6 @@ tls_pre_decrypt_lite(const struct tls_auth_standalone *tas,
  */
 hmac_ctx_t *session_id_hmac_init(void);
 
-/**
- * Calculates the HMAC based server session id based on a client session id
- * and socket addr.
- *
- * @param client_sid    session id of the client
- * @param from          link_socket from the client
- * @param hmac          the hmac context to use for the calculation
- * @param handwindow    the quantisation of the current time
- * @param offset        offset to 'now' to use
- * @return              the expected server session id
- */
-struct session_id
-calculate_session_id_hmac(struct session_id client_sid,
-                          const struct openvpn_sockaddr *from,
-                          hmac_ctx_t *hmac,
-                          int handwindow, int offset);
-
-/**
- * Checks if a control packet has a correct HMAC server session id
- *
- * @param client_sid    session id of the client
- * @param from          link_socket from the client
- * @param hmac          the hmac context to use for the calculation
- * @param handwindow    the quantisation of the current time
- * @return              the expected server session id
- */
-bool
-check_session_id_hmac(struct tls_pre_decrypt_state *state,
-                      const struct openvpn_sockaddr *from,
-                      hmac_ctx_t *hmac,
-                      int handwindow);
 
 /*
  * Write a control channel authentication record.
@@ -204,7 +101,6 @@ write_control_auth(struct tls_session *session,
                    int opcode,
                    int max_ack,
                    bool prepend_ack);
-
 
 /*
  * Read a control channel authentication record.

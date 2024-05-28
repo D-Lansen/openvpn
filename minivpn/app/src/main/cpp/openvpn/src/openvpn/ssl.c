@@ -328,17 +328,6 @@ calc_control_channel_frame_overhead(const struct tls_session *session)
     /* Message packet id */
     overhead += sizeof(packet_id_type);
 
-    if (session->tls_wrap.mode == TLS_WRAP_CRYPT)
-    {
-        overhead += tls_crypt_buf_overhead();
-        overhead += packet_id_size(true);
-    }
-    else if (session->tls_wrap.mode == TLS_WRAP_AUTH)
-    {
-        overhead += hmac_ctx_size(session->tls_wrap.opt.key_ctx_bi.encrypt.hmac);
-        overhead += packet_id_size(true);
-    }
-
     /* Add the typical UDP overhead for an IPv6 UDP packet. TCP+IPv6 has a
      * larger overhead but the risk of a TCP connection getting dropped because
      * we try to send a too large packet is basically zero */
@@ -2020,30 +2009,6 @@ session_move_active(struct tls_multi *multi, struct tls_session *session,
     show_tls_performance_stats();
 #endif
 }
-
-bool
-session_skip_to_pre_start(struct tls_session *session,
-                          struct tls_pre_decrypt_state *state,
-                          struct link_socket_actual *from)
-{
-    struct key_state *ks = &session->key[KS_PRIMARY];
-    ks->session_id_remote = state->peer_session_id;
-    ks->remote_addr = *from;
-    session->session_id = state->server_session_id;
-    session->untrusted_addr = *from;
-    session->burst = true;
-
-    /* The OpenVPN protocol implicitly mandates that packet id always start
-     * from 0 in the RESET packets as OpenVPN 2.x will not allow gaps in the
-     * ids and starts always from 0. Since we skip/ignore one (RESET) packet
-     * in each direction, we need to set the ids to 1 */
-    ks->rec_reliable->packet_id = 1;
-    /* for ks->send_reliable->packet_id, session_move_pre_start moves the
-     * counter to 1 */
-    session->tls_wrap.opt.packet_id.send.id = 1;
-    return session_move_pre_start(session, ks, true);
-}
-
 /**
  * Parses the TLVs (type, length, value) in the early negotiation
  */
@@ -2314,6 +2279,8 @@ tls_process_state(struct tls_multi *multi,
         msg(M_INFO, "lichen0 Reliable->TCP/UDP %d status:%d",buf->len,ks->state);
         return true;
     }
+
+
 
     /* Write incoming ciphertext to TLS object */
     struct reliable_entry *entry = reliable_get_entry_sequenced(ks->rec_reliable);

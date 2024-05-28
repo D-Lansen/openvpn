@@ -54,7 +54,6 @@
 #include "forward.h"
 #include "auth_token.h"
 #include "mss.h"
-#include "mudp.h"
 #include "dco.h"
 
 static struct context *static_context; /* GLOBAL */
@@ -913,28 +912,6 @@ init_options_dev(struct options *options)
         char *dev_node = string_alloc(options->dev_node, NULL); /* POSIX basename() implementations may modify its arguments */
         options->dev = basename(dev_node);
     }
-}
-
-bool
-print_openssl_info(const struct options *options)
-{
-    /*
-     * OpenSSL info print mode?
-     */
-    if (options->show_digests || options->show_engines
-        || options->show_curves)
-    {
-        if (options->show_digests)
-        {
-            show_available_digests();
-        }
-        if (options->show_engines)
-        {
-            show_available_engines();
-        }
-        return true;
-    }
-    return false;
 }
 
 /*
@@ -2877,7 +2854,7 @@ do_init_crypto_tls(struct context *c, const unsigned int flags)
     /* TLS handshake authentication (--tls-auth) */
     if (options->ce.tls_auth_file)
     {
-        to.tls_wrap.mode = TLS_WRAP_AUTH;
+        to.tls_wrap.mode = TLS_WRAP_NONE;
         to.tls_wrap.opt.key_ctx_bi = c->c1.ks.tls_wrap_key;
         to.tls_wrap.opt.pid_persist = &c->c1.pid_persist;
         to.tls_wrap.opt.flags |= CO_PACKET_ID_LONG_FORM;
@@ -2887,7 +2864,7 @@ do_init_crypto_tls(struct context *c, const unsigned int flags)
     if (options->ce.tls_crypt_file
         || (options->ce.tls_crypt_v2_file && options->tls_client))
     {
-        to.tls_wrap.mode = TLS_WRAP_CRYPT;
+        to.tls_wrap.mode = TLS_WRAP_NONE;
         to.tls_wrap.opt.key_ctx_bi = c->c1.ks.tls_wrap_key;
         to.tls_wrap.opt.pid_persist = &c->c1.pid_persist;
         to.tls_wrap.opt.flags |= CO_PACKET_ID_LONG_FORM;

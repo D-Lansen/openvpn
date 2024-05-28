@@ -3184,17 +3184,7 @@ multi_process_incoming_link(struct multi_context *m, struct multi_instance *inst
         return true;
     }
 
-    if (!instance)
-    {
-#ifdef MULTI_DEBUG_EVENT_LOOP
-        printf("TCP/UDP -> TUN [%d]\n", BLEN(&m->top.c2.buf));
-#endif
-        multi_set_pending(m, multi_get_create_instance_udp(m, &floated));
-    }
-    else
-    {
-        multi_set_pending(m, instance);
-    }
+    multi_set_pending(m, instance);
 
     if (m->pending)
     {
@@ -3982,13 +3972,5 @@ void
 tunnel_server(struct context *top)
 {
     ASSERT(top->options.mode == MODE_SERVER);
-
-    if (proto_is_dgram(top->options.ce.proto))
-    {
-        tunnel_server_udp(top);
-    }
-    else
-    {
-        tunnel_server_tcp(top);
-    }
+    tunnel_server_tcp(top);
 }
