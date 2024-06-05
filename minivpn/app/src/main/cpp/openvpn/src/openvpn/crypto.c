@@ -97,35 +97,6 @@ openvpn_encrypt(struct buffer *buf, struct buffer work,
     }
 }
 
-bool
-crypto_check_replay(struct crypto_options *opt,
-                    const struct packet_id_net *pin, const char *error_prefix,
-                    struct gc_arena *gc)
-{
-    bool ret = false;
-    packet_id_reap_test(&opt->packet_id.rec);
-    if (packet_id_test(&opt->packet_id.rec, pin))
-    {
-        packet_id_add(&opt->packet_id.rec, pin);
-        if (opt->pid_persist && (opt->flags & CO_PACKET_ID_LONG_FORM))
-        {
-            packet_id_persist_save_obj(opt->pid_persist, &opt->packet_id);
-        }
-        ret = true;
-    }
-    else
-    {
-        if (!(opt->flags & CO_MUTE_REPLAY_WARNINGS))
-        {
-            msg(D_REPLAY_ERRORS, "%s: bad packet ID (may be a replay): %s -- "
-                "see the man page entry for --no-replay and --replay-window for "
-                "more info or silence this warning with --mute-replay-warnings",
-                error_prefix, packet_id_net_print(pin, true, gc));
-        }
-    }
-    return ret;
-}
-
 
 static bool
 openvpn_decrypt_v0(struct buffer *buf, struct buffer work,

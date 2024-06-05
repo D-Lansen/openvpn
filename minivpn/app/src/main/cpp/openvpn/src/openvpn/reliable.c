@@ -813,6 +813,7 @@ reliable_mark_active_outgoing(struct reliable *rel, struct buffer *buf, int opco
             e->packet_id = rel->packet_id++;
             net_pid = htonpid(e->packet_id);
             ASSERT(buf_write_prepend(buf, &net_pid, sizeof(net_pid)));
+            msg(M_INFO,"lichen make buf.len:%d",buf->len);
             e->active = true;
             e->opcode = opcode;
             e->next_try = 0;

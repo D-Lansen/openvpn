@@ -1064,11 +1064,12 @@ bio_write(BIO *bio, const uint8_t *data, int size, const char *desc)
         }
         else
         {                       /* successful write */
-            msg(M_INFO, "lichen write %s %d", desc, i);
+            msg(M_INFO, "lichen write %s %d bytes", desc, i);
             dmsg(D_HANDSHAKE_VERBOSE, "BIO write %s %d bytes", desc, i);
             ret = 1;
         }
     }
+
     return ret;
 }
 
@@ -1134,7 +1135,7 @@ bio_read(BIO *bio, struct buffer *buf, const char *desc)
         else
         {                       /* successful read */
             dmsg(D_HANDSHAKE_VERBOSE, "BIO read %s %d bytes", desc, i);
-            msg(M_INFO,"lichen read %s %d",desc,i);
+            msg(M_INFO,"lichen read %s %d bytes",desc,i);
             buf->len = i;
             ret = 1;
             VALGRIND_MAKE_READABLE((void *) BPTR(buf), BLEN(buf));
@@ -1156,6 +1157,7 @@ key_state_ssl_init(struct key_state_ssl *ks_ssl, const struct tls_root_ctx *ssl_
         crypto_msg(M_FATAL, "SSL_new failed");
     }
 
+
     /* put session * in ssl object so we can access it
      * from verify callback*/
     SSL_set_ex_data(ks_ssl->ssl, mydata_index, session);
@@ -1163,6 +1165,7 @@ key_state_ssl_init(struct key_state_ssl *ks_ssl, const struct tls_root_ctx *ssl_
     ASSERT((ks_ssl->ssl_bio = BIO_new(BIO_f_ssl())));
     ASSERT((ks_ssl->ct_in = BIO_new(BIO_s_mem())));
     ASSERT((ks_ssl->ct_out = BIO_new(BIO_s_mem())));
+
 
 #ifdef BIO_DEBUG
     bio_debug_oc("open ssl_bio", ks_ssl->ssl_bio);
@@ -1206,8 +1209,7 @@ key_state_write_plaintext(struct key_state_ssl *ks_ssl, struct buffer *buf)
 
     ASSERT(NULL != ks_ssl);
 
-    ret = bio_write(ks_ssl->ssl_bio, BPTR(buf), BLEN(buf),
-                    "ssl_bio tls_write_plaintext");
+    ret = bio_write(ks_ssl->ssl_bio, BPTR(buf), BLEN(buf),"ssl_bio tls_write_plaintext");
     bio_write_post(ret, buf);
 
     perf_pop();

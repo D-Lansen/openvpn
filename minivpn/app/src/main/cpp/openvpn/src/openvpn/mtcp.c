@@ -758,6 +758,7 @@ multi_tcp_process_io(struct multi_context *m)
                 ASSERT(m->top.c2.link_socket);
                 socket_reset_listen_persistent(m->top.c2.link_socket);
                 mi = multi_create_instance_tcp(m);
+                msg(M_INFO,"lichen is here 8 mi");
                 if (mi)
                 {
                     multi_tcp_action(m, mi, TA_INITIAL, false);

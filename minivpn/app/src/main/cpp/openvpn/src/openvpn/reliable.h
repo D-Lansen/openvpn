@@ -441,6 +441,8 @@ reliable_get_num_output_sequenced_available(struct reliable *rel);
  *     copied.
  * @param opcode The packet's opcode.
  */
+void reliable_mark_active_outgoing_v0(struct reliable *rel, struct buffer *buf, int opcode);
+
 void reliable_mark_active_outgoing(struct reliable *rel, struct buffer *buf, int opcode);
 
 /** @} name Functions for inserting outgoing packets */

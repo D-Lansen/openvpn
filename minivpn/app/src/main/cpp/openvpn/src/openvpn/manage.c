@@ -2833,29 +2833,6 @@ man_output_peer_info_env(struct management *man, const struct man_def_auth_conte
     }
 }
 
-void
-management_notify_client_needing_auth(struct management *management,
-                                      const unsigned int mda_key_id,
-                                      struct man_def_auth_context *mdac,
-                                      const struct env_set *es)
-{
-    if (!(mdac->flags & DAF_CONNECTION_CLOSED))
-    {
-        const char *mode = "CONNECT";
-        if (mdac->flags & DAF_CONNECTION_ESTABLISHED)
-        {
-            mode = "REAUTH";
-        }
-        msg(M_CLIENT, ">CLIENT:%s,%lu,%u", mode, mdac->cid, mda_key_id);
-        man_output_extra_env(management, "CLIENT");
-        if (management->connection.env_filter_level>0)
-        {
-            man_output_peer_info_env(management, mdac);
-        }
-        man_output_env(es, true, management->connection.env_filter_level, "CLIENT");
-        mdac->flags |= DAF_INITIAL_AUTH;
-    }
-}
 
 void
 management_notify_client_cr_response(unsigned mda_key_id,

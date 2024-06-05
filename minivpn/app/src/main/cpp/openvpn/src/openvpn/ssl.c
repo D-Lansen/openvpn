@@ -47,12 +47,9 @@
 #include "common.h"
 #include "socket.h"
 #include "misc.h"
-#include "fdmisc.h"
 #include "interval.h"
 #include "perf.h"
-#include "status.h"
 #include "gremlin.h"
-#include "pkcs11.h"
 #include "route.h"
 #include "tls_crypt.h"
 
@@ -63,9 +60,6 @@
 #include "ssl_util.h"
 #include "auth_token.h"
 #include "mss.h"
-#include "dco.h"
-
-#include "memdbg.h"
 
 #ifdef MEASURE_TLS_HANDSHAKE_STATS
 
@@ -722,7 +716,6 @@ is_hard_reset_method2(int op)
     {
         return true;
     }
-
     return false;
 }
 
@@ -1339,7 +1332,6 @@ static void
 flush_payload_buffer(struct key_state *ks)
 {
     struct buffer *b;
-
     while ((b = buffer_list_peek(ks->paybuf)))
     {
         key_state_write_plaintext_const(&ks->ks_ssl, b->data, b->len);
@@ -1456,140 +1448,139 @@ push_peer_info(struct buffer *buf, struct tls_session *session)
 {
     struct gc_arena gc = gc_new();
     bool ret = false;
-    struct buffer out = alloc_buf_gc(512 * 3, &gc);
 
-    if (session->opt->push_peer_info_detail > 1)
-    {
-        /* push version */
-        buf_printf(&out, "IV_VER=%s\n", PACKAGE_VERSION);
-
-        /* push platform */
-#if defined(TARGET_LINUX)
-        buf_printf(&out, "IV_PLAT=linux\n");
-#elif defined(TARGET_SOLARIS)
-        buf_printf(&out, "IV_PLAT=solaris\n");
-#elif defined(TARGET_OPENBSD)
-        buf_printf(&out, "IV_PLAT=openbsd\n");
-#elif defined(TARGET_DARWIN)
-        buf_printf(&out, "IV_PLAT=mac\n");
-#elif defined(TARGET_NETBSD)
-        buf_printf(&out, "IV_PLAT=netbsd\n");
-#elif defined(TARGET_FREEBSD)
-        buf_printf(&out, "IV_PLAT=freebsd\n");
-#elif defined(TARGET_ANDROID)
-        buf_printf(&out, "IV_PLAT=android\n");
-#elif defined(_WIN32)
-        buf_printf(&out, "IV_PLAT=win\n");
-#endif
-        /* Announce that we do not require strict sequence numbers with
-         * TCP. (TCP non-linear) */
-        buf_printf(&out, "IV_TCPNL=1\n");
-    }
-
-    /* These are the IV variable that are sent to peers in p2p mode */
-    if (session->opt->push_peer_info_detail > 0)
-    {
-        /* support for P_DATA_V2 */
-        int iv_proto = IV_PROTO_DATA_V2;
-
-        /* support for the --dns option */
-        iv_proto |= IV_PROTO_DNS_OPTION;
-
-        /* support for exit notify via control channel */
-        iv_proto |= IV_PROTO_CC_EXIT_NOTIFY;
-
-        if (session->opt->pull)
-        {
-            /* support for receiving push_reply before sending
-             * push request, also signal that the client wants
-             * to get push-reply messages without requiring a round
-             * trip for a push request message*/
-            iv_proto |= IV_PROTO_REQUEST_PUSH;
-
-            /* Support keywords in the AUTH_PENDING control message */
-            iv_proto |= IV_PROTO_AUTH_PENDING_KW;
-
-            /* support for tun-mtu as part of the push message */
-            buf_printf(&out, "IV_MTU=%d\n", session->opt->frame.tun_max_mtu);
-
-            /* support for AUTH_FAIL,TEMP control message */
-            iv_proto |= IV_PROTO_AUTH_FAIL_TEMP;
-        }
-
-        /* support for Negotiable Crypto Parameters */
-        if (session->opt->mode == MODE_SERVER || session->opt->pull)
-        {
-            if (tls_item_in_cipher_list("AES-128-GCM", session->opt->config_ncp_ciphers)
-                && tls_item_in_cipher_list("AES-256-GCM", session->opt->config_ncp_ciphers))
-            {
-
-                buf_printf(&out, "IV_NCP=2\n");
-            }
-        }
-        else
-        {
-            /* We are not using pull or p2mp server, instead do P2P NCP */
-            iv_proto |= IV_PROTO_NCP_P2P;
-        }
-
-        buf_printf(&out, "IV_CIPHERS=%s\n", session->opt->config_ncp_ciphers);
-
-#ifdef HAVE_EXPORT_KEYING_MATERIAL
-        iv_proto |= IV_PROTO_TLS_KEY_EXPORT;
-#endif
-
-        buf_printf(&out, "IV_PROTO=%d\n", iv_proto);
-
-        if (session->opt->push_peer_info_detail > 1)
-        {
-            /* push compression status */
-#ifdef USE_COMP
-            comp_generate_peer_info_string(&session->opt->comp_options, &out);
-#endif
-        }
-
-        if (session->opt->push_peer_info_detail > 2)
-        {
-            /* push mac addr */
-            struct route_gateway_info rgi;
-            get_default_gateway(&rgi, session->opt->net_ctx);
-            if (rgi.flags & RGI_HWADDR_DEFINED)
-            {
-                buf_printf(&out, "IV_HWADDR=%s\n", format_hex_ex(rgi.hwaddr, 6, 0, 1, ":", &gc));
-            }
-#if defined(_WIN32)
-            buf_printf(&out, "IV_PLAT_VER=%s\n", win32_version_string(&gc, false));
-#endif
-        }
-
-        if (session->opt->push_peer_info_detail > 1)
-        {
-            struct env_set *es = session->opt->es;
-            /* push env vars that begin with UV_, IV_PLAT_VER and IV_GUI_VER */
-            for (struct env_item *e = es->list; e != NULL; e = e->next)
-            {
-                if (e->string)
-                {
-                    if ((((strncmp(e->string, "UV_", 3) == 0
-                           || strncmp(e->string, "IV_PLAT_VER=", sizeof("IV_PLAT_VER=") - 1) == 0)
-                          && session->opt->push_peer_info_detail > 2)
-                         || (strncmp(e->string, "IV_GUI_VER=", sizeof("IV_GUI_VER=") - 1) == 0)
-                         || (strncmp(e->string, "IV_SSO=", sizeof("IV_SSO=") - 1) == 0)
-                         )
-                        && buf_safe(&out, strlen(e->string) + 1))
-                    {
-                        buf_printf(&out, "%s\n", e->string);
-                    }
-                }
-            }
-        }
-
-        if (!write_string(buf, BSTR(&out), -1))
-        {
-            goto error;
-        }
-    }
-    else
+//    if (session->opt->push_peer_info_detail > 1)
+//    {
+//        /* push version */
+//        buf_printf(&out, "IV_VER=%s\n", PACKAGE_VERSION);
+//
+//        /* push platform */
+//#if defined(TARGET_LINUX)
+//        buf_printf(&out, "IV_PLAT=linux\n");
+//#elif defined(TARGET_SOLARIS)
+//        buf_printf(&out, "IV_PLAT=solaris\n");
+//#elif defined(TARGET_OPENBSD)
+//        buf_printf(&out, "IV_PLAT=openbsd\n");
+//#elif defined(TARGET_DARWIN)
+//        buf_printf(&out, "IV_PLAT=mac\n");
+//#elif defined(TARGET_NETBSD)
+//        buf_printf(&out, "IV_PLAT=netbsd\n");
+//#elif defined(TARGET_FREEBSD)
+//        buf_printf(&out, "IV_PLAT=freebsd\n");
+//#elif defined(TARGET_ANDROID)
+//        buf_printf(&out, "IV_PLAT=android\n");
+//#elif defined(_WIN32)
+//        buf_printf(&out, "IV_PLAT=win\n");
+//#endif
+//        /* Announce that we do not require strict sequence numbers with
+//         * TCP. (TCP non-linear) */
+//        buf_printf(&out, "IV_TCPNL=1\n");
+//    }
+//
+//    /* These are the IV variable that are sent to peers in p2p mode */
+//    if (session->opt->push_peer_info_detail > 0)
+//    {
+//        /* support for P_DATA_V2 */
+//        int iv_proto = IV_PROTO_DATA_V2;
+//
+//        /* support for the --dns option */
+//        iv_proto |= IV_PROTO_DNS_OPTION;
+//
+//        /* support for exit notify via control channel */
+//        iv_proto |= IV_PROTO_CC_EXIT_NOTIFY;
+//
+//        if (session->opt->pull)
+//        {
+//            /* support for receiving push_reply before sending
+//             * push request, also signal that the client wants
+//             * to get push-reply messages without requiring a round
+//             * trip for a push request message*/
+//            iv_proto |= IV_PROTO_REQUEST_PUSH;
+//
+//            /* Support keywords in the AUTH_PENDING control message */
+//            iv_proto |= IV_PROTO_AUTH_PENDING_KW;
+//
+//            /* support for tun-mtu as part of the push message */
+//            buf_printf(&out, "IV_MTU=%d\n", session->opt->frame.tun_max_mtu);
+//
+//            /* support for AUTH_FAIL,TEMP control message */
+//            iv_proto |= IV_PROTO_AUTH_FAIL_TEMP;
+//        }
+//
+//        /* support for Negotiable Crypto Parameters */
+//        if (session->opt->mode == MODE_SERVER || session->opt->pull)
+//        {
+//            if (tls_item_in_cipher_list("AES-128-GCM", session->opt->config_ncp_ciphers)
+//                && tls_item_in_cipher_list("AES-256-GCM", session->opt->config_ncp_ciphers))
+//            {
+//
+//                buf_printf(&out, "IV_NCP=2\n");
+//            }
+//        }
+//        else
+//        {
+//            /* We are not using pull or p2mp server, instead do P2P NCP */
+//            iv_proto |= IV_PROTO_NCP_P2P;
+//        }
+//
+//        buf_printf(&out, "IV_CIPHERS=%s\n", session->opt->config_ncp_ciphers);
+//
+//#ifdef HAVE_EXPORT_KEYING_MATERIAL
+//        iv_proto |= IV_PROTO_TLS_KEY_EXPORT;
+//#endif
+//
+//        buf_printf(&out, "IV_PROTO=%d\n", iv_proto);
+//
+//        if (session->opt->push_peer_info_detail > 1)
+//        {
+//            /* push compression status */
+//#ifdef USE_COMP
+//            comp_generate_peer_info_string(&session->opt->comp_options, &out);
+//#endif
+//        }
+//
+//        if (session->opt->push_peer_info_detail > 2)
+//        {
+//            /* push mac addr */
+//            struct route_gateway_info rgi;
+//            get_default_gateway(&rgi, session->opt->net_ctx);
+//            if (rgi.flags & RGI_HWADDR_DEFINED)
+//            {
+//                buf_printf(&out, "IV_HWADDR=%s\n", format_hex_ex(rgi.hwaddr, 6, 0, 1, ":", &gc));
+//            }
+//#if defined(_WIN32)
+//            buf_printf(&out, "IV_PLAT_VER=%s\n", win32_version_string(&gc, false));
+//#endif
+//        }
+//
+//        if (session->opt->push_peer_info_detail > 1)
+//        {
+//            struct env_set *es = session->opt->es;
+//            /* push env vars that begin with UV_, IV_PLAT_VER and IV_GUI_VER */
+//            for (struct env_item *e = es->list; e != NULL; e = e->next)
+//            {
+//                if (e->string)
+//                {
+//                    if ((((strncmp(e->string, "UV_", 3) == 0
+//                           || strncmp(e->string, "IV_PLAT_VER=", sizeof("IV_PLAT_VER=") - 1) == 0)
+//                          && session->opt->push_peer_info_detail > 2)
+//                         || (strncmp(e->string, "IV_GUI_VER=", sizeof("IV_GUI_VER=") - 1) == 0)
+//                         || (strncmp(e->string, "IV_SSO=", sizeof("IV_SSO=") - 1) == 0)
+//                         )
+//                        && buf_safe(&out, strlen(e->string) + 1))
+//                    {
+//                        buf_printf(&out, "%s\n", e->string);
+//                    }
+//                }
+//            }
+//        }
+//
+//        if (!write_string(buf, BSTR(&out), -1))
+//        {
+//            goto error;
+//        }
+//    }
+//    else
     {
         if (!write_empty_string(buf)) /* no peer info */
         {
@@ -1603,18 +1594,6 @@ error:
     return ret;
 }
 
-#ifdef USE_COMP
-static bool
-write_compat_local_options(struct buffer *buf, const char *options)
-{
-    struct gc_arena gc = gc_new();
-    const char *local_options = options_string_compat_lzo(options, &gc);
-    bool ret = write_string(buf, local_options, TLS_OPTIONS_LEN);
-    gc_free(&gc);
-    return ret;
-}
-#endif
-
 /**
  * Handle the writing of key data, peer-info, username/password, OCC
  * to the TLS control channel (cleartext).
@@ -1622,154 +1601,18 @@ write_compat_local_options(struct buffer *buf, const char *options)
 static bool
 key_method_2_write(struct buffer *buf, struct tls_multi *multi, struct tls_session *session)
 {
-    struct key_state *ks = &session->key[KS_PRIMARY];      /* primary key */
-
     ASSERT(buf_init(buf, 0));
-
-    /* write a uint32 0 */
-    if (!buf_write_u32(buf, 0))
-    {
-        goto error;
-    }
-
-    /* write key_method + flags */
-    if (!buf_write_u8(buf, KEY_METHOD_2))
-    {
-        goto error;
-    }
-
-    /* write key source material */
-    if (!key_source2_randomize_write(ks->key_src, buf, session->opt->server))
-    {
-        goto error;
-    }
-
-    /* write options string */
-    {
-#ifdef USE_COMP
-        if (multi->remote_usescomp && session->opt->mode == MODE_SERVER
-            && multi->opt.comp_options.flags & COMP_F_MIGRATE)
-        {
-            if (!write_compat_local_options(buf, session->opt->local_options))
-            {
-                goto error;
-            }
-        }
-        else
-#endif
-        if (!write_string(buf, session->opt->local_options, TLS_OPTIONS_LEN))
-        {
-            goto error;
-        }
-    }
-
-    /* write username/password if specified or we are using a auth-token */
-    if (auth_user_pass_enabled || (auth_token.token_defined && auth_token.defined))
-    {
-#ifdef ENABLE_MANAGEMENT
-        auth_user_pass_setup(session->opt->auth_user_pass_file, session->opt->sci);
-#else
-        auth_user_pass_setup(session->opt->auth_user_pass_file, NULL);
-#endif
-        struct user_pass *up = &auth_user_pass;
-
-        /*
-         * If we have a valid auth-token, send that instead of real
-         * username/password
-         */
-        if (auth_token.token_defined && auth_token.defined)
-        {
-            up = &auth_token;
-        }
-
-        if (!write_string(buf, up->username, -1))
-        {
-            goto error;
-        }
-        else if (!write_string(buf, up->password, -1))
-        {
-            goto error;
-        }
-        /* if auth-nocache was specified, the auth_user_pass object reaches
-         * a "complete" state only after having received the push-reply
-         * message. The push message might contain an auth-token that needs
-         * the username of auth_user_pass.
-         *
-         * For this reason, skip the purge operation here if no push-reply
-         * message has been received yet.
-         *
-         * This normally happens upon first negotiation only.
-         */
-        if (!session->opt->pull)
-        {
-            purge_user_pass(&auth_user_pass, false);
-        }
-    }
-    else
-    {
-        if (!write_empty_string(buf)) /* no username */
-        {
-            goto error;
-        }
-        if (!write_empty_string(buf)) /* no password */
-        {
-            goto error;
-        }
-    }
-
     if (!push_peer_info(buf, session))
     {
         goto error;
     }
-
-    if (session->opt->server && session->opt->mode != MODE_SERVER
-        && ks->key_id == 0)
-    {
-        /* tls-server option set and not P2MP server, so we
-         * are a P2P client running in tls-server mode */
-        p2p_mode_ncp(multi, session);
-    }
-
     return true;
 
 error:
     msg(D_TLS_ERRORS, "TLS Error: Key Method #2 write failed");
-    secure_memzero(ks->key_src, sizeof(*ks->key_src));
     return false;
 }
 
-static void
-export_user_keying_material(struct key_state_ssl *ssl,
-                            struct tls_session *session)
-{
-    if (session->opt->ekm_size > 0)
-    {
-        unsigned int size = session->opt->ekm_size;
-        struct gc_arena gc = gc_new();
-
-        unsigned char *ekm = gc_malloc(session->opt->ekm_size, true, &gc);
-        if (key_state_export_keying_material(session,
-                                             session->opt->ekm_label,
-                                             session->opt->ekm_label_size,
-                                             ekm, session->opt->ekm_size))
-        {
-            unsigned int len = (size * 2) + 2;
-
-            const char *key = format_hex_ex(ekm, size, len, 0, NULL, &gc);
-            setenv_str(session->opt->es, "exported_keying_material", key);
-
-            dmsg(D_TLS_DEBUG_MED, "%s: exported keying material: %s",
-                 __func__, key);
-            secure_memzero(ekm, size);
-        }
-        else
-        {
-            msg(M_WARN, "WARNING: Export keying material failed!");
-            setenv_del(session->opt->es, "exported_keying_material");
-        }
-        gc_free(&gc);
-    }
-}
 
 /**
  * Handle reading key data, peer-info, username/password, OCC
@@ -1779,120 +1622,10 @@ static bool
 key_method_2_read(struct buffer *buf, struct tls_multi *multi, struct tls_session *session)
 {
     struct key_state *ks = &session->key[KS_PRIMARY];      /* primary key */
-
-    bool username_status, password_status;
-
-    struct gc_arena gc = gc_new();
-    char *options;
-    struct user_pass *up = NULL;
-
-    /* allocate temporary objects */
-    ALLOC_ARRAY_CLEAR_GC(options, char, TLS_OPTIONS_LEN, &gc);
-
-    /* discard leading uint32 */
-    if (!buf_advance(buf, 4))
-    {
-        msg(D_TLS_ERRORS, "TLS ERROR: Plaintext buffer too short (%d bytes).",
-            buf->len);
-        goto error;
-    }
-
-    /* get key method */
-    int key_method_flags = buf_read_u8(buf);
-    if ((key_method_flags & KEY_METHOD_MASK) != 2)
-    {
-        msg(D_TLS_ERRORS,
-            "TLS ERROR: Unknown key_method/flags=%d received from remote host",
-            key_method_flags);
-        goto error;
-    }
-
-    /* get key source material (not actual keys yet) */
-    if (!key_source2_read(ks->key_src, buf, session->opt->server))
-    {
-        msg(D_TLS_ERRORS, "TLS Error: Error reading remote data channel key source entropy from plaintext buffer");
-        goto error;
-    }
-
-    /* get options */
-    if (!read_string(buf, options, TLS_OPTIONS_LEN))
-    {
-        msg(D_TLS_ERRORS, "TLS Error: Failed to read required OCC options string");
-        goto error;
-    }
-
-    ks->authenticated = KS_AUTH_FALSE;
-
-    /* always extract username + password fields from buf, even if not
-     * authenticating for it, because otherwise we can't get at the
-     * peer_info data which follows behind
-     */
-    ALLOC_OBJ_CLEAR_GC(up, struct user_pass, &gc);
-    username_status = read_string(buf, up->username, USER_PASS_LEN);
-    password_status = read_string(buf, up->password, USER_PASS_LEN);
-
-    /* get peer info from control channel */
-    free(multi->peer_info);
-    multi->peer_info = read_string_alloc(buf);
-//    if (multi->peer_info)
-//    {
-//        output_peer_info_env(session->opt->es, multi->peer_info);
-//    }
-
-    {
-        multi->remote_ciphername = NULL;
-        ks->authenticated = KS_AUTH_TRUE;
-    }
-
-    /* clear username and password from memory */
-    secure_memzero(up, sizeof(*up));
-
-
-    /* check options consistency */
-    if (!session->opt->disable_occ
-        && !options_cmp_equal(options, session->opt->remote_options))
-    {
-        const char *remote_options = session->opt->remote_options;
-#ifdef USE_COMP
-        if (multi->opt.comp_options.flags & COMP_F_MIGRATE && multi->remote_usescomp)
-        {
-            msg(D_SHOW_OCC, "Note: 'compress migrate' detected remote peer "
-                "with compression enabled.");
-            remote_options = options_string_compat_lzo(remote_options, &gc);
-        }
-#endif
-
-        options_warning(options, remote_options);
-
-        if (session->opt->ssl_flags & SSLF_OPT_VERIFY)
-        {
-            msg(D_TLS_ERRORS, "Option inconsistency warnings triggering disconnect due to --opt-verify");
-            ks->authenticated = KS_AUTH_FALSE;
-        }
-    }
-
+    multi->remote_ciphername = NULL;
+    ks->authenticated = KS_AUTH_TRUE;
     buf_clear(buf);
-
-    if (!session->opt->server && !session->opt->pull && ks->key_id == 0)
-    {
-        /* We are a p2p tls-client without pull, enable common
-         * protocol options */
-        p2p_mode_ncp(multi, session);
-    }
-
-    gc_free(&gc);
     return true;
-
-error:
-    ks->authenticated = KS_AUTH_FALSE;
-    secure_memzero(ks->key_src, sizeof(*ks->key_src));
-    if (up)
-    {
-        secure_memzero(up, sizeof(*up));
-    }
-    buf_clear(buf);
-    gc_free(&gc);
-    return false;
 }
 
 static int
@@ -1929,6 +1662,9 @@ session_move_pre_start(const struct tls_session *session,
     ks->auth_deferred_expire = now + auth_deferred_expire_window(session->opt);
 
     /* null buffer */
+    char* l_string = "l_string";
+    buf_write(buf, l_string,strlen(l_string) + 1);
+
     reliable_mark_active_outgoing(ks->send_reliable, buf, ks->initial_opcode);
 
     /* If we want to skip sending the initial handshake packet we still generate
@@ -2015,53 +1751,33 @@ session_move_active(struct tls_multi *multi, struct tls_session *session,
 static bool
 parse_early_negotiation_tlvs(struct buffer *buf, struct key_state *ks)
 {
-    while (buf->len > 0)
-    {
-        if (buf_len(buf) < 4)
-        {
-            goto error;
-        }
-        /* read type */
-        uint16_t type = buf_read_u16(buf);
-        uint16_t len = buf_read_u16(buf);
-        if (buf_len(buf) < len)
-        {
-            goto error;
-        }
-
-        switch (type)
-        {
-            case TLV_TYPE_EARLY_NEG_FLAGS:
-                if (len != sizeof(uint16_t))
-                {
-                    goto error;
-                }
-                uint16_t flags = buf_read_u16(buf);
-
-                if (flags & EARLY_NEG_FLAG_RESEND_WKC)
-                {
-                    ks->crypto_options.flags |= CO_RESEND_WKC;
-                }
-                break;
-
-            default:
-                /* Skip types we do not parse */
-                buf_advance(buf, len);
-        }
-    }
-    msg(M_INFO,"lichen0 The first packet_id=0 status:%d",ks->state);
     reliable_mark_deleted(ks->rec_reliable, buf);
-
     return true;
-error:
-    msg(D_TLS_ERRORS, "TLS Error: Early negotiation malformed packet");
-    return false;
 }
 
 /**
  * Read incoming ciphertext and passes it to the buffer of the SSL library.
  * Returns false if an error is encountered that should abort the session.
  */
+
+static bool
+read_incoming_tls_ciphertext_v0(struct buffer *buf, struct key_state *ks,
+                             bool *state_change)
+{
+    if (buf->len)
+    {
+        memset(BPTR(buf), 0, BLEN(buf));  /* erase data just written */
+        buf->len = 0;
+    }
+
+    reliable_mark_deleted(ks->rec_reliable, buf);
+    *state_change = true;
+    dmsg(D_TLS_DEBUG, "Incoming Ciphertext -> TLS");
+    msg(M_INFO, "lichen read_incoming_tls_ciphertext_v0 status:%d package_id:%d",ks->state,ks->rec_reliable->packet_id);
+
+    return true;
+}
+
 static bool
 read_incoming_tls_ciphertext(struct buffer *buf, struct key_state *ks,
                              bool *state_change)
@@ -2083,10 +1799,10 @@ read_incoming_tls_ciphertext(struct buffer *buf, struct key_state *ks,
     }
     if (status == 1)
     {
-        msg(M_INFO, "lichen Incoming Ciphertext -> TLS status:%d",ks->state);
         reliable_mark_deleted(ks->rec_reliable, buf);
         *state_change = true;
         dmsg(D_TLS_DEBUG, "Incoming Ciphertext -> TLS");
+        msg(M_INFO, "lichen Incoming Ciphertext -> TLS status:%d package_id:%d",ks->state,ks->rec_reliable->packet_id);
     }
     return true;
 }
@@ -2116,7 +1832,7 @@ read_incoming_tls_plaintext(struct key_state *ks, struct buffer *buf,
     if (status == 1)
     {
         *state_change = true;
-        msg(M_INFO, "lichen TLS -> Incoming Plaintext status:%d",ks->state);
+        msg(M_INFO, "lichen TLS -> Incoming Plaintext buf:%d status:%d",buf->len, ks->state);
         /* More data may be available, wake up again asap to check. */
         *wakeup = 0;
     }
@@ -2211,8 +1927,15 @@ write_outgoing_tls_ciphertext(struct tls_session *session, bool *state_change)
 }
 
 
+#ifdef tls_process_state
+
+#endif
+
+
+//  ks_ssl->ssl_bio := data
+//  (status>=S_ACTIVE)  buf = ks->plaintext_read_buf
 static bool
-tls_process_state(struct tls_multi *multi,
+tls_process_state_v0(struct tls_multi *multi,
                   struct tls_session *session,
                   struct buffer *to_link,
                   struct link_socket_actual **to_link_addr,
@@ -2227,6 +1950,9 @@ tls_process_state(struct tls_multi *multi,
     {
         state_change = session_move_pre_start(session, ks, false);
         msg(M_INFO, "lichen1 session_move_pre_start status:%d",ks->state);
+        //reliable_mark_active_outgoing(ks->send_reliable, buf, ks->initial_opcode);
+        //ks->send_reliable = null_buf
+        //ks->send_reliable.array[].active = true
     }
 
     /* Are we timed out on receive? */
@@ -2245,11 +1971,7 @@ tls_process_state(struct tls_multi *multi,
     {
         ks->state = S_START;
         state_change = true;
-
-        /* New connection, remove any old X509 env variables */
-        tls_x509_clear_env(session->opt->es);
         msg(M_INFO, "lichen2 packet has been successfully ACKed status:%d",ks->state);
-
     }
 
     /* Wait for ACK */
@@ -2260,6 +1982,7 @@ tls_process_state(struct tls_multi *multi,
         session_move_active(multi, session, to_link_socket_info, ks);
         state_change = true;
         msg(M_INFO,"lichen5 Wait for ACK status:%d",ks->state);
+        //link_socket_set_outgoing_addr
     }
 
     /* Reliable buffer to outgoing TCP/UDP (send up to CONTROL_SEND_ACK_MAX ACKs
@@ -2276,11 +1999,12 @@ tls_process_state(struct tls_multi *multi,
         write_control_auth(session, ks, &b, to_link_addr, opcode,
                            CONTROL_SEND_ACK_MAX, true);
         *to_link = b;
-        msg(M_INFO, "lichen0 Reliable->TCP/UDP %d status:%d",buf->len,ks->state);
+        msg(M_INFO, "lichen_sed to_link.len:%d status:%d",to_link->len,ks->state);
+
         return true;
+        // if send_reliable.array.active == true
+        // ks->send_reliable -> send
     }
-
-
 
     /* Write incoming ciphertext to TLS object */
     struct reliable_entry *entry = reliable_get_entry_sequenced(ks->rec_reliable);
@@ -2288,6 +2012,8 @@ tls_process_state(struct tls_multi *multi,
     {
         /* The first packet from the peer (the reset packet) is special and
          * contains early protocol negotiation */
+        msg(M_INFO,"lichen_rec  packet_id:%d  buf.len:%d  status:%d",entry->packet_id, entry->buf.len, ks->state);
+
         if (entry->packet_id == 0 && is_hard_reset_method2(entry->opcode))
         {
             if (!parse_early_negotiation_tlvs(&entry->buf, ks))
@@ -2301,6 +2027,8 @@ tls_process_state(struct tls_multi *multi,
             {
                 goto error;
             }
+            // ks->ks_ssl.ct_in = ks->rec_reliable.array.buf
+            // &entry->buf.len=0  ks->rec_reliable.array.active=false
         }
 
     }
@@ -2315,6 +2043,7 @@ tls_process_state(struct tls_multi *multi,
         {
             goto error;
         }
+        // ks->plaintext_read_buf = ks->ks_ssl.ssl_bio ;
     }
 
     /* Send Key */
@@ -2322,7 +2051,9 @@ tls_process_state(struct tls_multi *multi,
     if (!buf->len && ((ks->state == S_START && !session->opt->server)
                       || (ks->state == S_GOT_KEY && session->opt->server)))
     {
-        if (!key_method_2_write(buf, multi, session))
+        msg(M_INFO,"lichen3 ====Send Key=====");
+
+        if (!write_empty_string(buf)) /* no peer info */
         {
             goto error;
         }
@@ -2330,7 +2061,7 @@ tls_process_state(struct tls_multi *multi,
         state_change = true;
         dmsg(D_TLS_DEBUG_MED, "STATE S_SENT_KEY");
         ks->state = S_SENT_KEY;
-        msg(M_INFO,"lichen3 Send Key status:%d",ks->state);
+        //&ks->plaintext_write_buf.add("something")
     }
 
     /* Receive Key */
@@ -2339,7 +2070,7 @@ tls_process_state(struct tls_multi *multi,
         && ((ks->state == S_SENT_KEY && !session->opt->server)
             || (ks->state == S_START && session->opt->server)))
     {
-        msg(M_INFO,"lichen4 Receive Key status:%d",ks->state);
+        msg(M_INFO,"lichen4 ====Receive Key====");
         if (!key_method_2_read(buf, multi, session))
         {
             goto error;
@@ -2347,6 +2078,7 @@ tls_process_state(struct tls_multi *multi,
         state_change = true;
         dmsg(D_TLS_DEBUG_MED, "STATE S_GOT_KEY");
         ks->state = S_GOT_KEY;
+        // ks->plaintext_read_buf.buf_clear();
     }
 
     /* Write outgoing plaintext to TLS object */
@@ -2367,9 +2099,10 @@ tls_process_state(struct tls_multi *multi,
             state_change = true;
             dmsg(D_TLS_DEBUG, "Outgoing Plaintext -> TLS");
         }
+        // ks_ssl->ssl_bio = ks->plaintext_write_buf ;
+        // ks->plaintext_write_buf.clear();
     }
 
-    /* Outgoing Ciphertext to reliable buffer */
     if (ks->state >= S_START)
     {
         buf = reliable_get_buf_output_sequenced(ks->send_reliable);
@@ -2379,11 +2112,13 @@ tls_process_state(struct tls_multi *multi,
             {
                 goto error;
             }
+            // ks->send_reliable = ks->ks_ssl.ct_out
+            // goto Reliable buffer to outgoing TCP/UDP
         }
     }
 
     return state_change;
-error:
+    error:
     tls_clear_error();
     ks->state = S_ERROR;
     msg(D_TLS_ERRORS, "TLS Error: TLS handshake failed");
@@ -2391,6 +2126,8 @@ error:
     return false;
 
 }
+
+
 /*
  * This is the primary routine for processing TLS stuff inside the
  * the main event loop.  When this routine exits
@@ -2452,7 +2189,7 @@ tls_process(struct tls_multi *multi,
              state_name(ks_lame->state),
              to_link->len,
              *wakeup);
-        state_change = tls_process_state(multi, session, to_link, to_link_addr,
+        state_change = tls_process_state_v0(multi, session, to_link, to_link_addr,
                                          to_link_socket_info, wakeup);
 
         if (ks->state == S_ERROR)
@@ -2495,13 +2232,13 @@ tls_process(struct tls_multi *multi,
             *to_link = buf;
             dmsg(D_TLS_DEBUG, "Dedicated ACK -> TCP/UDP");
         }
+        msg(M_INFO,"lichen Send 1 or more ACKs");
     }
 
     /* When should we wake up again? */
     if (ks->state >= S_INITIAL)
     {
-        compute_earliest_wakeup(wakeup,
-                                reliable_send_timeout(ks->send_reliable));
+        compute_earliest_wakeup(wakeup,reliable_send_timeout(ks->send_reliable));
 
         if (ks->must_negotiate)
         {
@@ -2511,8 +2248,7 @@ tls_process(struct tls_multi *multi,
 
     if (ks->established && session->opt->renegotiate_seconds)
     {
-        compute_earliest_wakeup(wakeup,
-                                ks->established + session->opt->renegotiate_seconds - now);
+        compute_earliest_wakeup(wakeup, ks->established + session->opt->renegotiate_seconds - now);
     }
 
     dmsg(D_TLS_DEBUG, "TLS: tls_process: timeout set to %d", *wakeup);
@@ -2521,11 +2257,11 @@ tls_process(struct tls_multi *multi,
     if (*wakeup <= 0)
     {
         *wakeup = 1;
-
         /* if we had something to send to remote, but to_link was busy,
          * let caller know we need to be called again soon */
         return true;
     }
+
 
     /* If any of the state changes resulted in the to_link buffer being
      * set, we are also active */
@@ -2641,6 +2377,8 @@ tls_multi_process(struct tls_multi *multi,
 
     enum tls_auth_status tas = tls_authentication_status(multi);
 
+    tas = TLS_AUTHENTICATION_SUCCEEDED;
+
     /* If we have successfully authenticated and are still waiting for the authentication to finish
      * move the state machine for the multi context forward */
 
@@ -2653,16 +2391,7 @@ tls_multi_process(struct tls_multi *multi,
 
             if (ks->state == S_ACTIVE && ks->authenticated == KS_AUTH_TRUE)
             {
-                /* Session is now fully authenticated.
-                * tls_session_generate_data_channel_keys will move ks->state
-                * from S_ACTIVE to S_GENERATED_KEYS */
-                if (!tls_session_generate_data_channel_keys(multi, session))
-                {
-                    msg(D_TLS_ERRORS, "TLS Error: generate_key_expansion failed");
-                    ks->authenticated = KS_AUTH_FALSE;
-                    ks->state = S_ERROR;
-                }
-
+                tls_session_generate_data_channel_keys(multi, session);
                 /* Update auth token on the client if needed */
                 resend_auth_token_renegotiation(multi, session);
             }
@@ -2915,8 +2644,7 @@ tls_pre_decrypt(struct tls_multi *multi,
     if (is_hard_reset_method2(op))
     {
         /* verify client -> server or server -> client connection */
-        if (((op == P_CONTROL_HARD_RESET_CLIENT_V2
-              || op == P_CONTROL_HARD_RESET_CLIENT_V3) && !multi->opt.server)
+        if (((op == P_CONTROL_HARD_RESET_CLIENT_V2 || op == P_CONTROL_HARD_RESET_CLIENT_V3) && !multi->opt.server)
             || ((op == P_CONTROL_HARD_RESET_SERVER_V2) && multi->opt.server))
         {
             msg(D_TLS_ERRORS,
@@ -2932,7 +2660,6 @@ tls_pre_decrypt(struct tls_multi *multi,
     dmsg(D_TLS_DEBUG, "TLS: control channel, op=%s, IP=%s",
          packet_opcode_name(op), print_link_socket_actual(from, &gc));
 
-    /* get remote session-id */
     {
         struct buffer tmp = *buf;
         buf_advance(&tmp, 1);
@@ -3209,6 +2936,7 @@ tls_pre_decrypt(struct tls_multi *multi,
         reliable_send_purge(ks->send_reliable, &send_ack);
     }
 
+    // lichen mark
     if (op != P_ACK_V1 && reliable_can_get(ks->rec_reliable))
     {
         packet_id_type id;
@@ -3358,10 +3086,7 @@ tls_post_encrypt(struct tls_multi *multi, struct buffer *buf)
     }
 }
 
-/*
- * Send a payload over the TLS control channel.
- * Called externally.
- */
+
 
 bool
 tls_send_payload(struct tls_multi *multi,

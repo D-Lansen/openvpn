@@ -47,17 +47,13 @@ write_control_auth(struct tls_session *session,
                    bool prepend_ack)
 {
     uint8_t header = ks->key_id | (opcode << P_OPCODE_SHIFT);
-
     ASSERT(link_socket_actual_defined(&ks->remote_addr));
     ASSERT(reliable_ack_write
                (ks->rec_ack, ks->lru_acks, buf, &ks->session_id_remote,
                max_ack, prepend_ack));
-
     msg(D_TLS_DEBUG, "%s(): %s", __func__, packet_opcode_name(opcode));
-
     ASSERT(session_id_write_prepend(&session->session_id, buf));
     ASSERT(buf_write_prepend(buf, &header, sizeof(header)));
-
     *to_link_addr = &ks->remote_addr;
 }
 

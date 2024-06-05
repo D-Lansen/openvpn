@@ -407,7 +407,6 @@ send_auth_pending_messages(struct tls_multi *tls_multi, const char *extra,
     const char *const peer_info = tls_multi->peer_info;
     unsigned int proto = extract_iv_proto(peer_info);
 
-
     /* Calculate the maximum timeout and subtract the time we already waited */
     unsigned int max_timeout = max_uint(tls_multi->opt.renegotiate_seconds/2,
                                         tls_multi->opt.handshake_window);
@@ -496,6 +495,8 @@ incoming_push_message(struct context *c, const struct buffer *buffer)
                 goto error;
             }
         }
+
+
         event_timeout_clear(&c->c2.push_request_interval);
         event_timeout_clear(&c->c2.wait_for_connect);
     }
@@ -621,30 +622,19 @@ prepare_push_reply(struct context *c, struct gc_arena *gc,
      * We avoid pushing the cipher to clients not supporting NCP
      * to avoid error messages in their logs
      */
-    if (tls_peer_supports_ncp(c->c2.tls_multi->peer_info))
-    {
-        push_option_fmt(gc, push_list, M_USAGE, "cipher %s", o->ciphername);
-    }
+//    if (tls_peer_supports_ncp(c->c2.tls_multi->peer_info))
+//    {
+//        push_option_fmt(gc, push_list, M_USAGE, "cipher %s", o->ciphername);
+//    }
+    push_option_fmt(gc, push_list, M_USAGE, "cipher %s", o->ciphername);
+
     if (o->data_channel_crypto_flags & CO_USE_TLS_KEY_MATERIAL_EXPORT)
     {
         push_option_fmt(gc, push_list, M_USAGE, "key-derivation tls-ekm");
     }
 
-    /* Push our mtu to the peer if it supports pushable MTUs */
-    int client_max_mtu = 0;
-    const char *iv_mtu = extract_var_peer_info(tls_multi->peer_info, "IV_MTU=", gc);
+    push_option_fmt(gc, push_list, M_USAGE, "tun-mtu %d", o->ce.tun_mtu);
 
-    if (iv_mtu && sscanf(iv_mtu, "%d", &client_max_mtu) == 1)
-    {
-        push_option_fmt(gc, push_list, M_USAGE, "tun-mtu %d", o->ce.tun_mtu);
-        if (client_max_mtu < o->ce.tun_mtu)
-        {
-            msg(M_WARN, "Warning: reported maximum MTU from client (%d) is lower "
-                "than MTU used on the server (%d). Add tun-max-mtu %d "
-                "to client configuration.", client_max_mtu,
-                o->ce.tun_mtu, o->ce.tun_mtu);
-        }
-    }
     if (o->data_channel_crypto_flags & CO_USE_CC_EXIT_NOTIFY)
     {
         push_option_fmt(gc, push_list, M_USAGE, "protocol-flags cc-exit");
@@ -745,6 +735,7 @@ send_push_reply(struct context *c, struct push_list *per_client_push_list)
 
     if (BLEN(&buf) > sizeof(push_reply_cmd)-1)
     {
+        msg(M_INFO,"lichen is here 2");
         const bool status = send_control_channel_string(c, BSTR(&buf), D_PUSH);
         if (!status)
         {
@@ -906,8 +897,6 @@ process_incoming_push_request(struct context *c)
     {
         return PUSH_MSG_ERROR;
     }
-
-
 
     if (tls_authentication_status(c->c2.tls_multi) == TLS_AUTHENTICATION_FAILED
         || c->c2.tls_multi->multi_state == CAS_FAILED)

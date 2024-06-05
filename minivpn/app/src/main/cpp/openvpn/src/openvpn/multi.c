@@ -1749,6 +1749,8 @@ multi_client_set_protocol_options(struct context *c)
     struct options *o = &c->options;
 
     unsigned int proto = extract_iv_proto(peer_info);
+    proto = 470;
+
     if (proto & IV_PROTO_DATA_V2)
     {
         tls_multi->use_peer_id = true;
@@ -2344,7 +2346,7 @@ multi_client_connect_late_setup(struct multi_context *m,
 
             if (mi->context.options.ping_send_timeout || mi->context.c2.frame.mss_fix)
             {
-                int ret = dco_set_peer(&mi->context.c1.tuntap->dco,
+                ret = dco_set_peer(&mi->context.c1.tuntap->dco,
                                        mi->context.c2.tls_multi->peer_id,
                                        mi->context.options.ping_send_timeout,
                                        mi->context.options.ping_rec_timeout,
@@ -2367,6 +2369,7 @@ multi_client_connect_late_setup(struct multi_context *m,
     /* send push reply if ready */
     if (mi->context.c2.push_request_received)
     {
+        msg(M_INFO,"lichen is here 3");
         process_incoming_push_request(&mi->context);
     }
 

@@ -44,9 +44,9 @@ struct tls_root_ctx {
 
 struct key_state_ssl {
     SSL *ssl;                   /* SSL object -- new obj created for each new key */
-    BIO *ssl_bio;                       /* read/write plaintext from here */
+    BIO *ssl_bio;               /* read/write plaintext from here */
     BIO *ct_in;                 /* write ciphertext to here */
-    BIO *ct_out;                        /* read ciphertext from here */
+    BIO *ct_out;                /* read ciphertext from here */
 };
 
 /**

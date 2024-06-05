@@ -478,6 +478,21 @@ tls_initial_packet_received(const struct tls_multi *multi)
     return multi->n_sessions > 0;
 }
 
+static inline bool
+tls_new_payload(const struct tls_multi *multi)
+{
+    if (multi)
+    {
+        const struct key_state *ks = get_primary_key(multi);
+
+        if (ks->state >= S_ACTIVE)
+        {
+            return reliable_can_get(ks->rec_reliable);
+        }
+    }
+    return 0;
+}
+
 static inline int
 tls_test_payload_len(const struct tls_multi *multi)
 {

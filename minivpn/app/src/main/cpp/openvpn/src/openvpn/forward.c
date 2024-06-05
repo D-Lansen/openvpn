@@ -173,6 +173,7 @@ check_tls(struct context *c)
         const int tmp_status = tls_multi_process
                                    (c->c2.tls_multi, &c->c2.to_link, &c->c2.to_link_addr,
                                    get_link_socket_info(c), &wakeup);
+
         if (tmp_status == TLSMP_ACTIVE)
         {
             update_time();
@@ -339,6 +340,7 @@ check_connection_established(struct context *c)
 
 }
 
+
 bool
 send_control_channel_string_dowork(struct tls_multi *multi,
                                    const char *str, int msglevel)
@@ -348,6 +350,7 @@ send_control_channel_string_dowork(struct tls_multi *multi,
 
     /* buffered cleartext write onto TLS control channel */
     stat = tls_send_payload(multi, (uint8_t *) str, strlen(str) + 1);
+    //stat = true;
 
     msg(msglevel, "SENT CONTROL [%s]: '%s' (status=%d)",
         tls_common_name(multi, false),
@@ -365,15 +368,14 @@ reschedule_multi_process(struct context *c)
     context_immediate_reschedule(c); /* ZERO-TIMEOUT */
 }
 
+
 bool
 send_control_channel_string(struct context *c, const char *str, int msglevel)
 {
     if (c->c2.tls_multi)
     {
-        bool ret = send_control_channel_string_dowork(c->c2.tls_multi,
-                                                      str, msglevel);
+        bool ret = send_control_channel_string_dowork(c->c2.tls_multi, str, msglevel);
         reschedule_multi_process(c);
-
         return ret;
     }
     return true;
@@ -1925,12 +1927,6 @@ pre_select(struct context *c)
     check_timeout_random_component(c);
 }
 
-/*
- * Wait for I/O events.  Used for both TCP & UDP sockets
- * in point-to-point mode and for UDP sockets in
- * point-to-multipoint mode.
- */
-
 void
 io_wait_dowork(struct context *c, const unsigned int flags)
 {
@@ -2176,7 +2172,7 @@ process_io(struct context *c)
         read_incoming_link(c);
         if (!IS_SIG(c))
         {
-            process_incoming_link(c);
+            process_incoming_link(c);//lichen mark
         }
     }
     /* Incoming data on TUN device */

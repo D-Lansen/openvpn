@@ -2897,6 +2897,7 @@ do_init_crypto_tls(struct context *c, const unsigned int flags)
      */
     if (flags & CF_INIT_TLS_MULTI)
     {
+        //c->c2.tls_multi = NULL;
         c->c2.tls_multi = tls_multi_init(&to);
         /* inherit the dco context from the tuntap object */
         if (c->c1.tuntap)
