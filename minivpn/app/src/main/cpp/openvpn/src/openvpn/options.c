@@ -1942,7 +1942,7 @@ show_settings(const struct options *o)
     }
     else
 #endif
-    SHOW_STR_INLINE(cert_file);
+//    SHOW_STR_INLINE(cert_file);
     SHOW_STR_INLINE(extra_certs_file);
 
 #ifdef ENABLE_MANAGEMENT
@@ -2855,14 +2855,6 @@ options_postprocess_verify_ce(const struct options *options,
 #ifdef ENABLE_CRYPTO_MBEDTLS
             msg(M_USAGE, "Parameter --pkcs12 cannot be used with the mbed TLS version version of OpenVPN.");
 #else
-            if (options->cert_file)
-            {
-                msg(M_USAGE, "Parameter --cert cannot be used when --pkcs12 is also specified.");
-            }
-            if (options->priv_key_file)
-            {
-                msg(M_USAGE, "Parameter --key cannot be used when --pkcs12 is also specified.");
-            }
 #ifdef ENABLE_MANAGEMENT
             if (options->management_flags & MF_EXTERNAL_KEY)
             {
@@ -2874,53 +2866,6 @@ options_postprocess_verify_ce(const struct options *options,
             }
 #endif
 #endif /* ifdef ENABLE_CRYPTO_MBEDTLS */
-        }
-        else
-        {
-#ifdef ENABLE_CRYPTO_MBEDTLS
-            if (options->ca_path)
-            {
-                msg(M_USAGE, "Parameter --capath cannot be used with the mbed TLS version version of OpenVPN.");
-            }
-#endif  /* ifdef ENABLE_CRYPTO_MBEDTLS */
-            if (pull)
-            {
-
-                const int sum =
-#ifdef ENABLE_MANAGEMENT
-                    ((options->cert_file != NULL) || (options->management_flags & MF_EXTERNAL_CERT))
-                    +((options->priv_key_file != NULL) || (options->management_flags & MF_EXTERNAL_KEY));
-#else
-                    (options->cert_file != NULL) + (options->priv_key_file != NULL);
-#endif
-
-                if (sum == 0)
-                {
-                    if (!options->auth_user_pass_file)
-                    {
-                        msg(M_USAGE, "No client-side authentication method is "
-                            "specified.  You must use either "
-                            "--cert/--key, --pkcs12, or "
-                            "--auth-user-pass");
-                    }
-                }
-                else if (sum == 2)
-                {
-                }
-                else
-                {
-                    msg(M_USAGE, "If you use one of --cert or --key, you must use them both");
-                }
-            }
-        }
-        if (ce->tls_auth_file && ce->tls_crypt_file)
-        {
-            msg(M_USAGE, "--tls-auth and --tls-crypt are mutually exclusive");
-        }
-        if (options->tls_client && ce->tls_crypt_v2_file
-            && (ce->tls_auth_file || ce->tls_crypt_file))
-        {
-            msg(M_USAGE, "--tls-crypt-v2, --tls-auth and --tls-crypt are mutually exclusive in client mode");
         }
     }
     else
@@ -2936,7 +2881,7 @@ options_postprocess_verify_ce(const struct options *options,
         const char err[] = "Parameter %s can only be specified in TLS-mode, i.e. where --tls-server or --tls-client is also specified.";
 
         MUST_BE_UNDEF(ca_path);
-        MUST_BE_UNDEF(cert_file);
+//        MUST_BE_UNDEF(cert_file);
         MUST_BE_UNDEF(priv_key_file);
 #ifndef ENABLE_CRYPTO_MBEDTLS
         MUST_BE_UNDEF(pkcs12_file);
@@ -3100,37 +3045,6 @@ options_postprocess_mutate_ce(struct options *o, struct connection_entry *ce)
         }
     }
 
-    /*
-     * Set per-connection block tls-auth/crypt/crypto-v2 fields if undefined.
-     *
-     * At the end only one of these will be really set because the parser
-     * logic prevents configurations where more are set.
-     */
-    if (!ce->tls_auth_file && !ce->tls_crypt_file && !ce->tls_crypt_v2_file)
-    {
-        ce->tls_auth_file = o->tls_auth_file;
-        ce->tls_auth_file_inline = o->tls_auth_file_inline;
-        ce->key_direction = o->key_direction;
-
-        ce->tls_crypt_file = o->tls_crypt_file;
-        ce->tls_crypt_file_inline = o->tls_crypt_file_inline;
-
-        ce->tls_crypt_v2_file = o->tls_crypt_v2_file;
-        ce->tls_crypt_v2_file_inline = o->tls_crypt_v2_file_inline;
-    }
-
-    /* Pre-cache tls-auth/crypt(-v2) key file if persist-key was specified and
-     * keys were not already embedded in the config file.
-     */
-    if (o->persist_key)
-    {
-        connection_entry_preload_key(&ce->tls_auth_file,
-                                     &ce->tls_auth_file_inline, &o->gc);
-        connection_entry_preload_key(&ce->tls_crypt_file,
-                                     &ce->tls_crypt_file_inline, &o->gc);
-        connection_entry_preload_key(&ce->tls_crypt_v2_file,
-                                     &ce->tls_crypt_v2_file_inline, &o->gc);
-    }
 
     if (!proto_is_udp(ce->proto) && ce->explicit_exit_notification)
     {
@@ -4031,47 +3945,6 @@ options_string(const struct options *o,
 #endif
     }
 
-    /*
-     * SSL Options
-     */
-    {
-        if (TLS_CLIENT || TLS_SERVER)
-        {
-            if (o->ce.tls_auth_file)
-            {
-                buf_printf(&out, ",tls-auth");
-            }
-            /* Not adding tls-crypt here, because we won't reach this code if
-             * tls-auth/tls-crypt does not match.  Removing tls-auth here would
-             * break stuff, so leaving that in place. */
-
-            buf_printf(&out, ",key-method %d", KEY_METHOD_2);
-        }
-
-        if (remote)
-        {
-            if (TLS_CLIENT)
-            {
-                buf_printf(&out, ",tls-server");
-            }
-            else if (TLS_SERVER)
-            {
-                buf_printf(&out, ",tls-client");
-            }
-        }
-        else
-        {
-            if (TLS_CLIENT)
-            {
-                buf_printf(&out, ",tls-client");
-            }
-            else if (TLS_SERVER)
-            {
-                buf_printf(&out, ",tls-server");
-            }
-        }
-    }
-
 #undef TLS_CLIENT
 #undef TLS_SERVER
 
@@ -4264,35 +4137,7 @@ options_string_version(const char *s, struct gc_arena *gc)
     return BSTR(&out);
 }
 
-char *
-options_string_extract_option(const char *options_string, const char *opt_name,
-                              struct gc_arena *gc)
-{
-    char *ret = NULL;
-    const size_t opt_name_len = strlen(opt_name);
 
-    const char *p = options_string;
-    while (p)
-    {
-        if (0 == strncmp(p, opt_name, opt_name_len)
-            && strlen(p) > (opt_name_len+1) && p[opt_name_len] == ' ')
-        {
-            /* option found, extract value */
-            const char *start = &p[opt_name_len+1];
-            const char *end = strchr(p, ',');
-            size_t val_len = end ? end - start : strlen(start);
-            ret = gc_malloc(val_len+1, true, gc);
-            memcpy(ret, start, val_len);
-            break;
-        }
-        p = strchr(p, ',');
-        if (p)
-        {
-            p++; /* skip delimiter */
-        }
-    }
-    return ret;
-}
 
 #ifdef _WIN32
 /**
@@ -4423,57 +4268,6 @@ auth_retry_print(void)
     }
 }
 
-/*
- * Print the help message.
- */
-static void
-usage(void)
-{
-    FILE *fp = msg_fp(0);
-
-#ifdef ENABLE_SMALL
-
-    fprintf(fp, "Usage message not available\n");
-
-#else
-
-    struct options o;
-    init_options(&o, true);
-
-    fprintf(fp, usage_message,
-            title_string,
-            o.ce.connect_retry_seconds,
-            o.ce.connect_retry_seconds_max,
-            o.ce.local_port, o.ce.remote_port,
-            TUN_MTU_DEFAULT, TAP_MTU_EXTRA_DEFAULT,
-            o.verbosity,
-            o.authname, o.ciphername,
-            o.replay_window, o.replay_time,
-            o.tls_timeout, o.renegotiate_seconds,
-            o.handshake_window, o.transition_window);
-    fflush(fp);
-
-#endif /* ENABLE_SMALL */
-
-    openvpn_exit(OPENVPN_EXIT_STATUS_USAGE); /* exit point */
-}
-
-void
-usage_small(void)
-{
-    msg(M_WARN|M_NOPREFIX, "Use --help for more information.");
-    openvpn_exit(OPENVPN_EXIT_STATUS_USAGE); /* exit point */
-}
-
-#ifdef _WIN32
-void
-show_windows_version(const unsigned int flags)
-{
-    struct gc_arena gc = gc_new();
-    msg(flags, "Windows version %s", win32_version_string(&gc, true));
-    gc_free(&gc);
-}
-#endif
 
 void
 show_library_versions(const unsigned int flags)
@@ -4999,11 +4793,11 @@ parse_argv(struct options *options,
 {
     int i, j;
 
-    /* usage message */
-    if (argc <= 1)
-    {
-        usage();
-    }
+//    /* usage message */
+//    if (argc <= 1)
+//    {
+//        usage();
+//    }
 
     /* config filename specified only? */
     if (argc == 2 && strncmp(argv[1], "--", 2))
@@ -5366,13 +5160,13 @@ add_option(struct options *options,
     }
     if (streq(p[0], "help"))
     {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        usage();
-        if (p[1])
-        {
-            msg(msglevel, "--help does not accept any parameters");
-            goto err;
-        }
+//        VERIFY_PERMISSION(OPT_P_GENERAL);
+//        usage();
+//        if (p[1])
+//        {
+//            msg(msglevel, "--help does not accept any parameters");
+//            goto err;
+//        }
     }
     if (streq(p[0], "version") && !p[1])
     {
@@ -7462,8 +7256,8 @@ add_option(struct options *options,
     }
     else if (streq(p[0], "auth-retry") && p[1] && !p[2])
     {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        auth_retry_set(msglevel, p[1]);
+//        VERIFY_PERMISSION(OPT_P_GENERAL);
+//        auth_retry_set(msglevel, p[1]);
     }
 #ifdef ENABLE_MANAGEMENT
     else if (streq(p[0], "static-challenge") && p[1] && p[2] && !p[3])
@@ -8350,9 +8144,9 @@ add_option(struct options *options,
     }
     else if (streq(p[0], "cert") && p[1] && !p[2])
     {
-        VERIFY_PERMISSION(OPT_P_GENERAL|OPT_P_INLINE);
-        options->cert_file = p[1];
-        options->cert_file_inline = is_inline;
+//        VERIFY_PERMISSION(OPT_P_GENERAL|OPT_P_INLINE);
+//        options->cert_file = p[1];
+//        options->cert_file_inline = is_inline;
     }
     else if (streq(p[0], "extra-certs") && p[1] && !p[2])
     {
@@ -8499,8 +8293,8 @@ add_option(struct options *options,
     }
     else if (streq(p[0], "tls-cert-profile") && p[1] && !p[2])
     {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        options->tls_cert_profile = p[1];
+//        VERIFY_PERMISSION(OPT_P_GENERAL);
+//        options->tls_cert_profile = p[1];
     }
     else if (streq(p[0], "tls-ciphersuites") && p[1] && !p[2])
     {
@@ -8509,8 +8303,8 @@ add_option(struct options *options,
     }
     else if (streq(p[0], "tls-groups") && p[1] && !p[2])
     {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        options->tls_groups = p[1];
+//        VERIFY_PERMISSION(OPT_P_GENERAL);
+//        options->tls_groups = p[1];
     }
     else if (streq(p[0], "crl-verify") && p[1] && ((p[2] && streq(p[2], "dir"))
                                                    || !p[2]))

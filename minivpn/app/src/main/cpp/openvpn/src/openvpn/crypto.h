@@ -515,11 +515,6 @@ int ascii2keydirection(int msglevel, const char *str);
 
 const char *keydirection2ascii(int kd, bool remote, bool humanreadable);
 
-/* print keys */
-void key2_print(const struct key2 *k,
-                const struct key_type *kt,
-                const char *prefix0,
-                const char *prefix1);
 
 void crypto_read_openvpn_key(const struct key_type *key_type,
                              struct key_ctx_bi *ctx, const char *key_file,
@@ -535,12 +530,6 @@ void crypto_read_openvpn_key(const struct key_type *key_type,
  * Returns 0 when data is equal, non-zero otherwise.
  */
 int memcmp_constant_time(const void *a, const void *b, size_t size);
-
-static inline bool
-key_ctx_bi_defined(const struct key_ctx_bi *key)
-{
-    return key->encrypt.cipher || key->encrypt.hmac || key->decrypt.cipher || key->decrypt.hmac;
-}
 
 /**
  * To be used when printing a string that may contain inline data.

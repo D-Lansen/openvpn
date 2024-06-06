@@ -512,11 +512,6 @@ init_ssl(const struct options *options, struct tls_root_ctx *new_ctx, bool in_ch
 
     tls_clear_error();
 
-    if (key_is_external(options))
-    {
-        load_xkey_provider();
-    }
-
     if (options->tls_server)
     {
         tls_ctx_server_new(new_ctx);
@@ -526,80 +521,12 @@ init_ssl(const struct options *options, struct tls_root_ctx *new_ctx, bool in_ch
         tls_ctx_client_new(new_ctx);
     }
 
-    /* Restrict allowed certificate crypto algorithms */
-    tls_ctx_set_cert_profile(new_ctx, options->tls_cert_profile);
-
-    /* Allowable ciphers */
-    /* Since @SECLEVEL also influences loading of certificates, set the
-     * cipher restrictions before loading certificates */
-    tls_ctx_restrict_ciphers(new_ctx, options->cipher_list);
-    tls_ctx_restrict_ciphers_tls13(new_ctx, options->cipher_list_tls13);
-
-    /* Set the allow groups/curves for TLS if we want to override them */
-    if (options->tls_groups)
-    {
-        tls_ctx_set_tls_groups(new_ctx, options->tls_groups);
-    }
-
     if (!tls_ctx_set_options(new_ctx, options->ssl_flags))
     {
         goto err;
     }
 
-#ifdef ENABLE_PKCS11
-        else if (options->pkcs11_providers[0])
-    {
-        if (!tls_ctx_use_pkcs11(new_ctx, options->pkcs11_id_management, options->pkcs11_id))
-        {
-            msg(M_WARN, "Cannot load certificate \"%s\" using PKCS#11 interface",
-                options->pkcs11_id);
-            goto err;
-        }
-    }
-#endif
-#ifdef ENABLE_CRYPTOAPI
-        else if (options->cryptoapi_cert)
-    {
-        tls_ctx_load_cryptoapi(new_ctx, options->cryptoapi_cert);
-    }
-#endif
-#ifdef ENABLE_MANAGEMENT
-        else if (options->management_flags & MF_EXTERNAL_CERT)
-    {
-        char *cert = management_query_cert(management,
-                                           options->management_certificate);
-        tls_ctx_load_cert_file(new_ctx, cert, true);
-        free(cert);
-    }
-#endif
-    else if (options->cert_file)
-    {
-        tls_ctx_load_cert_file(new_ctx, options->cert_file, options->cert_file_inline);
-    }
 
-    if (options->priv_key_file)
-    {
-        if (0 != tls_ctx_load_priv_file(new_ctx, options->priv_key_file,
-                                        options->priv_key_file_inline))
-        {
-            goto err;
-        }
-    }
-#ifdef ENABLE_MANAGEMENT
-    else if (options->management_flags & MF_EXTERNAL_KEY)
-    {
-        if (tls_ctx_use_management_external_key(new_ctx))
-        {
-            msg(M_WARN, "Cannot initialize mamagement-external-key");
-            goto err;
-        }
-    }
-#endif
-
-#ifdef ENABLE_CRYPTO_MBEDTLS
-    /* Personalise the random by mixing in the certificate */
-    tls_ctx_personalise_random(new_ctx);
-#endif
 
     tls_clear_error();
     return;
@@ -749,12 +676,6 @@ key_state_init(struct tls_session *session, struct key_state *ks)
 
     CLEAR(*ks);
 
-    /*
-     * Build TLS object that reads/writes ciphertext
-     * to/from memory BIOs.
-     */
-//    key_state_ssl_init(&ks->ks_ssl, &session->opt->ssl_ctx, session->opt->server,
-//                       session);
 
     /* Set control-channel initiation mode */
     ks->initial_opcode = session->initial_opcode;
@@ -808,16 +729,6 @@ key_state_init(struct tls_session *session, struct key_state *ks)
     ks->mda_key_id = session->opt->mda_context->mda_key_id_counter++;
 #endif
 
-    /*
-     * Attempt CRL reload before TLS negotiation. Won't be performed if
-     * the file was not modified since the last reload
-     */
-//    if (session->opt->crl_file
-//        && !(session->opt->ssl_flags & SSLF_CRL_VERIFY_DIR))
-//    {
-//        tls_ctx_reload_crl(&session->opt->ssl_ctx,
-//                           session->opt->crl_file, session->opt->crl_file_inline);
-//    }
 }
 
 

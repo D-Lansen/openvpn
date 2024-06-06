@@ -2626,12 +2626,6 @@ do_init_crypto_tls_c1(struct context *c)
          * backwards compatibility with older clients.
          */
         const char *ciphername = options->ciphername;
-        if (streq(options->ciphername, "BF-CBC")
-            && !tls_item_in_cipher_list("BF-CBC", options->ncp_ciphers)
-            && !options->enable_ncp_fallback)
-        {
-            ciphername = "none";
-        }
 
         /* Do not warn if the cipher is used only in OCC */
         bool warn = options->enable_ncp_fallback;

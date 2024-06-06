@@ -209,8 +209,6 @@ struct key_state
      */
     uint32_t peer_id;
 
-//    struct key_state_ssl ks_ssl; /* contains SSL object and BIOs for the control channel */
-
     time_t initial;             /* when we created this session */
     time_t established;         /* when our state went S_ACTIVE */
     time_t must_negotiate;      /* key negotiation times out if not finished before this time */

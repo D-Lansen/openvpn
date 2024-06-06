@@ -398,10 +398,6 @@ x_msg_va(const unsigned int flags, const char *format, va_list arglist)
         openvpn_exit(OPENVPN_EXIT_STATUS_ERROR); /* exit point */
 
     }
-    if (flags & M_USAGE_SMALL)
-    {
-        usage_small();
-    }
 
     gc_free(&gc);
 }

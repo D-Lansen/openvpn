@@ -725,12 +725,6 @@ cipher_ctx_init(EVP_CIPHER_CTX *ctx, const uint8_t *key,
 }
 
 int
-cipher_ctx_block_size(const EVP_CIPHER_CTX *ctx)
-{
-    return EVP_CIPHER_CTX_block_size(ctx);
-}
-
-int
 cipher_ctx_reset(EVP_CIPHER_CTX *ctx, const uint8_t *iv_buf)
 {
     return EVP_CipherInit_ex(ctx, NULL, NULL, NULL, iv_buf, -1);
