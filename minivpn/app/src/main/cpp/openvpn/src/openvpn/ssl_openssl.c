@@ -157,25 +157,6 @@ tls_ctx_initialised(struct tls_root_ctx *ctx)
     return NULL != ctx->ctx;
 }
 
-bool
-key_state_export_keying_material(struct tls_session *session,
-                                 const char *label, size_t label_size,
-                                 void *ekm, size_t ekm_size)
-
-{
-    SSL *ssl = session->key[KS_PRIMARY].ks_ssl.ssl;
-
-    if (SSL_export_keying_material(ssl, ekm, ekm_size, label,
-                                   label_size, NULL, 0, 0) == 1)
-    {
-        return true;
-    }
-    else
-    {
-        secure_memzero(ekm, ekm_size);
-        return false;
-    }
-}
 
 bool
 tls_ctx_set_options(struct tls_root_ctx *ctx, unsigned int ssl_flags)
@@ -1199,78 +1180,6 @@ key_state_ssl_free(struct key_state_ssl *ks_ssl)
         BIO_free_all(ks_ssl->ssl_bio);
         SSL_free(ks_ssl->ssl);
     }
-}
-
-int
-key_state_write_plaintext(struct key_state_ssl *ks_ssl, struct buffer *buf)
-{
-    int ret = 0;
-    perf_push(PERF_BIO_WRITE_PLAINTEXT);
-
-    ASSERT(NULL != ks_ssl);
-
-    ret = bio_write(ks_ssl->ssl_bio, BPTR(buf), BLEN(buf),"ssl_bio tls_write_plaintext");
-    bio_write_post(ret, buf);
-
-    perf_pop();
-    return ret;
-}
-
-int
-key_state_write_plaintext_const(struct key_state_ssl *ks_ssl, const uint8_t *data, int len)
-{
-    int ret = 0;
-    perf_push(PERF_BIO_WRITE_PLAINTEXT);
-
-    ASSERT(NULL != ks_ssl);
-
-    ret = bio_write(ks_ssl->ssl_bio, data, len, "ssl_bio tls_write_plaintext_const");
-
-    perf_pop();
-    return ret;
-}
-
-int
-key_state_read_ciphertext(struct key_state_ssl *ks_ssl, struct buffer *buf)
-{
-    int ret = 0;
-    perf_push(PERF_BIO_READ_CIPHERTEXT);
-
-    ASSERT(NULL != ks_ssl);
-
-    ret = bio_read(ks_ssl->ct_out, buf, "ct_out tls_read_ciphertext");
-
-    perf_pop();
-    return ret;
-}
-
-int
-key_state_write_ciphertext(struct key_state_ssl *ks_ssl, struct buffer *buf)
-{
-    int ret = 0;
-    perf_push(PERF_BIO_WRITE_CIPHERTEXT);
-
-    ASSERT(NULL != ks_ssl);
-
-    ret = bio_write(ks_ssl->ct_in, BPTR(buf), BLEN(buf), "ct_in tls_write_ciphertext");
-    bio_write_post(ret, buf);
-
-    perf_pop();
-    return ret;
-}
-
-int
-key_state_read_plaintext(struct key_state_ssl *ks_ssl, struct buffer *buf)
-{
-    int ret = 0;
-    perf_push(PERF_BIO_READ_PLAINTEXT);
-
-    ASSERT(NULL != ks_ssl);
-
-    ret = bio_read(ks_ssl->ssl_bio, buf, "ssl_bio tls_read_plaintext");
-
-    perf_pop();
-    return ret;
 }
 
 const char *

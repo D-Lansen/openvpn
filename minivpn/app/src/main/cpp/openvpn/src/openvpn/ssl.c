@@ -94,146 +94,146 @@ show_tls_performance_stats(void)
  * SSL/TLS Cipher suite name translation table
  */
 static const tls_cipher_name_pair tls_cipher_name_translation_table[] = {
-    {"ADH-SEED-SHA", "TLS-DH-anon-WITH-SEED-CBC-SHA"},
-    {"AES128-GCM-SHA256", "TLS-RSA-WITH-AES-128-GCM-SHA256"},
-    {"AES128-SHA256", "TLS-RSA-WITH-AES-128-CBC-SHA256"},
-    {"AES128-SHA", "TLS-RSA-WITH-AES-128-CBC-SHA"},
-    {"AES256-GCM-SHA384", "TLS-RSA-WITH-AES-256-GCM-SHA384"},
-    {"AES256-SHA256", "TLS-RSA-WITH-AES-256-CBC-SHA256"},
-    {"AES256-SHA", "TLS-RSA-WITH-AES-256-CBC-SHA"},
-    {"CAMELLIA128-SHA256", "TLS-RSA-WITH-CAMELLIA-128-CBC-SHA256"},
-    {"CAMELLIA128-SHA", "TLS-RSA-WITH-CAMELLIA-128-CBC-SHA"},
-    {"CAMELLIA256-SHA256", "TLS-RSA-WITH-CAMELLIA-256-CBC-SHA256"},
-    {"CAMELLIA256-SHA", "TLS-RSA-WITH-CAMELLIA-256-CBC-SHA"},
-    {"DES-CBC3-SHA", "TLS-RSA-WITH-3DES-EDE-CBC-SHA"},
-    {"DES-CBC-SHA", "TLS-RSA-WITH-DES-CBC-SHA"},
-    {"DH-DSS-SEED-SHA", "TLS-DH-DSS-WITH-SEED-CBC-SHA"},
-    {"DHE-DSS-AES128-GCM-SHA256", "TLS-DHE-DSS-WITH-AES-128-GCM-SHA256"},
-    {"DHE-DSS-AES128-SHA256", "TLS-DHE-DSS-WITH-AES-128-CBC-SHA256"},
-    {"DHE-DSS-AES128-SHA", "TLS-DHE-DSS-WITH-AES-128-CBC-SHA"},
-    {"DHE-DSS-AES256-GCM-SHA384", "TLS-DHE-DSS-WITH-AES-256-GCM-SHA384"},
-    {"DHE-DSS-AES256-SHA256", "TLS-DHE-DSS-WITH-AES-256-CBC-SHA256"},
-    {"DHE-DSS-AES256-SHA", "TLS-DHE-DSS-WITH-AES-256-CBC-SHA"},
-    {"DHE-DSS-CAMELLIA128-SHA256", "TLS-DHE-DSS-WITH-CAMELLIA-128-CBC-SHA256"},
-    {"DHE-DSS-CAMELLIA128-SHA", "TLS-DHE-DSS-WITH-CAMELLIA-128-CBC-SHA"},
-    {"DHE-DSS-CAMELLIA256-SHA256", "TLS-DHE-DSS-WITH-CAMELLIA-256-CBC-SHA256"},
-    {"DHE-DSS-CAMELLIA256-SHA", "TLS-DHE-DSS-WITH-CAMELLIA-256-CBC-SHA"},
-    {"DHE-DSS-SEED-SHA", "TLS-DHE-DSS-WITH-SEED-CBC-SHA"},
-    {"DHE-RSA-AES128-GCM-SHA256", "TLS-DHE-RSA-WITH-AES-128-GCM-SHA256"},
-    {"DHE-RSA-AES128-SHA256", "TLS-DHE-RSA-WITH-AES-128-CBC-SHA256"},
-    {"DHE-RSA-AES128-SHA", "TLS-DHE-RSA-WITH-AES-128-CBC-SHA"},
-    {"DHE-RSA-AES256-GCM-SHA384", "TLS-DHE-RSA-WITH-AES-256-GCM-SHA384"},
-    {"DHE-RSA-AES256-SHA256", "TLS-DHE-RSA-WITH-AES-256-CBC-SHA256"},
-    {"DHE-RSA-AES256-SHA", "TLS-DHE-RSA-WITH-AES-256-CBC-SHA"},
-    {"DHE-RSA-CAMELLIA128-SHA256", "TLS-DHE-RSA-WITH-CAMELLIA-128-CBC-SHA256"},
-    {"DHE-RSA-CAMELLIA128-SHA", "TLS-DHE-RSA-WITH-CAMELLIA-128-CBC-SHA"},
-    {"DHE-RSA-CAMELLIA256-SHA256", "TLS-DHE-RSA-WITH-CAMELLIA-256-CBC-SHA256"},
-    {"DHE-RSA-CAMELLIA256-SHA", "TLS-DHE-RSA-WITH-CAMELLIA-256-CBC-SHA"},
-    {"DHE-RSA-CHACHA20-POLY1305", "TLS-DHE-RSA-WITH-CHACHA20-POLY1305-SHA256"},
-    {"DHE-RSA-SEED-SHA", "TLS-DHE-RSA-WITH-SEED-CBC-SHA"},
-    {"DH-RSA-SEED-SHA", "TLS-DH-RSA-WITH-SEED-CBC-SHA"},
-    {"ECDH-ECDSA-AES128-GCM-SHA256", "TLS-ECDH-ECDSA-WITH-AES-128-GCM-SHA256"},
-    {"ECDH-ECDSA-AES128-SHA256", "TLS-ECDH-ECDSA-WITH-AES-128-CBC-SHA256"},
-    {"ECDH-ECDSA-AES128-SHA", "TLS-ECDH-ECDSA-WITH-AES-128-CBC-SHA"},
-    {"ECDH-ECDSA-AES256-GCM-SHA384", "TLS-ECDH-ECDSA-WITH-AES-256-GCM-SHA384"},
-    {"ECDH-ECDSA-AES256-SHA256", "TLS-ECDH-ECDSA-WITH-AES-256-CBC-SHA256"},
-    {"ECDH-ECDSA-AES256-SHA384", "TLS-ECDH-ECDSA-WITH-AES-256-CBC-SHA384"},
-    {"ECDH-ECDSA-AES256-SHA", "TLS-ECDH-ECDSA-WITH-AES-256-CBC-SHA"},
-    {"ECDH-ECDSA-CAMELLIA128-SHA256", "TLS-ECDH-ECDSA-WITH-CAMELLIA-128-CBC-SHA256"},
-    {"ECDH-ECDSA-CAMELLIA128-SHA", "TLS-ECDH-ECDSA-WITH-CAMELLIA-128-CBC-SHA"},
-    {"ECDH-ECDSA-CAMELLIA256-SHA256", "TLS-ECDH-ECDSA-WITH-CAMELLIA-256-CBC-SHA256"},
-    {"ECDH-ECDSA-CAMELLIA256-SHA", "TLS-ECDH-ECDSA-WITH-CAMELLIA-256-CBC-SHA"},
-    {"ECDH-ECDSA-DES-CBC3-SHA", "TLS-ECDH-ECDSA-WITH-3DES-EDE-CBC-SHA"},
-    {"ECDH-ECDSA-DES-CBC-SHA", "TLS-ECDH-ECDSA-WITH-DES-CBC-SHA"},
-    {"ECDH-ECDSA-RC4-SHA", "TLS-ECDH-ECDSA-WITH-RC4-128-SHA"},
-    {"ECDHE-ECDSA-AES128-GCM-SHA256", "TLS-ECDHE-ECDSA-WITH-AES-128-GCM-SHA256"},
-    {"ECDHE-ECDSA-AES128-SHA256", "TLS-ECDHE-ECDSA-WITH-AES-128-CBC-SHA256"},
-    {"ECDHE-ECDSA-AES128-SHA384", "TLS-ECDHE-ECDSA-WITH-AES-128-CBC-SHA384"},
-    {"ECDHE-ECDSA-AES128-SHA", "TLS-ECDHE-ECDSA-WITH-AES-128-CBC-SHA"},
-    {"ECDHE-ECDSA-AES256-GCM-SHA384", "TLS-ECDHE-ECDSA-WITH-AES-256-GCM-SHA384"},
-    {"ECDHE-ECDSA-AES256-SHA256", "TLS-ECDHE-ECDSA-WITH-AES-256-CBC-SHA256"},
-    {"ECDHE-ECDSA-AES256-SHA384", "TLS-ECDHE-ECDSA-WITH-AES-256-CBC-SHA384"},
-    {"ECDHE-ECDSA-AES256-SHA", "TLS-ECDHE-ECDSA-WITH-AES-256-CBC-SHA"},
-    {"ECDHE-ECDSA-CAMELLIA128-SHA256", "TLS-ECDHE-ECDSA-WITH-CAMELLIA-128-CBC-SHA256"},
-    {"ECDHE-ECDSA-CAMELLIA128-SHA", "TLS-ECDHE-ECDSA-WITH-CAMELLIA-128-CBC-SHA"},
-    {"ECDHE-ECDSA-CAMELLIA256-SHA256", "TLS-ECDHE-ECDSA-WITH-CAMELLIA-256-CBC-SHA256"},
-    {"ECDHE-ECDSA-CAMELLIA256-SHA", "TLS-ECDHE-ECDSA-WITH-CAMELLIA-256-CBC-SHA"},
-    {"ECDHE-ECDSA-CHACHA20-POLY1305", "TLS-ECDHE-ECDSA-WITH-CHACHA20-POLY1305-SHA256"},
-    {"ECDHE-ECDSA-DES-CBC3-SHA", "TLS-ECDHE-ECDSA-WITH-3DES-EDE-CBC-SHA"},
-    {"ECDHE-ECDSA-DES-CBC-SHA", "TLS-ECDHE-ECDSA-WITH-DES-CBC-SHA"},
-    {"ECDHE-ECDSA-RC4-SHA", "TLS-ECDHE-ECDSA-WITH-RC4-128-SHA"},
-    {"ECDHE-RSA-AES128-GCM-SHA256", "TLS-ECDHE-RSA-WITH-AES-128-GCM-SHA256"},
-    {"ECDHE-RSA-AES128-SHA256", "TLS-ECDHE-RSA-WITH-AES-128-CBC-SHA256"},
-    {"ECDHE-RSA-AES128-SHA384", "TLS-ECDHE-RSA-WITH-AES-128-CBC-SHA384"},
-    {"ECDHE-RSA-AES128-SHA", "TLS-ECDHE-RSA-WITH-AES-128-CBC-SHA"},
-    {"ECDHE-RSA-AES256-GCM-SHA384", "TLS-ECDHE-RSA-WITH-AES-256-GCM-SHA384"},
-    {"ECDHE-RSA-AES256-SHA256", "TLS-ECDHE-RSA-WITH-AES-256-CBC-SHA256"},
-    {"ECDHE-RSA-AES256-SHA384", "TLS-ECDHE-RSA-WITH-AES-256-CBC-SHA384"},
-    {"ECDHE-RSA-AES256-SHA", "TLS-ECDHE-RSA-WITH-AES-256-CBC-SHA"},
-    {"ECDHE-RSA-CAMELLIA128-SHA256", "TLS-ECDHE-RSA-WITH-CAMELLIA-128-CBC-SHA256"},
-    {"ECDHE-RSA-CAMELLIA128-SHA", "TLS-ECDHE-RSA-WITH-CAMELLIA-128-CBC-SHA"},
-    {"ECDHE-RSA-CAMELLIA256-SHA256", "TLS-ECDHE-RSA-WITH-CAMELLIA-256-CBC-SHA256"},
-    {"ECDHE-RSA-CAMELLIA256-SHA", "TLS-ECDHE-RSA-WITH-CAMELLIA-256-CBC-SHA"},
-    {"ECDHE-RSA-CHACHA20-POLY1305", "TLS-ECDHE-RSA-WITH-CHACHA20-POLY1305-SHA256"},
-    {"ECDHE-RSA-DES-CBC3-SHA", "TLS-ECDHE-RSA-WITH-3DES-EDE-CBC-SHA"},
-    {"ECDHE-RSA-DES-CBC-SHA", "TLS-ECDHE-RSA-WITH-DES-CBC-SHA"},
-    {"ECDHE-RSA-RC4-SHA", "TLS-ECDHE-RSA-WITH-RC4-128-SHA"},
-    {"ECDH-RSA-AES128-GCM-SHA256", "TLS-ECDH-RSA-WITH-AES-128-GCM-SHA256"},
-    {"ECDH-RSA-AES128-SHA256", "TLS-ECDH-RSA-WITH-AES-128-CBC-SHA256"},
-    {"ECDH-RSA-AES128-SHA384", "TLS-ECDH-RSA-WITH-AES-128-CBC-SHA384"},
-    {"ECDH-RSA-AES128-SHA", "TLS-ECDH-RSA-WITH-AES-128-CBC-SHA"},
-    {"ECDH-RSA-AES256-GCM-SHA384", "TLS-ECDH-RSA-WITH-AES-256-GCM-SHA384"},
-    {"ECDH-RSA-AES256-SHA256", "TLS-ECDH-RSA-WITH-AES-256-CBC-SHA256"},
-    {"ECDH-RSA-AES256-SHA384", "TLS-ECDH-RSA-WITH-AES-256-CBC-SHA384"},
-    {"ECDH-RSA-AES256-SHA", "TLS-ECDH-RSA-WITH-AES-256-CBC-SHA"},
-    {"ECDH-RSA-CAMELLIA128-SHA256", "TLS-ECDH-RSA-WITH-CAMELLIA-128-CBC-SHA256"},
-    {"ECDH-RSA-CAMELLIA128-SHA", "TLS-ECDH-RSA-WITH-CAMELLIA-128-CBC-SHA"},
-    {"ECDH-RSA-CAMELLIA256-SHA256", "TLS-ECDH-RSA-WITH-CAMELLIA-256-CBC-SHA256"},
-    {"ECDH-RSA-CAMELLIA256-SHA", "TLS-ECDH-RSA-WITH-CAMELLIA-256-CBC-SHA"},
-    {"ECDH-RSA-DES-CBC3-SHA", "TLS-ECDH-RSA-WITH-3DES-EDE-CBC-SHA"},
-    {"ECDH-RSA-DES-CBC-SHA", "TLS-ECDH-RSA-WITH-DES-CBC-SHA"},
-    {"ECDH-RSA-RC4-SHA", "TLS-ECDH-RSA-WITH-RC4-128-SHA"},
-    {"EDH-DSS-DES-CBC3-SHA", "TLS-DHE-DSS-WITH-3DES-EDE-CBC-SHA"},
-    {"EDH-DSS-DES-CBC-SHA", "TLS-DHE-DSS-WITH-DES-CBC-SHA"},
-    {"EDH-RSA-DES-CBC3-SHA", "TLS-DHE-RSA-WITH-3DES-EDE-CBC-SHA"},
-    {"EDH-RSA-DES-CBC-SHA", "TLS-DHE-RSA-WITH-DES-CBC-SHA"},
-    {"EXP-DES-CBC-SHA", "TLS-RSA-EXPORT-WITH-DES40-CBC-SHA"},
-    {"EXP-EDH-DSS-DES-CBC-SHA", "TLS-DH-DSS-EXPORT-WITH-DES40-CBC-SHA"},
-    {"EXP-EDH-RSA-DES-CBC-SHA", "TLS-DH-RSA-EXPORT-WITH-DES40-CBC-SHA"},
-    {"EXP-RC2-CBC-MD5", "TLS-RSA-EXPORT-WITH-RC2-CBC-40-MD5"},
-    {"EXP-RC4-MD5", "TLS-RSA-EXPORT-WITH-RC4-40-MD5"},
-    {"NULL-MD5", "TLS-RSA-WITH-NULL-MD5"},
-    {"NULL-SHA256", "TLS-RSA-WITH-NULL-SHA256"},
-    {"NULL-SHA", "TLS-RSA-WITH-NULL-SHA"},
-    {"PSK-3DES-EDE-CBC-SHA", "TLS-PSK-WITH-3DES-EDE-CBC-SHA"},
-    {"PSK-AES128-CBC-SHA", "TLS-PSK-WITH-AES-128-CBC-SHA"},
-    {"PSK-AES256-CBC-SHA", "TLS-PSK-WITH-AES-256-CBC-SHA"},
-    {"PSK-RC4-SHA", "TLS-PSK-WITH-RC4-128-SHA"},
-    {"RC4-MD5", "TLS-RSA-WITH-RC4-128-MD5"},
-    {"RC4-SHA", "TLS-RSA-WITH-RC4-128-SHA"},
-    {"SEED-SHA", "TLS-RSA-WITH-SEED-CBC-SHA"},
-    {"SRP-DSS-3DES-EDE-CBC-SHA", "TLS-SRP-SHA-DSS-WITH-3DES-EDE-CBC-SHA"},
-    {"SRP-DSS-AES-128-CBC-SHA", "TLS-SRP-SHA-DSS-WITH-AES-128-CBC-SHA"},
-    {"SRP-DSS-AES-256-CBC-SHA", "TLS-SRP-SHA-DSS-WITH-AES-256-CBC-SHA"},
-    {"SRP-RSA-3DES-EDE-CBC-SHA", "TLS-SRP-SHA-RSA-WITH-3DES-EDE-CBC-SHA"},
-    {"SRP-RSA-AES-128-CBC-SHA", "TLS-SRP-SHA-RSA-WITH-AES-128-CBC-SHA"},
-    {"SRP-RSA-AES-256-CBC-SHA", "TLS-SRP-SHA-RSA-WITH-AES-256-CBC-SHA"},
+        {"ADH-SEED-SHA", "TLS-DH-anon-WITH-SEED-CBC-SHA"},
+        {"AES128-GCM-SHA256", "TLS-RSA-WITH-AES-128-GCM-SHA256"},
+        {"AES128-SHA256", "TLS-RSA-WITH-AES-128-CBC-SHA256"},
+        {"AES128-SHA", "TLS-RSA-WITH-AES-128-CBC-SHA"},
+        {"AES256-GCM-SHA384", "TLS-RSA-WITH-AES-256-GCM-SHA384"},
+        {"AES256-SHA256", "TLS-RSA-WITH-AES-256-CBC-SHA256"},
+        {"AES256-SHA", "TLS-RSA-WITH-AES-256-CBC-SHA"},
+        {"CAMELLIA128-SHA256", "TLS-RSA-WITH-CAMELLIA-128-CBC-SHA256"},
+        {"CAMELLIA128-SHA", "TLS-RSA-WITH-CAMELLIA-128-CBC-SHA"},
+        {"CAMELLIA256-SHA256", "TLS-RSA-WITH-CAMELLIA-256-CBC-SHA256"},
+        {"CAMELLIA256-SHA", "TLS-RSA-WITH-CAMELLIA-256-CBC-SHA"},
+        {"DES-CBC3-SHA", "TLS-RSA-WITH-3DES-EDE-CBC-SHA"},
+        {"DES-CBC-SHA", "TLS-RSA-WITH-DES-CBC-SHA"},
+        {"DH-DSS-SEED-SHA", "TLS-DH-DSS-WITH-SEED-CBC-SHA"},
+        {"DHE-DSS-AES128-GCM-SHA256", "TLS-DHE-DSS-WITH-AES-128-GCM-SHA256"},
+        {"DHE-DSS-AES128-SHA256", "TLS-DHE-DSS-WITH-AES-128-CBC-SHA256"},
+        {"DHE-DSS-AES128-SHA", "TLS-DHE-DSS-WITH-AES-128-CBC-SHA"},
+        {"DHE-DSS-AES256-GCM-SHA384", "TLS-DHE-DSS-WITH-AES-256-GCM-SHA384"},
+        {"DHE-DSS-AES256-SHA256", "TLS-DHE-DSS-WITH-AES-256-CBC-SHA256"},
+        {"DHE-DSS-AES256-SHA", "TLS-DHE-DSS-WITH-AES-256-CBC-SHA"},
+        {"DHE-DSS-CAMELLIA128-SHA256", "TLS-DHE-DSS-WITH-CAMELLIA-128-CBC-SHA256"},
+        {"DHE-DSS-CAMELLIA128-SHA", "TLS-DHE-DSS-WITH-CAMELLIA-128-CBC-SHA"},
+        {"DHE-DSS-CAMELLIA256-SHA256", "TLS-DHE-DSS-WITH-CAMELLIA-256-CBC-SHA256"},
+        {"DHE-DSS-CAMELLIA256-SHA", "TLS-DHE-DSS-WITH-CAMELLIA-256-CBC-SHA"},
+        {"DHE-DSS-SEED-SHA", "TLS-DHE-DSS-WITH-SEED-CBC-SHA"},
+        {"DHE-RSA-AES128-GCM-SHA256", "TLS-DHE-RSA-WITH-AES-128-GCM-SHA256"},
+        {"DHE-RSA-AES128-SHA256", "TLS-DHE-RSA-WITH-AES-128-CBC-SHA256"},
+        {"DHE-RSA-AES128-SHA", "TLS-DHE-RSA-WITH-AES-128-CBC-SHA"},
+        {"DHE-RSA-AES256-GCM-SHA384", "TLS-DHE-RSA-WITH-AES-256-GCM-SHA384"},
+        {"DHE-RSA-AES256-SHA256", "TLS-DHE-RSA-WITH-AES-256-CBC-SHA256"},
+        {"DHE-RSA-AES256-SHA", "TLS-DHE-RSA-WITH-AES-256-CBC-SHA"},
+        {"DHE-RSA-CAMELLIA128-SHA256", "TLS-DHE-RSA-WITH-CAMELLIA-128-CBC-SHA256"},
+        {"DHE-RSA-CAMELLIA128-SHA", "TLS-DHE-RSA-WITH-CAMELLIA-128-CBC-SHA"},
+        {"DHE-RSA-CAMELLIA256-SHA256", "TLS-DHE-RSA-WITH-CAMELLIA-256-CBC-SHA256"},
+        {"DHE-RSA-CAMELLIA256-SHA", "TLS-DHE-RSA-WITH-CAMELLIA-256-CBC-SHA"},
+        {"DHE-RSA-CHACHA20-POLY1305", "TLS-DHE-RSA-WITH-CHACHA20-POLY1305-SHA256"},
+        {"DHE-RSA-SEED-SHA", "TLS-DHE-RSA-WITH-SEED-CBC-SHA"},
+        {"DH-RSA-SEED-SHA", "TLS-DH-RSA-WITH-SEED-CBC-SHA"},
+        {"ECDH-ECDSA-AES128-GCM-SHA256", "TLS-ECDH-ECDSA-WITH-AES-128-GCM-SHA256"},
+        {"ECDH-ECDSA-AES128-SHA256", "TLS-ECDH-ECDSA-WITH-AES-128-CBC-SHA256"},
+        {"ECDH-ECDSA-AES128-SHA", "TLS-ECDH-ECDSA-WITH-AES-128-CBC-SHA"},
+        {"ECDH-ECDSA-AES256-GCM-SHA384", "TLS-ECDH-ECDSA-WITH-AES-256-GCM-SHA384"},
+        {"ECDH-ECDSA-AES256-SHA256", "TLS-ECDH-ECDSA-WITH-AES-256-CBC-SHA256"},
+        {"ECDH-ECDSA-AES256-SHA384", "TLS-ECDH-ECDSA-WITH-AES-256-CBC-SHA384"},
+        {"ECDH-ECDSA-AES256-SHA", "TLS-ECDH-ECDSA-WITH-AES-256-CBC-SHA"},
+        {"ECDH-ECDSA-CAMELLIA128-SHA256", "TLS-ECDH-ECDSA-WITH-CAMELLIA-128-CBC-SHA256"},
+        {"ECDH-ECDSA-CAMELLIA128-SHA", "TLS-ECDH-ECDSA-WITH-CAMELLIA-128-CBC-SHA"},
+        {"ECDH-ECDSA-CAMELLIA256-SHA256", "TLS-ECDH-ECDSA-WITH-CAMELLIA-256-CBC-SHA256"},
+        {"ECDH-ECDSA-CAMELLIA256-SHA", "TLS-ECDH-ECDSA-WITH-CAMELLIA-256-CBC-SHA"},
+        {"ECDH-ECDSA-DES-CBC3-SHA", "TLS-ECDH-ECDSA-WITH-3DES-EDE-CBC-SHA"},
+        {"ECDH-ECDSA-DES-CBC-SHA", "TLS-ECDH-ECDSA-WITH-DES-CBC-SHA"},
+        {"ECDH-ECDSA-RC4-SHA", "TLS-ECDH-ECDSA-WITH-RC4-128-SHA"},
+        {"ECDHE-ECDSA-AES128-GCM-SHA256", "TLS-ECDHE-ECDSA-WITH-AES-128-GCM-SHA256"},
+        {"ECDHE-ECDSA-AES128-SHA256", "TLS-ECDHE-ECDSA-WITH-AES-128-CBC-SHA256"},
+        {"ECDHE-ECDSA-AES128-SHA384", "TLS-ECDHE-ECDSA-WITH-AES-128-CBC-SHA384"},
+        {"ECDHE-ECDSA-AES128-SHA", "TLS-ECDHE-ECDSA-WITH-AES-128-CBC-SHA"},
+        {"ECDHE-ECDSA-AES256-GCM-SHA384", "TLS-ECDHE-ECDSA-WITH-AES-256-GCM-SHA384"},
+        {"ECDHE-ECDSA-AES256-SHA256", "TLS-ECDHE-ECDSA-WITH-AES-256-CBC-SHA256"},
+        {"ECDHE-ECDSA-AES256-SHA384", "TLS-ECDHE-ECDSA-WITH-AES-256-CBC-SHA384"},
+        {"ECDHE-ECDSA-AES256-SHA", "TLS-ECDHE-ECDSA-WITH-AES-256-CBC-SHA"},
+        {"ECDHE-ECDSA-CAMELLIA128-SHA256", "TLS-ECDHE-ECDSA-WITH-CAMELLIA-128-CBC-SHA256"},
+        {"ECDHE-ECDSA-CAMELLIA128-SHA", "TLS-ECDHE-ECDSA-WITH-CAMELLIA-128-CBC-SHA"},
+        {"ECDHE-ECDSA-CAMELLIA256-SHA256", "TLS-ECDHE-ECDSA-WITH-CAMELLIA-256-CBC-SHA256"},
+        {"ECDHE-ECDSA-CAMELLIA256-SHA", "TLS-ECDHE-ECDSA-WITH-CAMELLIA-256-CBC-SHA"},
+        {"ECDHE-ECDSA-CHACHA20-POLY1305", "TLS-ECDHE-ECDSA-WITH-CHACHA20-POLY1305-SHA256"},
+        {"ECDHE-ECDSA-DES-CBC3-SHA", "TLS-ECDHE-ECDSA-WITH-3DES-EDE-CBC-SHA"},
+        {"ECDHE-ECDSA-DES-CBC-SHA", "TLS-ECDHE-ECDSA-WITH-DES-CBC-SHA"},
+        {"ECDHE-ECDSA-RC4-SHA", "TLS-ECDHE-ECDSA-WITH-RC4-128-SHA"},
+        {"ECDHE-RSA-AES128-GCM-SHA256", "TLS-ECDHE-RSA-WITH-AES-128-GCM-SHA256"},
+        {"ECDHE-RSA-AES128-SHA256", "TLS-ECDHE-RSA-WITH-AES-128-CBC-SHA256"},
+        {"ECDHE-RSA-AES128-SHA384", "TLS-ECDHE-RSA-WITH-AES-128-CBC-SHA384"},
+        {"ECDHE-RSA-AES128-SHA", "TLS-ECDHE-RSA-WITH-AES-128-CBC-SHA"},
+        {"ECDHE-RSA-AES256-GCM-SHA384", "TLS-ECDHE-RSA-WITH-AES-256-GCM-SHA384"},
+        {"ECDHE-RSA-AES256-SHA256", "TLS-ECDHE-RSA-WITH-AES-256-CBC-SHA256"},
+        {"ECDHE-RSA-AES256-SHA384", "TLS-ECDHE-RSA-WITH-AES-256-CBC-SHA384"},
+        {"ECDHE-RSA-AES256-SHA", "TLS-ECDHE-RSA-WITH-AES-256-CBC-SHA"},
+        {"ECDHE-RSA-CAMELLIA128-SHA256", "TLS-ECDHE-RSA-WITH-CAMELLIA-128-CBC-SHA256"},
+        {"ECDHE-RSA-CAMELLIA128-SHA", "TLS-ECDHE-RSA-WITH-CAMELLIA-128-CBC-SHA"},
+        {"ECDHE-RSA-CAMELLIA256-SHA256", "TLS-ECDHE-RSA-WITH-CAMELLIA-256-CBC-SHA256"},
+        {"ECDHE-RSA-CAMELLIA256-SHA", "TLS-ECDHE-RSA-WITH-CAMELLIA-256-CBC-SHA"},
+        {"ECDHE-RSA-CHACHA20-POLY1305", "TLS-ECDHE-RSA-WITH-CHACHA20-POLY1305-SHA256"},
+        {"ECDHE-RSA-DES-CBC3-SHA", "TLS-ECDHE-RSA-WITH-3DES-EDE-CBC-SHA"},
+        {"ECDHE-RSA-DES-CBC-SHA", "TLS-ECDHE-RSA-WITH-DES-CBC-SHA"},
+        {"ECDHE-RSA-RC4-SHA", "TLS-ECDHE-RSA-WITH-RC4-128-SHA"},
+        {"ECDH-RSA-AES128-GCM-SHA256", "TLS-ECDH-RSA-WITH-AES-128-GCM-SHA256"},
+        {"ECDH-RSA-AES128-SHA256", "TLS-ECDH-RSA-WITH-AES-128-CBC-SHA256"},
+        {"ECDH-RSA-AES128-SHA384", "TLS-ECDH-RSA-WITH-AES-128-CBC-SHA384"},
+        {"ECDH-RSA-AES128-SHA", "TLS-ECDH-RSA-WITH-AES-128-CBC-SHA"},
+        {"ECDH-RSA-AES256-GCM-SHA384", "TLS-ECDH-RSA-WITH-AES-256-GCM-SHA384"},
+        {"ECDH-RSA-AES256-SHA256", "TLS-ECDH-RSA-WITH-AES-256-CBC-SHA256"},
+        {"ECDH-RSA-AES256-SHA384", "TLS-ECDH-RSA-WITH-AES-256-CBC-SHA384"},
+        {"ECDH-RSA-AES256-SHA", "TLS-ECDH-RSA-WITH-AES-256-CBC-SHA"},
+        {"ECDH-RSA-CAMELLIA128-SHA256", "TLS-ECDH-RSA-WITH-CAMELLIA-128-CBC-SHA256"},
+        {"ECDH-RSA-CAMELLIA128-SHA", "TLS-ECDH-RSA-WITH-CAMELLIA-128-CBC-SHA"},
+        {"ECDH-RSA-CAMELLIA256-SHA256", "TLS-ECDH-RSA-WITH-CAMELLIA-256-CBC-SHA256"},
+        {"ECDH-RSA-CAMELLIA256-SHA", "TLS-ECDH-RSA-WITH-CAMELLIA-256-CBC-SHA"},
+        {"ECDH-RSA-DES-CBC3-SHA", "TLS-ECDH-RSA-WITH-3DES-EDE-CBC-SHA"},
+        {"ECDH-RSA-DES-CBC-SHA", "TLS-ECDH-RSA-WITH-DES-CBC-SHA"},
+        {"ECDH-RSA-RC4-SHA", "TLS-ECDH-RSA-WITH-RC4-128-SHA"},
+        {"EDH-DSS-DES-CBC3-SHA", "TLS-DHE-DSS-WITH-3DES-EDE-CBC-SHA"},
+        {"EDH-DSS-DES-CBC-SHA", "TLS-DHE-DSS-WITH-DES-CBC-SHA"},
+        {"EDH-RSA-DES-CBC3-SHA", "TLS-DHE-RSA-WITH-3DES-EDE-CBC-SHA"},
+        {"EDH-RSA-DES-CBC-SHA", "TLS-DHE-RSA-WITH-DES-CBC-SHA"},
+        {"EXP-DES-CBC-SHA", "TLS-RSA-EXPORT-WITH-DES40-CBC-SHA"},
+        {"EXP-EDH-DSS-DES-CBC-SHA", "TLS-DH-DSS-EXPORT-WITH-DES40-CBC-SHA"},
+        {"EXP-EDH-RSA-DES-CBC-SHA", "TLS-DH-RSA-EXPORT-WITH-DES40-CBC-SHA"},
+        {"EXP-RC2-CBC-MD5", "TLS-RSA-EXPORT-WITH-RC2-CBC-40-MD5"},
+        {"EXP-RC4-MD5", "TLS-RSA-EXPORT-WITH-RC4-40-MD5"},
+        {"NULL-MD5", "TLS-RSA-WITH-NULL-MD5"},
+        {"NULL-SHA256", "TLS-RSA-WITH-NULL-SHA256"},
+        {"NULL-SHA", "TLS-RSA-WITH-NULL-SHA"},
+        {"PSK-3DES-EDE-CBC-SHA", "TLS-PSK-WITH-3DES-EDE-CBC-SHA"},
+        {"PSK-AES128-CBC-SHA", "TLS-PSK-WITH-AES-128-CBC-SHA"},
+        {"PSK-AES256-CBC-SHA", "TLS-PSK-WITH-AES-256-CBC-SHA"},
+        {"PSK-RC4-SHA", "TLS-PSK-WITH-RC4-128-SHA"},
+        {"RC4-MD5", "TLS-RSA-WITH-RC4-128-MD5"},
+        {"RC4-SHA", "TLS-RSA-WITH-RC4-128-SHA"},
+        {"SEED-SHA", "TLS-RSA-WITH-SEED-CBC-SHA"},
+        {"SRP-DSS-3DES-EDE-CBC-SHA", "TLS-SRP-SHA-DSS-WITH-3DES-EDE-CBC-SHA"},
+        {"SRP-DSS-AES-128-CBC-SHA", "TLS-SRP-SHA-DSS-WITH-AES-128-CBC-SHA"},
+        {"SRP-DSS-AES-256-CBC-SHA", "TLS-SRP-SHA-DSS-WITH-AES-256-CBC-SHA"},
+        {"SRP-RSA-3DES-EDE-CBC-SHA", "TLS-SRP-SHA-RSA-WITH-3DES-EDE-CBC-SHA"},
+        {"SRP-RSA-AES-128-CBC-SHA", "TLS-SRP-SHA-RSA-WITH-AES-128-CBC-SHA"},
+        {"SRP-RSA-AES-256-CBC-SHA", "TLS-SRP-SHA-RSA-WITH-AES-256-CBC-SHA"},
 #ifdef ENABLE_CRYPTO_OPENSSL
-    /* OpenSSL-specific group names */
-    {"DEFAULT", "DEFAULT"},
-    {"ALL", "ALL"},
-    {"HIGH", "HIGH"}, {"!HIGH", "!HIGH"},
-    {"MEDIUM", "MEDIUM"}, {"!MEDIUM", "!MEDIUM"},
-    {"LOW", "LOW"}, {"!LOW", "!LOW"},
-    {"ECDH", "ECDH"}, {"!ECDH", "!ECDH"},
-    {"ECDSA", "ECDSA"}, {"!ECDSA", "!ECDSA"},
-    {"EDH", "EDH"}, {"!EDH", "!EDH"},
-    {"EXP", "EXP"}, {"!EXP", "!EXP"},
-    {"RSA", "RSA"}, {"!RSA", "!RSA"},
-    {"kRSA", "kRSA"}, {"!kRSA", "!kRSA"},
-    {"SRP", "SRP"}, {"!SRP", "!SRP"},
+        /* OpenSSL-specific group names */
+        {"DEFAULT", "DEFAULT"},
+        {"ALL", "ALL"},
+        {"HIGH", "HIGH"}, {"!HIGH", "!HIGH"},
+        {"MEDIUM", "MEDIUM"}, {"!MEDIUM", "!MEDIUM"},
+        {"LOW", "LOW"}, {"!LOW", "!LOW"},
+        {"ECDH", "ECDH"}, {"!ECDH", "!ECDH"},
+        {"ECDSA", "ECDSA"}, {"!ECDSA", "!ECDSA"},
+        {"EDH", "EDH"}, {"!EDH", "!EDH"},
+        {"EXP", "EXP"}, {"!EXP", "!EXP"},
+        {"RSA", "RSA"}, {"!RSA", "!RSA"},
+        {"kRSA", "kRSA"}, {"!kRSA", "!kRSA"},
+        {"SRP", "SRP"}, {"!SRP", "!SRP"},
 #endif
-    {NULL, NULL}
+        {NULL, NULL}
 };
 
 
@@ -547,7 +547,7 @@ init_ssl(const struct options *options, struct tls_root_ctx *new_ctx, bool in_ch
     }
 
 #ifdef ENABLE_PKCS11
-    else if (options->pkcs11_providers[0])
+        else if (options->pkcs11_providers[0])
     {
         if (!tls_ctx_use_pkcs11(new_ctx, options->pkcs11_id_management, options->pkcs11_id))
         {
@@ -558,13 +558,13 @@ init_ssl(const struct options *options, struct tls_root_ctx *new_ctx, bool in_ch
     }
 #endif
 #ifdef ENABLE_CRYPTOAPI
-    else if (options->cryptoapi_cert)
+        else if (options->cryptoapi_cert)
     {
         tls_ctx_load_cryptoapi(new_ctx, options->cryptoapi_cert);
     }
 #endif
 #ifdef ENABLE_MANAGEMENT
-    else if (options->management_flags & MF_EXTERNAL_CERT)
+        else if (options->management_flags & MF_EXTERNAL_CERT)
     {
         char *cert = management_query_cert(management,
                                            options->management_certificate);
@@ -604,7 +604,7 @@ init_ssl(const struct options *options, struct tls_root_ctx *new_ctx, bool in_ch
     tls_clear_error();
     return;
 
-err:
+    err:
     tls_clear_error();
     tls_ctx_free(new_ctx);
     return;
@@ -753,8 +753,8 @@ key_state_init(struct tls_session *session, struct key_state *ks)
      * Build TLS object that reads/writes ciphertext
      * to/from memory BIOs.
      */
-    key_state_ssl_init(&ks->ks_ssl, &session->opt->ssl_ctx, session->opt->server,
-                       session);
+//    key_state_ssl_init(&ks->ks_ssl, &session->opt->ssl_ctx, session->opt->server,
+//                       session);
 
     /* Set control-channel initiation mode */
     ks->initial_opcode = session->initial_opcode;
@@ -838,8 +838,6 @@ static void
 key_state_free(struct key_state *ks, bool clear)
 {
     ks->state = S_UNDEF;
-
-    key_state_ssl_free(&ks->ks_ssl);
 
     free_key_ctx_bi(&ks->crypto_options.key_ctx_bi);
     free_buf(&ks->plaintext_read_buf);
@@ -1244,101 +1242,6 @@ tls_session_update_crypto_params(struct tls_multi *multi,
                                                     frame, frame_fragment, lsi);
 }
 
-
-static bool
-random_bytes_to_buf(struct buffer *buf,
-                    uint8_t *out,
-                    int outlen)
-{
-    if (!rand_bytes(out, outlen))
-    {
-        msg(M_FATAL, "ERROR: Random number generator cannot obtain entropy for key generation [SSL]");
-    }
-    if (!buf_write(buf, out, outlen))
-    {
-        return false;
-    }
-    return true;
-}
-
-static bool
-key_source2_randomize_write(struct key_source2 *k2,
-                            struct buffer *buf,
-                            bool server)
-{
-    struct key_source *k = &k2->client;
-    if (server)
-    {
-        k = &k2->server;
-    }
-
-    CLEAR(*k);
-
-    if (!server)
-    {
-        if (!random_bytes_to_buf(buf, k->pre_master, sizeof(k->pre_master)))
-        {
-            return false;
-        }
-    }
-
-    if (!random_bytes_to_buf(buf, k->random1, sizeof(k->random1)))
-    {
-        return false;
-    }
-    if (!random_bytes_to_buf(buf, k->random2, sizeof(k->random2)))
-    {
-        return false;
-    }
-
-    return true;
-}
-
-static int
-key_source2_read(struct key_source2 *k2,
-                 struct buffer *buf,
-                 bool server)
-{
-    struct key_source *k = &k2->client;
-
-    if (!server)
-    {
-        k = &k2->server;
-    }
-
-    CLEAR(*k);
-
-    if (server)
-    {
-        if (!buf_read(buf, k->pre_master, sizeof(k->pre_master)))
-        {
-            return 0;
-        }
-    }
-
-    if (!buf_read(buf, k->random1, sizeof(k->random1)))
-    {
-        return 0;
-    }
-    if (!buf_read(buf, k->random2, sizeof(k->random2)))
-    {
-        return 0;
-    }
-
-    return 1;
-}
-
-static void
-flush_payload_buffer(struct key_state *ks)
-{
-    struct buffer *b;
-    while ((b = buffer_list_peek(ks->paybuf)))
-    {
-        key_state_write_plaintext_const(&ks->ks_ssl, b->data, b->len);
-        buffer_list_pop(ks->paybuf);
-    }
-}
-
 /*
  * Move the active key to the lame duck key and reinitialize the
  * active key.
@@ -1358,275 +1261,6 @@ key_state_soft_reset(struct tls_session *session)
     ks->remote_addr = ks_lame->remote_addr;
 }
 
-/*
- * Read/write strings from/to a struct buffer with a u16 length prefix.
- */
-
-static bool
-write_empty_string(struct buffer *buf)
-{
-    if (!buf_write_u16(buf, 0))
-    {
-        return false;
-    }
-    return true;
-}
-
-static bool
-write_string(struct buffer *buf, const char *str, const int maxlen)
-{
-    const int len = strlen(str) + 1;
-    if (len < 1 || (maxlen >= 0 && len > maxlen))
-    {
-        return false;
-    }
-    if (!buf_write_u16(buf, len))
-    {
-        return false;
-    }
-    if (!buf_write(buf, str, len))
-    {
-        return false;
-    }
-    return true;
-}
-
-static bool
-read_string(struct buffer *buf, char *str, const unsigned int capacity)
-{
-    const int len = buf_read_u16(buf);
-    if (len < 1 || len > (int)capacity)
-    {
-        return false;
-    }
-    if (!buf_read(buf, str, len))
-    {
-        return false;
-    }
-    str[len-1] = '\0';
-    return true;
-}
-
-static char *
-read_string_alloc(struct buffer *buf)
-{
-    const int len = buf_read_u16(buf);
-    char *str;
-
-    if (len < 1)
-    {
-        return NULL;
-    }
-    str = (char *) malloc(len);
-    check_malloc_return(str);
-    if (!buf_read(buf, str, len))
-    {
-        free(str);
-        return NULL;
-    }
-    str[len-1] = '\0';
-    return str;
-}
-
-/**
- * Prepares the IV_ and UV_ variables that are part of the
- * exchange to signal the peer's capabilities. The amount
- * of variables is determined by session->opt->push_peer_info_detail
- *
- *     0     nothing. Used on a TLS P2MP server side to send no information
- *           to the client
- *     1     minimal info needed for NCP in P2P mode
- *     2     when --pull is enabled, the "default" set of variables
- *     3     all information including MAC address and library versions
- *
- * @param buf       the buffer to write these variables to
- * @param session   the TLS session object
- * @return          true if no error was encountered
- */
-static bool
-push_peer_info(struct buffer *buf, struct tls_session *session)
-{
-    struct gc_arena gc = gc_new();
-    bool ret = false;
-
-//    if (session->opt->push_peer_info_detail > 1)
-//    {
-//        /* push version */
-//        buf_printf(&out, "IV_VER=%s\n", PACKAGE_VERSION);
-//
-//        /* push platform */
-//#if defined(TARGET_LINUX)
-//        buf_printf(&out, "IV_PLAT=linux\n");
-//#elif defined(TARGET_SOLARIS)
-//        buf_printf(&out, "IV_PLAT=solaris\n");
-//#elif defined(TARGET_OPENBSD)
-//        buf_printf(&out, "IV_PLAT=openbsd\n");
-//#elif defined(TARGET_DARWIN)
-//        buf_printf(&out, "IV_PLAT=mac\n");
-//#elif defined(TARGET_NETBSD)
-//        buf_printf(&out, "IV_PLAT=netbsd\n");
-//#elif defined(TARGET_FREEBSD)
-//        buf_printf(&out, "IV_PLAT=freebsd\n");
-//#elif defined(TARGET_ANDROID)
-//        buf_printf(&out, "IV_PLAT=android\n");
-//#elif defined(_WIN32)
-//        buf_printf(&out, "IV_PLAT=win\n");
-//#endif
-//        /* Announce that we do not require strict sequence numbers with
-//         * TCP. (TCP non-linear) */
-//        buf_printf(&out, "IV_TCPNL=1\n");
-//    }
-//
-//    /* These are the IV variable that are sent to peers in p2p mode */
-//    if (session->opt->push_peer_info_detail > 0)
-//    {
-//        /* support for P_DATA_V2 */
-//        int iv_proto = IV_PROTO_DATA_V2;
-//
-//        /* support for the --dns option */
-//        iv_proto |= IV_PROTO_DNS_OPTION;
-//
-//        /* support for exit notify via control channel */
-//        iv_proto |= IV_PROTO_CC_EXIT_NOTIFY;
-//
-//        if (session->opt->pull)
-//        {
-//            /* support for receiving push_reply before sending
-//             * push request, also signal that the client wants
-//             * to get push-reply messages without requiring a round
-//             * trip for a push request message*/
-//            iv_proto |= IV_PROTO_REQUEST_PUSH;
-//
-//            /* Support keywords in the AUTH_PENDING control message */
-//            iv_proto |= IV_PROTO_AUTH_PENDING_KW;
-//
-//            /* support for tun-mtu as part of the push message */
-//            buf_printf(&out, "IV_MTU=%d\n", session->opt->frame.tun_max_mtu);
-//
-//            /* support for AUTH_FAIL,TEMP control message */
-//            iv_proto |= IV_PROTO_AUTH_FAIL_TEMP;
-//        }
-//
-//        /* support for Negotiable Crypto Parameters */
-//        if (session->opt->mode == MODE_SERVER || session->opt->pull)
-//        {
-//            if (tls_item_in_cipher_list("AES-128-GCM", session->opt->config_ncp_ciphers)
-//                && tls_item_in_cipher_list("AES-256-GCM", session->opt->config_ncp_ciphers))
-//            {
-//
-//                buf_printf(&out, "IV_NCP=2\n");
-//            }
-//        }
-//        else
-//        {
-//            /* We are not using pull or p2mp server, instead do P2P NCP */
-//            iv_proto |= IV_PROTO_NCP_P2P;
-//        }
-//
-//        buf_printf(&out, "IV_CIPHERS=%s\n", session->opt->config_ncp_ciphers);
-//
-//#ifdef HAVE_EXPORT_KEYING_MATERIAL
-//        iv_proto |= IV_PROTO_TLS_KEY_EXPORT;
-//#endif
-//
-//        buf_printf(&out, "IV_PROTO=%d\n", iv_proto);
-//
-//        if (session->opt->push_peer_info_detail > 1)
-//        {
-//            /* push compression status */
-//#ifdef USE_COMP
-//            comp_generate_peer_info_string(&session->opt->comp_options, &out);
-//#endif
-//        }
-//
-//        if (session->opt->push_peer_info_detail > 2)
-//        {
-//            /* push mac addr */
-//            struct route_gateway_info rgi;
-//            get_default_gateway(&rgi, session->opt->net_ctx);
-//            if (rgi.flags & RGI_HWADDR_DEFINED)
-//            {
-//                buf_printf(&out, "IV_HWADDR=%s\n", format_hex_ex(rgi.hwaddr, 6, 0, 1, ":", &gc));
-//            }
-//#if defined(_WIN32)
-//            buf_printf(&out, "IV_PLAT_VER=%s\n", win32_version_string(&gc, false));
-//#endif
-//        }
-//
-//        if (session->opt->push_peer_info_detail > 1)
-//        {
-//            struct env_set *es = session->opt->es;
-//            /* push env vars that begin with UV_, IV_PLAT_VER and IV_GUI_VER */
-//            for (struct env_item *e = es->list; e != NULL; e = e->next)
-//            {
-//                if (e->string)
-//                {
-//                    if ((((strncmp(e->string, "UV_", 3) == 0
-//                           || strncmp(e->string, "IV_PLAT_VER=", sizeof("IV_PLAT_VER=") - 1) == 0)
-//                          && session->opt->push_peer_info_detail > 2)
-//                         || (strncmp(e->string, "IV_GUI_VER=", sizeof("IV_GUI_VER=") - 1) == 0)
-//                         || (strncmp(e->string, "IV_SSO=", sizeof("IV_SSO=") - 1) == 0)
-//                         )
-//                        && buf_safe(&out, strlen(e->string) + 1))
-//                    {
-//                        buf_printf(&out, "%s\n", e->string);
-//                    }
-//                }
-//            }
-//        }
-//
-//        if (!write_string(buf, BSTR(&out), -1))
-//        {
-//            goto error;
-//        }
-//    }
-//    else
-    {
-        if (!write_empty_string(buf)) /* no peer info */
-        {
-            goto error;
-        }
-    }
-    ret = true;
-
-error:
-    gc_free(&gc);
-    return ret;
-}
-
-/**
- * Handle the writing of key data, peer-info, username/password, OCC
- * to the TLS control channel (cleartext).
- */
-static bool
-key_method_2_write(struct buffer *buf, struct tls_multi *multi, struct tls_session *session)
-{
-    ASSERT(buf_init(buf, 0));
-    if (!push_peer_info(buf, session))
-    {
-        goto error;
-    }
-    return true;
-
-error:
-    msg(D_TLS_ERRORS, "TLS Error: Key Method #2 write failed");
-    return false;
-}
-
-
-/**
- * Handle reading key data, peer-info, username/password, OCC
- * from the TLS control channel (cleartext).
- */
-static bool
-key_method_2_read(struct buffer *buf, struct tls_multi *multi, struct tls_session *session)
-{
-    struct key_state *ks = &session->key[KS_PRIMARY];      /* primary key */
-    multi->remote_ciphername = NULL;
-    ks->authenticated = KS_AUTH_TRUE;
-    buf_clear(buf);
-    return true;
-}
 
 static int
 auth_deferred_expire_window(const struct tls_options *o)
@@ -1738,209 +1372,16 @@ session_move_active(struct tls_multi *multi, struct tls_session *session,
         }
     }
 
-    /* Flush any payload packets that were buffered before our state transitioned to S_ACTIVE */
-    flush_payload_buffer(ks);
-
-#ifdef MEASURE_TLS_HANDSHAKE_STATS
-    show_tls_performance_stats();
-#endif
-}
-/**
- * Parses the TLVs (type, length, value) in the early negotiation
- */
-static bool
-parse_early_negotiation_tlvs(struct buffer *buf, struct key_state *ks)
-{
-    reliable_mark_deleted(ks->rec_reliable, buf);
-    return true;
-}
-
-/**
- * Read incoming ciphertext and passes it to the buffer of the SSL library.
- * Returns false if an error is encountered that should abort the session.
- */
-
-static bool
-read_incoming_tls_ciphertext_v0(struct buffer *buf, struct key_state *ks,
-                             bool *state_change)
-{
-    if (buf->len)
-    {
-        memset(BPTR(buf), 0, BLEN(buf));  /* erase data just written */
-        buf->len = 0;
-    }
-
-    reliable_mark_deleted(ks->rec_reliable, buf);
-    *state_change = true;
-    dmsg(D_TLS_DEBUG, "Incoming Ciphertext -> TLS");
-    msg(M_INFO, "lichen read_incoming_tls_ciphertext_v0 status:%d package_id:%d",ks->state,ks->rec_reliable->packet_id);
-
-    return true;
-}
-
-static bool
-read_incoming_tls_ciphertext(struct buffer *buf, struct key_state *ks,
-                             bool *state_change)
-{
-    int status = 0;
-    if (buf->len)
-    {
-        status = key_state_write_ciphertext(&ks->ks_ssl, buf);
-        if (status == -1)
-        {
-            msg(D_TLS_ERRORS,
-                "TLS Error: Incoming Ciphertext -> TLS object write error");
-            return false;
-        }
-    }
-    else
-    {
-        status = 1;
-    }
-    if (status == 1)
-    {
-        reliable_mark_deleted(ks->rec_reliable, buf);
-        *state_change = true;
-        dmsg(D_TLS_DEBUG, "Incoming Ciphertext -> TLS");
-        msg(M_INFO, "lichen Incoming Ciphertext -> TLS status:%d package_id:%d",ks->state,ks->rec_reliable->packet_id);
-    }
-    return true;
-}
-
-static bool
-control_packet_needs_wkc(const struct key_state *ks)
-{
-    return (ks->crypto_options.flags & CO_RESEND_WKC)
-           && (ks->send_reliable->packet_id == 1);
 }
 
 
 static bool
-read_incoming_tls_plaintext(struct key_state *ks, struct buffer *buf,
-                            interval_t *wakeup, bool *state_change)
-{
-    ASSERT(buf_init(buf, 0));
-
-    int status = key_state_read_plaintext(&ks->ks_ssl, buf);
-
-    update_time();
-    if (status == -1)
-    {
-        msg(D_TLS_ERRORS, "TLS Error: TLS object -> incoming plaintext read error");
-        return false;
-    }
-    if (status == 1)
-    {
-        *state_change = true;
-        msg(M_INFO, "lichen TLS -> Incoming Plaintext buf:%d status:%d",buf->len, ks->state);
-        /* More data may be available, wake up again asap to check. */
-        *wakeup = 0;
-    }
-    return true;
-}
-
-static bool
-write_outgoing_tls_ciphertext(struct tls_session *session, bool *state_change)
-{
-    struct key_state *ks = &session->key[KS_PRIMARY];
-
-    int rel_avail = reliable_get_num_output_sequenced_available(ks->send_reliable);
-    if (rel_avail == 0)
-    {
-        return true;
-    }
-
-    /* We need to determine how much space is actually available in the control
-     * channel frame */
-
-    int max_pkt_len = min_int(TLS_CHANNEL_BUF_SIZE, session->opt->frame.tun_mtu);
-
-
-    /* Subtract overhead */
-    max_pkt_len -= calc_control_channel_frame_overhead(session);
-
-    /* calculate total available length for outgoing tls ciphertext */
-    int maxlen = max_pkt_len * rel_avail;
-
-    /* Is first packet one that will have a WKC appended? */
-    if (control_packet_needs_wkc(ks))
-    {
-        maxlen -= buf_len(session->tls_wrap.tls_crypt_v2_wkc);
-    }
-
-    /* Not enough space available to send a full control channel packet */
-    if (maxlen < TLS_CHANNEL_BUF_SIZE)
-    {
-        if (rel_avail == TLS_RELIABLE_N_SEND_BUFFERS)
-        {
-            msg(D_TLS_ERRORS, "--tls-mtu setting to low. Unable to send TLS packets");
-        }
-        msg(D_REL_LOW, "Reliable: Send queue full, postponing TLS send");
-        return true;
-    }
-
-    /* This seems a bit wasteful to allocate every time */
-    struct gc_arena gc = gc_new();
-    struct buffer tmp = alloc_buf_gc(TLS_CHANNEL_BUF_SIZE, &gc);
-
-    int status = key_state_read_ciphertext(&ks->ks_ssl, &tmp);
-
-    if (status == -1)
-    {
-        msg(D_TLS_ERRORS,
-            "TLS Error: Ciphertext -> reliable TCP/UDP transport read error");
-        gc_free(&gc);
-        return false;
-    }
-    if (status == 1)
-    {
-        /* Split the TLS ciphertext (TLS record) into multiple small packets
-         * that respect tls_mtu */
-        msg(M_INFO,"lichen3.x Outgoing Ciphertext -> Reliable status:%d",ks->state);
-        while (tmp.len)
-        {
-            int len = max_pkt_len;
-            int opcode = P_CONTROL_V1;
-            if (control_packet_needs_wkc(ks))
-            {
-                opcode = P_CONTROL_WKC_V1;
-                len = max_int(0, len - buf_len(session->tls_wrap.tls_crypt_v2_wkc));
-            }
-            /* do not send more than available */
-            len = min_int(len, tmp.len);
-
-            struct buffer *buf = reliable_get_buf_output_sequenced(ks->send_reliable);
-            /* we assert here since we checked for its availibility before */
-            ASSERT(buf);
-            buf_copy_n(buf, &tmp, len);
-
-            reliable_mark_active_outgoing(ks->send_reliable, buf, opcode);
-            INCR_GENERATED;
-            *state_change = true;
-        }
-        dmsg(D_TLS_DEBUG, "Outgoing Ciphertext -> Reliable");
-    }
-
-    gc_free(&gc);
-
-    return true;
-}
-
-
-#ifdef tls_process_state
-
-#endif
-
-
-//  ks_ssl->ssl_bio := data
-//  (status>=S_ACTIVE)  buf = ks->plaintext_read_buf
-static bool
-tls_process_state_v0(struct tls_multi *multi,
-                  struct tls_session *session,
-                  struct buffer *to_link,
-                  struct link_socket_actual **to_link_addr,
-                  struct link_socket_info *to_link_socket_info,
-                  interval_t *wakeup)
+tls_process_state(struct tls_multi *multi,
+                     struct tls_session *session,
+                     struct buffer *to_link,
+                     struct link_socket_actual **to_link_addr,
+                     struct link_socket_info *to_link_socket_info,
+                     interval_t *wakeup)
 {
     bool state_change = false;
     struct key_state *ks = &session->key[KS_PRIMARY];      /* primary key */
@@ -1950,9 +1391,6 @@ tls_process_state_v0(struct tls_multi *multi,
     {
         state_change = session_move_pre_start(session, ks, false);
         msg(M_INFO, "lichen1 session_move_pre_start status:%d",ks->state);
-        //reliable_mark_active_outgoing(ks->send_reliable, buf, ks->initial_opcode);
-        //ks->send_reliable = null_buf
-        //ks->send_reliable.array[].active = true
     }
 
     /* Are we timed out on receive? */
@@ -1971,22 +1409,22 @@ tls_process_state_v0(struct tls_multi *multi,
     {
         ks->state = S_START;
         state_change = true;
-        msg(M_INFO, "lichen2 packet has been successfully ACKed status:%d",ks->state);
     }
 
     /* Wait for ACK */
-    if (((ks->state == S_GOT_KEY && !session->opt->server)
-         || (ks->state == S_SENT_KEY && session->opt->server))
+    if (((ks->state == S_START && !session->opt->server)
+         || (ks->state == S_START && session->opt->server))
         && reliable_empty(ks->send_reliable))
     {
         session_move_active(multi, session, to_link_socket_info, ks);
         state_change = true;
+
+        multi->remote_ciphername = NULL;
+        ks->authenticated = KS_AUTH_TRUE;
+
         msg(M_INFO,"lichen5 Wait for ACK status:%d",ks->state);
-        //link_socket_set_outgoing_addr
     }
 
-    /* Reliable buffer to outgoing TCP/UDP (send up to CONTROL_SEND_ACK_MAX ACKs
-     * for previously received packets) */
     if (!to_link->len && reliable_can_send(ks->send_reliable))
     {
         int opcode;
@@ -1994,7 +1432,6 @@ tls_process_state_v0(struct tls_multi *multi,
         struct buffer *buf = reliable_send(ks->send_reliable, &opcode);
         ASSERT(buf);
         struct buffer b = *buf;
-        INCR_SENT;
 
         write_control_auth(session, ks, &b, to_link_addr, opcode,
                            CONTROL_SEND_ACK_MAX, true);
@@ -2002,12 +1439,11 @@ tls_process_state_v0(struct tls_multi *multi,
         msg(M_INFO, "lichen_sed to_link.len:%d status:%d",to_link->len,ks->state);
 
         return true;
-        // if send_reliable.array.active == true
-        // ks->send_reliable -> send
     }
 
-    /* Write incoming ciphertext to TLS object */
+
     struct reliable_entry *entry = reliable_get_entry_sequenced(ks->rec_reliable);
+//    if (entry && ks->state< S_ACTIVE)
     if (entry)
     {
         /* The first packet from the peer (the reset packet) is special and
@@ -2016,105 +1452,44 @@ tls_process_state_v0(struct tls_multi *multi,
 
         if (entry->packet_id == 0 && is_hard_reset_method2(entry->opcode))
         {
-            if (!parse_early_negotiation_tlvs(&entry->buf, ks))
-            {
-                goto error;
+
+            if (entry->buf.len >0){
+                char *str = (char *) malloc(entry->buf.len);
+                buf_read(&entry->buf, str, entry->buf.len);
+                msg(M_INFO,"%s",str);
             }
+
+            reliable_mark_deleted(ks->rec_reliable, &entry->buf);
         }
         else
         {
-            if (!read_incoming_tls_ciphertext(&entry->buf, ks, &state_change))
-            {
-                goto error;
+            struct buffer *buf = &ks->plaintext_read_buf;
+            if (!buf->len) {
+                ASSERT(buf_init(buf, 0));
+                buf_copy(buf, &entry->buf);
+                reliable_mark_deleted(ks->rec_reliable, &entry->buf);
+                state_change = true;
             }
-            // ks->ks_ssl.ct_in = ks->rec_reliable.array.buf
-            // &entry->buf.len=0  ks->rec_reliable.array.active=false
         }
 
     }
 
-    //lichen 2
-    /* Read incoming plaintext from TLS object */
-    struct buffer *buf = &ks->plaintext_read_buf;
-    if (!buf->len)
-    {
-        //ssl_bio read
-        if (!read_incoming_tls_plaintext(ks, buf, wakeup, &state_change))
-        {
-            goto error;
-        }
-        // ks->plaintext_read_buf = ks->ks_ssl.ssl_bio ;
-    }
 
-    /* Send Key */
-    buf = &ks->plaintext_write_buf;
-    if (!buf->len && ((ks->state == S_START && !session->opt->server)
-                      || (ks->state == S_GOT_KEY && session->opt->server)))
-    {
-        msg(M_INFO,"lichen3 ====Send Key=====");
-
-        if (!write_empty_string(buf)) /* no peer info */
-        {
-            goto error;
-        }
-
-        state_change = true;
-        dmsg(D_TLS_DEBUG_MED, "STATE S_SENT_KEY");
-        ks->state = S_SENT_KEY;
-        //&ks->plaintext_write_buf.add("something")
-    }
-
-    /* Receive Key */
-    buf = &ks->plaintext_read_buf;
-    if (buf->len
-        && ((ks->state == S_SENT_KEY && !session->opt->server)
-            || (ks->state == S_START && session->opt->server)))
-    {
-        msg(M_INFO,"lichen4 ====Receive Key====");
-        if (!key_method_2_read(buf, multi, session))
-        {
-            goto error;
-        }
-        state_change = true;
-        dmsg(D_TLS_DEBUG_MED, "STATE S_GOT_KEY");
-        ks->state = S_GOT_KEY;
-        // ks->plaintext_read_buf.buf_clear();
-    }
-
-    /* Write outgoing plaintext to TLS object */
-    buf = &ks->plaintext_write_buf;
+    struct buffer *buf = &ks->plaintext_write_buf;
     if (buf->len)
     {
 
-        int status = key_state_write_plaintext(&ks->ks_ssl, buf);
-        if (status == -1)
-        {
-            msg(D_TLS_ERRORS,
-                "TLS ERROR: Outgoing Plaintext -> TLS object write error");
-            goto error;
+        struct buffer *b = reliable_get_buf_output_sequenced(ks->send_reliable);
+        if (b){
+            buf_copy_n(b, buf, buf->len);
+            reliable_mark_active_outgoing(ks->send_reliable, b, P_CONTROL_V1);
         }
-        if (status == 1)
-        {
-            msg(M_INFO,"lichen Write outgoing to TLS status:%d",ks->state);
-            state_change = true;
-            dmsg(D_TLS_DEBUG, "Outgoing Plaintext -> TLS");
-        }
-        // ks_ssl->ssl_bio = ks->plaintext_write_buf ;
-        // ks->plaintext_write_buf.clear();
-    }
+        memset(BPTR(buf), 0, BLEN(buf));  /* erase data just written */
+        buf->len = 0;
+        state_change = true;
 
-    if (ks->state >= S_START)
-    {
-        buf = reliable_get_buf_output_sequenced(ks->send_reliable);
-        if (buf)
-        {
-            if (!write_outgoing_tls_ciphertext(session, &state_change))
-            {
-                goto error;
-            }
-            // ks->send_reliable = ks->ks_ssl.ct_out
-            // goto Reliable buffer to outgoing TCP/UDP
-        }
+//        int status = key_state_write_plaintext(&ks->ks_ssl, buf);
+
     }
 
     return state_change;
@@ -2164,7 +1539,7 @@ tls_process(struct tls_multi *multi,
             || (packet_id_close_to_wrapping(&ks->crypto_options.packet_id.send))))
     {
         msg(D_TLS_DEBUG_LOW, "TLS: soft reset sec=%d/%d bytes=" counter_format
-            "/%d pkts=" counter_format "/%d",
+                "/%d pkts=" counter_format "/%d",
             (int) (now - ks->established), session->opt->renegotiate_seconds,
             ks->n_bytes, session->opt->renegotiate_bytes,
             ks->n_packets, session->opt->renegotiate_packets);
@@ -2189,8 +1564,8 @@ tls_process(struct tls_multi *multi,
              state_name(ks_lame->state),
              to_link->len,
              *wakeup);
-        state_change = tls_process_state_v0(multi, session, to_link, to_link_addr,
-                                         to_link_socket_info, wakeup);
+        state_change = tls_process_state(multi, session, to_link, to_link_addr,
+                                            to_link_socket_info, wakeup);
 
         if (ks->state == S_ERROR)
         {
@@ -2210,29 +1585,12 @@ tls_process(struct tls_multi *multi,
     /* Send 1 or more ACKs (each received control packet gets one ACK) */
     if (!to_link->len && !reliable_ack_empty(ks->rec_ack))
     {
-        if (control_packet_needs_wkc(ks))
-        {
-            struct buffer *buf = reliable_get_buf_output_sequenced(ks->send_reliable);
-            if (!buf)
-            {
-                return false;
-            }
-
-            /* We do not write anything to the buffer, this way this will be
-             * an empty control packet that gets the ack piggybacked and
-             * also appended the wrapped client key since it has a WCK opcode */
-            reliable_mark_active_outgoing(ks->send_reliable, buf, P_CONTROL_WKC_V1);
-        }
-        else
-        {
-            struct buffer buf = ks->ack_write_buf;
-            ASSERT(buf_init(&buf, multi->opt.frame.buf.headroom));
-            write_control_auth(session, ks, &buf, to_link_addr, P_ACK_V1,
-                               RELIABLE_ACK_SIZE, false);
-            *to_link = buf;
-            dmsg(D_TLS_DEBUG, "Dedicated ACK -> TCP/UDP");
-        }
-        msg(M_INFO,"lichen Send 1 or more ACKs");
+        struct buffer buf = ks->ack_write_buf;
+        ASSERT(buf_init(&buf, multi->opt.frame.buf.headroom));
+        write_control_auth(session, ks, &buf, to_link_addr, P_ACK_V1,
+                           RELIABLE_ACK_SIZE, false);
+        *to_link = buf;
+        msg(M_INFO,"lichen send 1 or more ACKs");
     }
 
     /* When should we wake up again? */
@@ -2443,7 +1801,7 @@ tls_multi_process(struct tls_multi *multi,
         }
         ++multi->n_hard_errors;
     }
-nohard:
+    nohard:
 
 #ifdef ENABLE_DEBUG
     /* DEBUGGING -- flood peer with repeating connection attempts */
@@ -2557,7 +1915,7 @@ handle_data_channel_packet(struct tls_multi *multi,
         print_link_socket_actual(from, &gc), key_id,
         print_key_id(multi, &gc));
 
-done:
+    done:
     tls_clear_error();
     buf->len = 0;
     *opt = NULL;
@@ -2690,7 +2048,7 @@ tls_pre_decrypt(struct tls_multi *multi,
              print_link_socket_actual(&ks->remote_addr, &gc));
 
         if (session_id_equal(&ks->session_id_remote, &sid))
-        /* found a match */
+            /* found a match */
         {
             if (i == TM_LAME_DUCK)
             {
@@ -2730,7 +2088,7 @@ tls_pre_decrypt(struct tls_multi *multi,
             }
 
 #ifdef ENABLE_MANAGEMENT
-            if (management)
+                if (management)
             {
                 management_set_state(management,
                                      OPENVPN_STATE_AUTH,
@@ -2969,13 +2327,13 @@ tls_pre_decrypt(struct tls_multi *multi,
     /* Remember that we received a valid control channel packet */
     ks->peer_last_packet = now;
 
-done:
+    done:
     buf->len = 0;
     *opt = NULL;
     gc_free(&gc);
     return ret;
 
-error:
+    error:
     ++multi->n_soft_errors;
     tls_clear_error();
     goto done;
@@ -3086,8 +2444,6 @@ tls_post_encrypt(struct tls_multi *multi, struct buffer *buf)
     }
 }
 
-
-
 bool
 tls_send_payload(struct tls_multi *multi,
                  const uint8_t *data,
@@ -3104,10 +2460,8 @@ tls_send_payload(struct tls_multi *multi,
 
     if (ks->state >= S_ACTIVE)
     {
-        if (key_state_write_plaintext_const(&ks->ks_ssl, data, size) == 1)
-        {
-            ret = true;
-        }
+        buf_write(&ks->plaintext_write_buf,data,size);
+        ret = true;
     }
     else
     {
@@ -3124,6 +2478,7 @@ tls_send_payload(struct tls_multi *multi,
 
     return ret;
 }
+
 
 bool
 tls_rec_payload(struct tls_multi *multi,
@@ -3287,7 +2642,7 @@ protocol_dump(struct buffer *buffer, unsigned int flags, struct gc_arena *gc)
         buf_printf(&out, " pid=" packet_id_format, (packet_id_print_type)l);
     }
 
-print_data:
+    print_data:
     if (flags & PD_SHOW_DATA)
     {
         buf_printf(&out, " DATA %s", format_hex(BPTR(&buf), BLEN(&buf), 80, gc));
@@ -3297,7 +2652,7 @@ print_data:
         buf_printf(&out, " DATA len=%d", buf.len);
     }
 
-done:
+    done:
     return BSTR(&out);
 }
 

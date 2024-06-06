@@ -235,6 +235,7 @@ check_incoming_control_channel(struct context *c)
         }
         else if (buf_string_match_head_str(&buf, "PUSH_"))
         {
+            msg(M_INFO,"PUSH_incoming");
             incoming_push_message(c, &buf);
         }
         else if (buf_string_match_head_str(&buf, "RESTART"))
@@ -267,7 +268,7 @@ check_incoming_control_channel(struct context *c)
         }
         else
         {
-            msg(D_PUSH_ERRORS, "WARNING: Received unknown control message: %s", BSTR(&buf));
+            //msg(D_PUSH_ERRORS, "WARNING: Received unknown control message: %s", BSTR(&buf));
         }
     }
     else
