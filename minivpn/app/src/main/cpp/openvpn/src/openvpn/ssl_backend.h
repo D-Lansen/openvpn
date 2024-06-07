@@ -33,7 +33,6 @@
 #include "buffer.h"
 
 #ifdef ENABLE_CRYPTO_OPENSSL
-#include "ssl_openssl.h"
 #define SSLAPI SSLAPI_OPENSSL
 #endif
 #ifdef ENABLE_CRYPTO_MBEDTLS

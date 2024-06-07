@@ -329,26 +329,6 @@ calc_control_channel_frame_overhead(const struct tls_session *session)
     return overhead;
 }
 
-void
-init_ssl_lib(void)
-{
-    tls_init_lib();
-
-    crypto_init_lib();
-}
-
-void
-free_ssl_lib(void)
-{
-    crypto_uninit_lib();
-    tls_free_lib();
-}
-
-/*
- * OpenSSL library calls pem_password_callback if the
- * private key is protected by a password.
- */
-
 static struct user_pass passbuf; /* GLOBAL */
 
 void
@@ -360,25 +340,9 @@ pem_password_setup(const char *auth_file)
     }
 }
 
-int
-pem_password_callback(char *buf, int size, int rwflag, void *u)
-{
-    if (buf)
-    {
-        /* prompt for password even if --askpass wasn't specified */
-        pem_password_setup(NULL);
-        strncpynt(buf, passbuf.password, size);
-        purge_user_pass(&passbuf, false);
-
-        return strlen(buf);
-    }
-    return 0;
-}
-
 /*
  * Auth username/password handling
  */
-
 static bool auth_user_pass_enabled;     /* GLOBAL */
 static struct user_pass auth_user_pass; /* GLOBAL */
 static struct user_pass auth_token;     /* GLOBAL */
@@ -1368,10 +1332,8 @@ tls_process_state(struct tls_multi *multi,
 
     return state_change;
     error:
-    tls_clear_error();
     ks->state = S_ERROR;
     msg(D_TLS_ERRORS, "TLS Error: TLS handshake failed");
-    INCR_ERROR;
     return false;
 
 }
@@ -1525,13 +1487,10 @@ tls_multi_process(struct tls_multi *multi,
 
     perf_push(PERF_TLS_MULTI_PROCESS);
 
-    tls_clear_error();
-
     /*
      * Process each session object having state of S_INITIAL or greater,
      * and which has a defined remote IP addr.
      */
-
     for (int i = 0; i < TM_SIZE; ++i)
     {
         struct tls_session *session = &multi->session[i];
@@ -1790,7 +1749,6 @@ handle_data_channel_packet(struct tls_multi *multi,
         print_key_id(multi, &gc));
 
     done:
-    tls_clear_error();
     buf->len = 0;
     *opt = NULL;
     gc_free(&gc);
@@ -2209,7 +2167,6 @@ tls_pre_decrypt(struct tls_multi *multi,
 
     error:
     ++multi->n_soft_errors;
-    tls_clear_error();
     goto done;
 }
 
@@ -2326,8 +2283,6 @@ tls_send_payload(struct tls_multi *multi,
     struct key_state *ks;
     bool ret = false;
 
-    tls_clear_error();
-
     ASSERT(multi);
 
     ks = get_key_scan(multi, 0);
@@ -2348,8 +2303,6 @@ tls_send_payload(struct tls_multi *multi,
     }
 
 
-    tls_clear_error();
-
     return ret;
 }
 
@@ -2359,8 +2312,6 @@ tls_rec_payload(struct tls_multi *multi,
                 struct buffer *buf)
 {
     bool ret = false;
-
-    tls_clear_error();
 
     ASSERT(multi);
 
@@ -2374,8 +2325,6 @@ tls_rec_payload(struct tls_multi *multi,
         }
         ks->plaintext_read_buf.len = 0;
     }
-
-    tls_clear_error();
 
     return ret;
 }

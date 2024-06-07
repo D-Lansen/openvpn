@@ -69,7 +69,6 @@ set(openvpn_srcs
         openvpn/src/openvpn/socket.c
         openvpn/src/openvpn/socks.c
         openvpn/src/openvpn/ssl.c
-        openvpn/src/openvpn/ssl_openssl.c
         openvpn/src/openvpn/ssl_ncp.c
         openvpn/src/openvpn/ssl_pkt.c
         openvpn/src/openvpn/ssl_util.c

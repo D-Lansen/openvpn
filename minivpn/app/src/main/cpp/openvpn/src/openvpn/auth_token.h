@@ -24,79 +24,12 @@
 #define AUTH_TOKEN_H
 
 /**
- * Generate an auth token based on username and timestamp
- *
- * The idea of auth token is to be stateless, so that we can verify use it
- * even after we have forgotten about it or server has been restarted.
- *
- * To achieve this even though we cannot trust the client we use HMAC
- * to be able to verify the information.
- *
- * Format of the auth-token (before base64 encode)
- *
- * session id(12 bytes)|uint64 timestamp (8 bytes)|
- * uint64 timestamp (8 bytes)|sha256-hmac(32 bytes)
- *
- * The first timestamp is the time the token was initially created and is used to
- * determine the maximum renewable time of the token. We always include this even
- * if tokens do not expire (this value is not used) to keep the code cleaner.
- *
- * The second timestamp is the time the token was renewed/regenerated and is used
- * to determine if this token has been renewed in the acceptable time range
- * (2 * renogiation timeout)
- *
- * The session id is a random string of 12 byte (or 16 in base64) that is not
- * used by OpenVPN itself but kept intact so that external logging/managment
- * can track the session multiple reconnects/servers. It is delibrately chosen
- * be a multiple of 3 bytes to have a base64 encoding without padding.
- *
- * The hmac is calculated over the username contactinated with the
- * raw auth-token bytes to include authentication of the username in the token
- *
- * We encode the auth-token with base64 and then prepend "SESS_ID_" before
- * sending it to the client.
- *
- * This function will free() an existing multi->auth_token and keep the
- * existing initial timestamp and session id contained in that token.
- */
-void
-generate_auth_token(const struct user_pass *up, struct tls_multi *multi);
-
-/**
- * Verifies the auth token to be in the format that generate_auth_token
- * create and checks if the token is valid.
- *
- */
-unsigned
-verify_auth_token(struct user_pass *up, struct tls_multi *multi,
-                  struct tls_session *session);
-
-
-
-/**
  * Loads an HMAC secret from a file or if no file is present generates a
  * epheremal secret for the run time of the server and stores it into ctx
  */
 void
 auth_token_init_secret(struct key_ctx *key_ctx, const char *key_file,
                        bool key_inline);
-
-
-/**
- * Generate a auth-token server secret key, and write to file.
- *
- * @param filename          Filename of the server key file to create.
- */
-void auth_token_write_server_key_file(const char *filename);
-
-
-/**
- * Put the session id, and auth token status into the environment
- * if auth-token is enabled
- *
- */
-void add_session_token_env(struct tls_session *session, struct tls_multi *multi,
-                           const struct user_pass *up);
 
 /**
  * Wipes the authentication token out of the memory, frees and cleans up
@@ -114,21 +47,6 @@ void wipe_auth_token(struct tls_multi *multi);
  */
 #define SESSION_ID_PREFIX "SESS_ID_AT_"
 
-/**
- * Return if the password string has the format of a password.
- *
- * This function will always read as many bytes as SESSION_ID_PREFIX is longer
- * the caller needs ensure that password memory is at least that long (true for
- * calling with struct user_pass)
- * @param password
- * @return whether the password string starts with the session token prefix
- */
-static inline bool
-is_auth_token(const char *password)
-{
-    return (memcmp_constant_time(SESSION_ID_PREFIX, password,
-                                 strlen(SESSION_ID_PREFIX)) == 0);
-}
 /**
  * Checks if a client should be sent a new auth token to update its
  * current auth-token

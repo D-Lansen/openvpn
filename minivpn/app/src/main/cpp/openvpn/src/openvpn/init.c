@@ -772,7 +772,7 @@ init_static(void)
 
     update_time();
 
-    init_ssl_lib();
+    // init_ssl_lib();
 
 #ifdef SCHEDULE_TEST
     schedule_test();
@@ -865,18 +865,9 @@ init_static(void)
 void
 uninit_static(void)
 {
-    free_ssl_lib();
-
-#ifdef ENABLE_PKCS11
-    pkcs11_terminate();
-#endif
 
 #if PORT_SHARE
     close_port_share();
-#endif
-
-#if defined(MEASURE_TLS_HANDSHAKE_STATS)
-    show_tls_performance_stats();
 #endif
 }
 

@@ -67,26 +67,11 @@ read_control_auth(struct buffer *buf,
     bool ret = false;
 
     const uint8_t opcode = *(BPTR(buf)) >> P_OPCODE_SHIFT;
-    if ((opcode == P_CONTROL_HARD_RESET_CLIENT_V3
-         || opcode == P_CONTROL_WKC_V1)
-        && !tls_crypt_v2_extract_client_key(buf, ctx, opt))
+    if (opcode == P_CONTROL_HARD_RESET_CLIENT_V3)
     {
         msg(D_TLS_ERRORS,
             "TLS Error: can not extract tls-crypt-v2 client key from %s",
             print_link_socket_actual(from, &gc));
-        goto cleanup;
-    }
-
-    if (ctx->tls_crypt_v2_server_key.cipher)
-    {
-        /* If tls-crypt-v2 is enabled, require *some* wrapping */
-        msg(D_TLS_ERRORS, "TLS Error: could not determine wrapping from %s",
-            print_link_socket_actual(from, &gc));
-        /* TODO Do we want to support using tls-crypt-v2 and no control channel
-         * wrapping at all simultaneously?  That would allow server admins to
-         * upgrade clients one-by-one without running a second instance, but we
-         * should not enable it by default because it breaks DoS-protection.
-         * So, add something like --tls-crypt-v2-allow-insecure-fallback ? */
         goto cleanup;
     }
 
