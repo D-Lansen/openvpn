@@ -32,7 +32,6 @@
 #include "init.h"
 #include "forward.h"
 #include "multi.h"
-#include "win32.h"
 #include "platform.h"
 
 #include "memdbg.h"

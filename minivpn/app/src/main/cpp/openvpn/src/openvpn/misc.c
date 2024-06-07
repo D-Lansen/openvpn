@@ -42,7 +42,6 @@
 #include "crypto.h"
 #include "route.h"
 #include "console.h"
-#include "win32.h"
 
 #include "memdbg.h"
 

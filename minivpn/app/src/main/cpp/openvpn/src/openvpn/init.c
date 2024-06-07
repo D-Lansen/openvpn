@@ -33,7 +33,6 @@
 #include <systemd/sd-daemon.h>
 #endif
 
-#include "win32.h"
 #include "init.h"
 #include "run_command.h"
 #include "sig.h"
@@ -2478,9 +2477,7 @@ static void
 key_schedule_free(struct key_schedule *ks, bool free_ssl_ctx)
 {
     free_key_ctx_bi(&ks->static_key);
-    if (tls_ctx_initialised(&ks->ssl_ctx) && free_ssl_ctx)
-    {
-        tls_ctx_free(&ks->ssl_ctx);
+    if (free_ssl_ctx) {
         free_key_ctx(&ks->auth_token_key);
     }
     CLEAR(*ks);
@@ -2578,89 +2575,24 @@ do_init_crypto_tls_c1(struct context *c)
 {
     const struct options *options = &c->options;
 
-    if (!tls_ctx_initialised(&c->c1.ks.ssl_ctx))
+    const char *ciphername = options->ciphername;
+
+    /* Do not warn if the cipher is used only in OCC */
+    bool warn = options->enable_ncp_fallback;
+    init_key_type(&c->c1.ks.key_type, ciphername, options->authname,
+                  true, warn);
+
+    /* initialize tls-auth/crypt/crypt-v2 key */
+    do_init_tls_wrap_key(c);
+
+    /* initialise auth-token crypto support */
+    if (c->options.auth_token_generate)
     {
-        /*
-         * Initialize the OpenSSL library's global
-         * SSL context.
-         */
-        init_ssl(options, &(c->c1.ks.ssl_ctx), c->c0 && c->c0->uid_gid_chroot_set);
-        if (!tls_ctx_initialised(&c->c1.ks.ssl_ctx))
-        {
-            switch (auth_retry_get())
-            {
-                case AR_NONE:
-                    msg(M_FATAL, "Error: private key password verification failed");
-                    break;
-
-                case AR_INTERACT:
-                    ssl_purge_auth(false);
-
-                case AR_NOINTERACT:
-                    c->sig->signal_received = SIGUSR1; /* SOFT-SIGUSR1 -- Password failure error */
-                    break;
-
-                default:
-                    ASSERT(0);
-            }
-            c->sig->signal_text = "private-key-password-failure";
-            return;
-        }
-
-        /*
-         * BF-CBC is allowed to be used only when explicitly configured
-         * as NCP-fallback or when NCP has been disabled or explicitly
-         * allowed in the in ncp_ciphers list.
-         * In all other cases do not attempt to initialize BF-CBC as it
-         * may not even be supported by the underlying SSL library.
-         *
-         * Therefore, the key structure has to be initialized when:
-         * - any non-BF-CBC cipher was selected; or
-         * - BF-CBC is selected, NCP is enabled and fallback is enabled
-         *   (BF-CBC will be the fallback).
-         * - BF-CBC is in data-ciphers and we negotiate to use BF-CBC:
-         *   If the negotiated cipher and options->ciphername are the
-         *   same we do not reinit the cipher
-         *
-         * Note that BF-CBC will still be part of the OCC string to retain
-         * backwards compatibility with older clients.
-         */
-        const char *ciphername = options->ciphername;
-
-        /* Do not warn if the cipher is used only in OCC */
-        bool warn = options->enable_ncp_fallback;
-        init_key_type(&c->c1.ks.key_type, ciphername, options->authname,
-                      true, warn);
-
-        /* initialize tls-auth/crypt/crypt-v2 key */
-        do_init_tls_wrap_key(c);
-
-        /* initialise auth-token crypto support */
-        if (c->options.auth_token_generate)
-        {
-            auth_token_init_secret(&c->c1.ks.auth_token_key,
-                                   c->options.auth_token_secret_file,
-                                   c->options.auth_token_secret_file_inline);
-        }
-
-#if 0 /* was: #if ENABLE_INLINE_FILES --  Note that enabling this code will break restarts */
-        if (options->priv_key_file_inline)
-        {
-            string_clear(c->options.priv_key_file_inline);
-            c->options.priv_key_file_inline = NULL;
-        }
-#endif
+        auth_token_init_secret(&c->c1.ks.auth_token_key,
+                               c->options.auth_token_secret_file,
+                               c->options.auth_token_secret_file_inline);
     }
-    else
-    {
-        msg(D_INIT_MEDIUM, "Re-using SSL/TLS context");
 
-        /*
-         * tls-auth/crypt key can be configured per connection block, therefore
-         * we must reload it as it may have changed
-         */
-        do_init_tls_wrap_key(c);
-    }
 }
 
 static void
@@ -2714,7 +2646,7 @@ do_init_crypto_tls(struct context *c, const unsigned int flags)
         to.crypto_flags |= CO_PACKET_ID_LONG_FORM;
     }
 
-    to.ssl_ctx = c->c1.ks.ssl_ctx;
+//    to.ssl_ctx = c->c1.ks.ssl_ctx;
     to.key_type = c->c1.ks.key_type;
     to.server = options->tls_server;
     to.replay = options->replay;
@@ -4256,7 +4188,7 @@ inherit_context_child(struct context *dest,
 
     dest->c1.ks.key_type = src->c1.ks.key_type;
     /* inherit SSL context */
-    dest->c1.ks.ssl_ctx = src->c1.ks.ssl_ctx;
+//    dest->c1.ks.ssl_ctx = src->c1.ks.ssl_ctx;
     dest->c1.ks.tls_wrap_key = src->c1.ks.tls_wrap_key;
     dest->c1.ks.tls_auth_key_type = src->c1.ks.tls_auth_key_type;
     dest->c1.ks.tls_crypt_v2_server_key = src->c1.ks.tls_crypt_v2_server_key;

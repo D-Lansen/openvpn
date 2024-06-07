@@ -41,7 +41,6 @@
 #endif
 
 #include "syshead.h"
-#include "win32.h"
 
 #include "error.h"
 #include "common.h"
@@ -342,7 +341,6 @@ void
 free_ssl_lib(void)
 {
     crypto_uninit_lib();
-
     tls_free_lib();
 }
 
@@ -501,41 +499,6 @@ ssl_put_auth_challenge(const char *cr_str)
 
 #endif
 
-/*
- * Initialize SSL context.
- * All files are in PEM format.
- */
-void
-init_ssl(const struct options *options, struct tls_root_ctx *new_ctx, bool in_chroot)
-{
-    ASSERT(NULL != new_ctx);
-
-    tls_clear_error();
-
-    if (options->tls_server)
-    {
-        tls_ctx_server_new(new_ctx);
-    }
-    else                        /* if client */
-    {
-        tls_ctx_client_new(new_ctx);
-    }
-
-    if (!tls_ctx_set_options(new_ctx, options->ssl_flags))
-    {
-        goto err;
-    }
-
-
-
-    tls_clear_error();
-    return;
-
-    err:
-    tls_clear_error();
-    tls_ctx_free(new_ctx);
-    return;
-}
 
 /*
  * Map internal constants to ascii names.

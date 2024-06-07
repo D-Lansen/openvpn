@@ -39,7 +39,6 @@
 #include "run_command.h"
 #include "socket.h"
 #include "manage.h"
-#include "win32.h"
 #include "options.h"
 #include "networking.h"
 

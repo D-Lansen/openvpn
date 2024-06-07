@@ -31,7 +31,6 @@
 
 #include "buffer.h"
 #include "error.h"
-#include "win32.h"
 #include "init.h"
 #include "status.h"
 #include "sig.h"

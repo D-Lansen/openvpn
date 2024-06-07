@@ -32,7 +32,6 @@
 #include "common.h"
 #include "misc.h"
 #include "crypto.h"
-#include "win32.h"
 #include "socket.h"
 #include "fdmisc.h"
 #include "proxy.h"

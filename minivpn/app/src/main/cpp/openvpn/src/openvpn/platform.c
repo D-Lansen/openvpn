@@ -36,7 +36,6 @@
 #include "crypto.h"
 #include "error.h"
 #include "misc.h"
-#include "win32.h"
 
 #include "memdbg.h"
 

@@ -45,7 +45,6 @@
 #include "socket.h"
 #include "manage.h"
 #include "route.h"
-#include "win32.h"
 #include "block_dns.h"
 #include "networking.h"
 

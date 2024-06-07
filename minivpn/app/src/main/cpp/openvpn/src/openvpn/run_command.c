@@ -32,7 +32,6 @@
 #include "buffer.h"
 #include "error.h"
 #include "platform.h"
-#include "win32.h"
 
 #include "memdbg.h"
 

@@ -281,7 +281,7 @@ struct tls_wrap_ctx
 struct tls_options
 {
     /* our master TLS context from which all SSL objects derived */
-    struct tls_root_ctx ssl_ctx;
+//    struct tls_root_ctx ssl_ctx;
 
     /* data channel cipher, hmac, and key lengths */
     struct key_type key_type;

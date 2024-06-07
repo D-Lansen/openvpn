@@ -24,7 +24,6 @@
 #ifndef EVENT_H
 #define EVENT_H
 
-#include "win32.h"
 #include "sig.h"
 #include "perf.h"
 

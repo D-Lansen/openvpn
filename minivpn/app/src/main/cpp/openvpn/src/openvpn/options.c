@@ -51,7 +51,6 @@
 #include "socket.h"
 #include "packet_id.h"
 #include "pkcs11.h"
-#include "win32.h"
 #include "push.h"
 #include "pool.h"
 #include "proto.h"
@@ -3482,13 +3481,6 @@ options_postprocess_mutate(struct options *o, struct env_set *es)
         options_postprocess_http_proxy_override(o);
     }
 #endif
-//    if (!o->ca_file && !o->ca_path && o->verify_hash
-//        && o->verify_hash_depth == 0)
-//    {
-//        msg(M_INFO, "Using certificate fingerprint to verify peer (no CA "
-//            "option set). ");
-//        o->verify_hash_no_ca = true;
-//    }
 
     if (o->config && streq(o->config, "stdin") && o->remap_sigusr1 == SIGHUP)
     {
@@ -4277,10 +4269,6 @@ show_library_versions(const unsigned int flags)
 #else
 #define LZO_LIB_VER_STR "", ""
 #endif
-
-    msg(flags, "library versions: %s%s%s", get_ssl_library_version(),
-        LZO_LIB_VER_STR);
-
 #undef LZO_LIB_VER_STR
 }
 
@@ -5160,13 +5148,6 @@ add_option(struct options *options,
     }
     if (streq(p[0], "help"))
     {
-//        VERIFY_PERMISSION(OPT_P_GENERAL);
-//        usage();
-//        if (p[1])
-//        {
-//            msg(msglevel, "--help does not accept any parameters");
-//            goto err;
-//        }
     }
     if (streq(p[0], "version") && !p[1])
     {
@@ -5381,21 +5362,6 @@ add_option(struct options *options,
         options->management_log_history_cache = cache;
     }
 #endif /* ifdef ENABLE_MANAGEMENT */
-#ifdef ENABLE_PLUGIN
-    else if (streq(p[0], "plugin") && p[1])
-    {
-        VERIFY_PERMISSION(OPT_P_PLUGIN);
-        if (!options->plugin_list)
-        {
-            options->plugin_list = plugin_option_list_new(&options->gc);
-        }
-        if (!plugin_option_list_add(options->plugin_list, &p[1], &options->gc))
-        {
-            msg(msglevel, "plugin add failed: %s", p[1]);
-            goto err;
-        }
-    }
-#endif
     else if (streq(p[0], "mode") && p[1] && !p[2])
     {
         VERIFY_PERMISSION(OPT_P_GENERAL);
@@ -8663,39 +8629,6 @@ add_option(struct options *options,
         options->use_peer_id = true;
         options->peer_id = atoi(p[1]);
     }
-#ifdef HAVE_EXPORT_KEYING_MATERIAL
-    else if (streq(p[0], "keying-material-exporter") && p[1] && p[2])
-    {
-        int ekm_length = positive_atoi(p[2]);
-
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-
-        if (strncmp(p[1], "EXPORTER", 8))
-        {
-            msg(msglevel, "Keying material exporter label must begin with "
-                "\"EXPORTER\"");
-            goto err;
-        }
-        if (streq(p[1], EXPORT_KEY_DATA_LABEL))
-        {
-            msg(msglevel, "Keying material exporter label must not be '"
-                EXPORT_KEY_DATA_LABEL "'.");
-        }
-        if (ekm_length < 16 || ekm_length > 4095)
-        {
-            msg(msglevel, "Invalid keying material exporter length");
-            goto err;
-        }
-
-        options->keying_material_exporter_label = p[1];
-        options->keying_material_exporter_length = ekm_length;
-    }
-#endif /* HAVE_EXPORT_KEYING_MATERIAL */
-    else if (streq(p[0], "allow-recursive-routing") && !p[1])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        options->allow_recursive_routing = true;
-    }
     else if (streq(p[0], "vlan-tagging") && !p[1])
     {
         VERIFY_PERMISSION(OPT_P_GENERAL);
@@ -8707,10 +8640,6 @@ add_option(struct options *options,
         if (streq(p[1], "tagged"))
         {
             options->vlan_accept = VLAN_ONLY_TAGGED;
-        }
-        else if (streq(p[1], "untagged"))
-        {
-            options->vlan_accept = VLAN_ONLY_UNTAGGED_OR_PRIORITY;
         }
         else if (streq(p[1], "all"))
         {

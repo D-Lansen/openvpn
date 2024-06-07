@@ -38,7 +38,6 @@
 #include "socket.h"
 #include "mtu.h"
 #include "options.h"
-
 #include "ssl_common.h"
 #include "ssl_backend.h"
 #include "ssl_pkt.h"
@@ -124,11 +123,6 @@ void init_ssl_lib(void);
  */
 void free_ssl_lib(void);
 
-/**
- * Build master SSL context object that serves for the whole of OpenVPN
- * instantiation
- */
-void init_ssl(const struct options *options, struct tls_root_ctx *ctx, bool in_chroot);
 
 /** @addtogroup control_processor
  *  @{ */

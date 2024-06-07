@@ -29,7 +29,6 @@
 #include "error.h"
 #include "proto.h"
 #include "mtu.h"
-#include "win32.h"
 #include "event.h"
 #include "proxy.h"
 #include "socks.h"

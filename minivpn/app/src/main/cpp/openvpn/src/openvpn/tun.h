@@ -34,7 +34,6 @@
 #include "buffer.h"
 #include "error.h"
 #include "mtu.h"
-#include "win32.h"
 #include "event.h"
 #include "proto.h"
 #include "misc.h"

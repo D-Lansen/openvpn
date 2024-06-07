@@ -25,7 +25,6 @@
 #define SIG_H
 
 #include "status.h"
-#include "win32.h"
 
 
 

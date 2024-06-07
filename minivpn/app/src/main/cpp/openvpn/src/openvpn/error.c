@@ -33,7 +33,6 @@
 #include "buffer.h"
 #include "init.h"
 #include "misc.h"
-#include "win32.h"
 #include "socket.h"
 #include "tun.h"
 #include "otime.h"

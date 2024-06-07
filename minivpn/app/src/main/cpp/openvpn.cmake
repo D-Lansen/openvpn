@@ -16,7 +16,6 @@ set(openvpn_srcs
         openvpn/src/openvpn/console_builtin.c
         openvpn/src/openvpn/crypto.c
         openvpn/src/openvpn/crypto_openssl.c
-        openvpn/src/openvpn/cryptoapi.c
         openvpn/src/openvpn/dhcp.c
         openvpn/src/openvpn/dns.c
         openvpn/src/openvpn/error.c

@@ -42,7 +42,6 @@
 #endif
 
 #include "syshead.h"
-#include "win32.h"
 
 #include "error.h"
 #include "common.h"
@@ -71,27 +70,6 @@ tls_peer_info_ncp_ver(const char *peer_info)
     return 0;
 }
 
-/**
- * Returns whether the client supports NCP either by
- * announcing IV_NCP>=2 or the IV_CIPHERS list
- */
-bool
-tls_peer_supports_ncp(const char *peer_info)
-{
-    if (!peer_info)
-    {
-        return false;
-    }
-    else if (tls_peer_info_ncp_ver(peer_info) >= 2
-             || strstr(peer_info, "IV_CIPHERS="))
-    {
-        return true;
-    }
-    else
-    {
-        return false;
-    }
-}
 
 char *
 mutate_ncp_cipher_list(const char *list, struct gc_arena *gc)

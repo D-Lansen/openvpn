@@ -39,7 +39,6 @@
 
 #include "common.h"
 #include "misc.h"
-#include "win32.h"
 #include "socket.h"
 #include "fdmisc.h"
 #include "misc.h"
