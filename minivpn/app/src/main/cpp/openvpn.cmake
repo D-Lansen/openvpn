@@ -26,7 +26,6 @@ set(openvpn_srcs
         openvpn/src/openvpn/fragment.c
         openvpn/src/openvpn/gremlin.c
         openvpn/src/openvpn/helper.c
-        openvpn/src/openvpn/httpdigest.c
         openvpn/src/openvpn/init.c
         openvpn/src/openvpn/interval.c
         openvpn/src/openvpn/list.c
@@ -42,7 +41,6 @@ set(openvpn_srcs
         openvpn/src/openvpn/mtu.c
         openvpn/src/openvpn/multi.c
         openvpn/src/openvpn/networking_sitnl.c
-        openvpn/src/openvpn/ntlm.c
         openvpn/src/openvpn/occ.c
         openvpn/src/openvpn/openvpn.c
         openvpn/src/openvpn/options.c
@@ -56,7 +54,6 @@ set(openvpn_srcs
         openvpn/src/openvpn/platform.c
         openvpn/src/openvpn/pool.c
         openvpn/src/openvpn/proto.c
-        openvpn/src/openvpn/proxy.c
         openvpn/src/openvpn/ps.c
         openvpn/src/openvpn/push.c
         openvpn/src/openvpn/reliable.c
@@ -74,7 +71,6 @@ set(openvpn_srcs
         openvpn/src/openvpn/ssl_util.c
         openvpn/src/openvpn/ssl_verify.c
         openvpn/src/openvpn/status.c
-        openvpn/src/openvpn/tls_crypt.c
         openvpn/src/openvpn/tun.c
         openvpn/src/openvpn/vlan.c
         )

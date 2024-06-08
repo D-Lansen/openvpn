@@ -186,87 +186,6 @@ update_options_ce_post(struct options *options)
 }
 
 #ifdef ENABLE_MANAGEMENT
-static bool
-management_callback_proxy_cmd(void *arg, const char **p)
-{
-    struct context *c = arg;
-    struct connection_entry *ce = &c->options.ce;
-    struct gc_arena *gc = &c->c2.gc;
-    bool ret = false;
-
-    update_time();
-    if (streq(p[1], "NONE"))
-    {
-        ret = true;
-    }
-    else if (p[2] && p[3])
-    {
-        if (streq(p[1], "HTTP"))
-        {
-            struct http_proxy_options *ho;
-            if (ce->proto != PROTO_TCP && ce->proto != PROTO_TCP_CLIENT)
-            {
-                msg(M_WARN, "HTTP proxy support only works for TCP based connections");
-                return false;
-            }
-            ho = init_http_proxy_options_once(&ce->http_proxy_options, gc);
-            ho->server = string_alloc(p[2], gc);
-            ho->port = string_alloc(p[3], gc);
-            ho->auth_retry = (p[4] && streq(p[4], "nct") ? PAR_NCT : PAR_ALL);
-            ret = true;
-        }
-        else if (streq(p[1], "SOCKS"))
-        {
-            ce->socks_proxy_server = string_alloc(p[2], gc);
-            ce->socks_proxy_port = string_alloc(p[3], gc);
-            ret = true;
-        }
-    }
-    else
-    {
-        msg(M_WARN, "Bad proxy command");
-    }
-
-    ce->flags &= ~CE_MAN_QUERY_PROXY;
-
-    return ret;
-}
-
-static bool
-ce_management_query_proxy(struct context *c)
-{
-    const struct connection_list *l = c->options.connection_list;
-    struct connection_entry *ce = &c->options.ce;
-    struct gc_arena gc;
-    bool ret = true;
-
-    update_time();
-    if (management)
-    {
-        gc = gc_new();
-        {
-            struct buffer out = alloc_buf_gc(256, &gc);
-            buf_printf(&out, ">PROXY:%u,%s,%s", (l ? l->current : 0) + 1,
-                       (proto_is_udp(ce->proto) ? "UDP" : "TCP"), np(ce->remote));
-            management_notify_generic(management, BSTR(&out));
-            management->persist.special_state_msg = BSTR(&out);
-        }
-        ce->flags |= CE_MAN_QUERY_PROXY;
-        while (ce->flags & CE_MAN_QUERY_PROXY)
-        {
-            management_event_loop_n_seconds(management, 1);
-            if (IS_SIG(c))
-            {
-                ret = false;
-                break;
-            }
-        }
-        management->persist.special_state_msg = NULL;
-        gc_free(&gc);
-    }
-
-    return ret;
-}
 
 /**
  * This method sends a custom control channel message
@@ -537,14 +456,6 @@ next_connection_entry(struct context *c)
                 break;
             }
         }
-        else if (ce_defined && management && management_query_proxy_enabled(management))
-        {
-            ce_defined = ce_management_query_proxy(c);
-            if (IS_SIG(c))
-            {
-                break;
-            }
-        }
 #endif
     } while (!ce_defined);
 
@@ -585,65 +496,6 @@ init_query_passwords(const struct context *c)
 /*
  * Initialize/Uninitialize HTTP or SOCKS proxy
  */
-
-static void
-uninit_proxy_dowork(struct context *c)
-{
-    if (c->c1.http_proxy_owned && c->c1.http_proxy)
-    {
-        http_proxy_close(c->c1.http_proxy);
-        c->c1.http_proxy = NULL;
-        c->c1.http_proxy_owned = false;
-    }
-    if (c->c1.socks_proxy_owned && c->c1.socks_proxy)
-    {
-        socks_proxy_close(c->c1.socks_proxy);
-        c->c1.socks_proxy = NULL;
-        c->c1.socks_proxy_owned = false;
-    }
-}
-
-static void
-init_proxy_dowork(struct context *c)
-{
-    bool did_http = false;
-
-    uninit_proxy_dowork(c);
-
-    if (c->options.ce.http_proxy_options)
-    {
-        /* Possible HTTP proxy user/pass input */
-        c->c1.http_proxy = http_proxy_new(c->options.ce.http_proxy_options);
-        if (c->c1.http_proxy)
-        {
-            did_http = true;
-            c->c1.http_proxy_owned = true;
-        }
-    }
-
-    if (!did_http && c->options.ce.socks_proxy_server)
-    {
-        c->c1.socks_proxy = socks_proxy_new(c->options.ce.socks_proxy_server,
-                                            c->options.ce.socks_proxy_port,
-                                            c->options.ce.socks_proxy_authfile);
-        if (c->c1.socks_proxy)
-        {
-            c->c1.socks_proxy_owned = true;
-        }
-    }
-}
-
-static void
-init_proxy(struct context *c)
-{
-    init_proxy_dowork(c);
-}
-
-static void
-uninit_proxy(struct context *c)
-{
-    uninit_proxy_dowork(c);
-}
 
 void
 context_init_1(struct context *c)
@@ -2467,7 +2319,6 @@ frame_finalize_options(struct context *c, const struct options *o)
 static void
 key_schedule_free(struct key_schedule *ks, bool free_ssl_ctx)
 {
-    free_key_ctx_bi(&ks->static_key);
     if (free_ssl_ctx) {
         free_key_ctx(&ks->auth_token_key);
     }
@@ -2509,49 +2360,49 @@ do_init_tls_wrap_key(struct context *c)
     /* TLS handshake authentication (--tls-auth) */
     if (options->ce.tls_auth_file)
     {
-        /* Initialize key_type for tls-auth with auth only */
-        CLEAR(c->c1.ks.tls_auth_key_type);
-        c->c1.ks.tls_auth_key_type.cipher = "none";
-        c->c1.ks.tls_auth_key_type.digest = options->authname;
-        if (!md_valid(options->authname))
-        {
-            msg(M_FATAL, "ERROR: tls-auth enabled, but no valid --auth "
-                "algorithm specified ('%s')", options->authname);
-        }
+//        /* Initialize key_type for tls-auth with auth only */
+//        CLEAR(c->c1.ks.tls_auth_key_type);
+//        c->c1.ks.tls_auth_key_type.cipher = "none";
+//        c->c1.ks.tls_auth_key_type.digest = options->authname;
+//        if (!md_valid(options->authname))
+//        {
+//            msg(M_FATAL, "ERROR: tls-auth enabled, but no valid --auth "
+//                "algorithm specified ('%s')", options->authname);
+//        }
 
-        crypto_read_openvpn_key(&c->c1.ks.tls_auth_key_type,
-                                &c->c1.ks.tls_wrap_key,
-                                options->ce.tls_auth_file,
-                                options->ce.tls_auth_file_inline,
-                                options->ce.key_direction,
-                                "Control Channel Authentication", "tls-auth");
+//        crypto_read_openvpn_key(&c->c1.ks.tls_auth_key_type,
+//                                &c->c1.ks.tls_wrap_key,
+//                                options->ce.tls_auth_file,
+//                                options->ce.tls_auth_file_inline,
+//                                options->ce.key_direction,
+//                                "Control Channel Authentication", "tls-auth");
     }
 
     /* TLS handshake encryption+authentication (--tls-crypt) */
     if (options->ce.tls_crypt_file)
     {
-        tls_crypt_init_key(&c->c1.ks.tls_wrap_key,
-                           options->ce.tls_crypt_file,
-                           options->ce.tls_crypt_file_inline,
-                           options->tls_server);
+//        tls_crypt_init_key(&c->c1.ks.tls_wrap_key,
+//                           options->ce.tls_crypt_file,
+//                           options->ce.tls_crypt_file_inline,
+//                           options->tls_server);
     }
 
     /* tls-crypt with client-specific keys (--tls-crypt-v2) */
     if (options->ce.tls_crypt_v2_file)
     {
-        if (options->tls_server)
-        {
-            tls_crypt_v2_init_server_key(&c->c1.ks.tls_crypt_v2_server_key,
-                                         true, options->ce.tls_crypt_v2_file,
-                                         options->ce.tls_crypt_v2_file_inline);
-        }
-        else
-        {
-            tls_crypt_v2_init_client_key(&c->c1.ks.tls_wrap_key,
-                                         &c->c1.ks.tls_crypt_v2_wkc,
-                                         options->ce.tls_crypt_v2_file,
-                                         options->ce.tls_crypt_v2_file_inline);
-        }
+//        if (options->tls_server)
+//        {
+//            tls_crypt_v2_init_server_key(&c->c1.ks.tls_crypt_v2_server_key,
+//                                         true, options->ce.tls_crypt_v2_file,
+//                                         options->ce.tls_crypt_v2_file_inline);
+//        }
+//        else
+//        {
+//            tls_crypt_v2_init_client_key(&c->c1.ks.tls_wrap_key,
+//                                         &c->c1.ks.tls_crypt_v2_wkc,
+//                                         options->ce.tls_crypt_v2_file,
+//                                         options->ce.tls_crypt_v2_file_inline);
+//        }
     }
 
 
@@ -2565,24 +2416,11 @@ static void
 do_init_crypto_tls_c1(struct context *c)
 {
     const struct options *options = &c->options;
-
     const char *ciphername = options->ciphername;
-
     /* Do not warn if the cipher is used only in OCC */
     bool warn = options->enable_ncp_fallback;
     init_key_type(&c->c1.ks.key_type, ciphername, options->authname,
                   true, warn);
-
-    /* initialize tls-auth/crypt/crypt-v2 key */
-    do_init_tls_wrap_key(c);
-
-    /* initialise auth-token crypto support */
-    if (c->options.auth_token_generate)
-    {
-        auth_token_init_secret(&c->c1.ks.auth_token_key,
-                               c->options.auth_token_secret_file,
-                               c->options.auth_token_secret_file_inline);
-    }
 
 }
 
@@ -3654,7 +3492,6 @@ init_management_callback_p2p(struct context *c)
         cb.arg = c;
         cb.status = management_callback_status_p2p;
         cb.show_net = management_show_net_callback;
-        cb.proxy_cmd = management_callback_proxy_cmd;
         cb.remote_cmd = management_callback_remote_cmd;
         cb.send_cc_message = management_callback_send_cc_message;
 #ifdef TARGET_ANDROID
@@ -3915,7 +3752,7 @@ init_instance(struct context *c, const struct env_set *env, const unsigned int f
     }
 
     /* initialize HTTP or SOCKS proxy object at scope level 2 */
-    init_proxy(c);
+    // init_proxy(c);
 
     /* allocate our socket object */
     if (c->mode == CM_P2P || c->mode == CM_TOP || c->mode == CM_CHILD_TCP)
@@ -4154,7 +3991,7 @@ close_instance(struct context *c)
         do_env_set_destroy(c);
 
         /* close HTTP or SOCKS proxy */
-        uninit_proxy(c);
+        // uninit_proxy(c);
 
         /* garbage collect */
         gc_free(&c->c2.gc);

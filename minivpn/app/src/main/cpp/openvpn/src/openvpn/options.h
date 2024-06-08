@@ -111,7 +111,7 @@ struct connection_entry
     int connect_retry_seconds;
     int connect_retry_seconds_max;
     int connect_timeout;
-    struct http_proxy_options *http_proxy_options;
+
     const char *socks_proxy_server;
     const char *socks_proxy_port;
     const char *socks_proxy_authfile;

@@ -30,48 +30,6 @@ const char *auth_token_pem_name = "OpenVPN auth-token server key";
 /* Size of the data of the token (not b64 encoded and without prefix) */
 #define TOKEN_DATA_LEN (2 * sizeof(int64_t) + AUTH_TOKEN_SESSION_ID_LEN + 32)
 
-static struct key_type
-auth_token_kt(void)
-{
-    return create_kt("none", "SHA256", "auth-gen-token");
-}
-
-void
-auth_token_init_secret(struct key_ctx *key_ctx, const char *key_file,
-                       bool key_inline)
-{
-    struct key_type kt = auth_token_kt();
-
-    struct buffer server_secret_key = alloc_buf(2048);
-
-    bool key_loaded = false;
-    if (key_file)
-    {
-        key_loaded = read_pem_key_file(&server_secret_key,
-                                       auth_token_pem_name,
-                                       key_file, key_inline);
-    }
-    else
-    {
-        key_loaded = generate_ephemeral_key(&server_secret_key,
-                                            auth_token_pem_name);
-    }
-
-    if (!key_loaded)
-    {
-        msg(M_FATAL, "ERROR: Cannot load auth-token secret");
-    }
-
-    struct key key;
-
-    if (!buf_read(&server_secret_key, &key, sizeof(key)))
-    {
-        msg(M_FATAL, "ERROR: not enough data in auth-token secret");
-    }
-    init_key_ctx(key_ctx, &key, &kt, false, "auth-token secret");
-
-    free_buf(&server_secret_key);
-}
 
 void
 wipe_auth_token(struct tls_multi *multi)

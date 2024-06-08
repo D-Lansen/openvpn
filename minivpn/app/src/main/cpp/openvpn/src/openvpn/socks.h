@@ -36,17 +36,11 @@ struct link_socket_actual;
 
 struct socks_proxy_info {
     bool defined;
-
     char server[128];
     const char *port;
     char authfile[256];
 };
 
-struct socks_proxy_info *socks_proxy_new(const char *server,
-                                         const char *port,
-                                         const char *authfile);
-
-void socks_proxy_close(struct socks_proxy_info *sp);
 
 void establish_socks_proxy_passthru(struct socks_proxy_info *p,
                                     socket_descriptor_t sd,  /* already open to proxy */

@@ -1120,10 +1120,5 @@ hmac_ctx_final(hmac_ctx_t *ctx, uint8_t *dst)
 }
 #endif /* if OPENSSL_VERSION_NUMBER < 0x30000000L */
 
-int
-memcmp_constant_time(const void *a, const void *b, size_t size)
-{
-    return CRYPTO_memcmp(a, b, size);
-}
 
 #endif /* ENABLE_CRYPTO_OPENSSL */

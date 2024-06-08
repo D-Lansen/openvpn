@@ -405,29 +405,6 @@ bool openvpn_decrypt(struct buffer *buf, struct buffer work,
                      struct crypto_options *opt, const struct frame *frame,
                      const uint8_t *ad_start);
 
-/** @} name Functions for performing security operations on data channel packets */
-
-/**
- * Check packet ID for replay, and perform replay administration.
- *
- * @param opt   Crypto options for this packet, contains replay state.
- * @param pin   Packet ID read from packet.
- * @param error_prefix  Prefix to use when printing error messages.
- * @param gc    Garbage collector to use.
- *
- * @return true if packet ID is validated to be not a replay, false otherwise.
- */
-bool crypto_check_replay(struct crypto_options *opt,
-                         const struct packet_id_net *pin, const char *error_prefix,
-                         struct gc_arena *gc);
-
-
-/** Calculate crypto overhead and adjust frame to account for that */
-void crypto_adjust_frame_parameters(struct frame *frame,
-                                    const struct key_type *kt,
-                                    bool packet_id,
-                                    bool packet_id_long_form);
-
 /** Calculate the maximum overhead that our encryption has
  * on a packet. This does not include needed additional buffer size
  *
@@ -449,129 +426,16 @@ calculate_crypto_overhead(const struct key_type *kt,
 /** Return the worst-case OpenVPN crypto overhead (in bytes) */
 unsigned int crypto_max_overhead(void);
 
-/**
- * Generate a server key with enough randomness to fill a key struct
- * and write to file.
- *
- * @param filename          Filename of the server key file to create.
- * @param pem_name          The name to use in the PEM header/footer.
- */
-void
-write_pem_key_file(const char *filename, const char *key_name);
 
-/**
- * Generate ephermal key material into the key structure
- *
- * @param key           the key structure that will hold the key material
- * @param pem_name      the name used for logging
- * @return              true if key generation was successful
- */
-bool
-generate_ephemeral_key(struct buffer *key, const char *pem_name);
-
-/**
- * Read key material from a PEM encoded files into the key structure
- * @param key           the key structure that will hold the key material
- * @param pem_name      the name used in the pem encoding start/end lines
- * @param key_file      name of the file to read or the key itself if
- *                      key_inline is true
- * @param key_inline    True if key_file contains an inline key, False
- *                      otherwise.
- * @return              true if reading into key was successful
- */
-bool
-read_pem_key_file(struct buffer *key, const char *pem_name,
-                  const char *key_file, bool key_inline);
-
-/*
- * Message digest-based pseudo random number generator.
- *
- * If the PRNG was initialised with a certain message digest, uses the digest
- * to calculate the next random number, and prevent depletion of the entropy
- * pool.
- *
- * This PRNG is aimed at IV generation and similar miscellaneous tasks. Use
- * \c rand_bytes() for higher-assurance functionality.
- *
- * Retrieves len bytes of pseudo random data, and places it in output.
- *
- * @param output        Output buffer
- * @param len           Length of the output buffer
- */
 void prng_bytes(uint8_t *output, int len);
 
 /* an analogue to the random() function, but use prng_bytes */
 long int get_random(void);
 
-/* key direction functions */
-
-void key_direction_state_init(struct key_direction_state *kds, int key_direction);
-
-void verify_fix_key2(struct key2 *key2, const struct key_type *kt, const char *shared_secret_file);
-
-void must_have_n_keys(const char *filename, const char *option, const struct key2 *key2, int n);
 
 int ascii2keydirection(int msglevel, const char *str);
 
 const char *keydirection2ascii(int kd, bool remote, bool humanreadable);
 
-
-void crypto_read_openvpn_key(const struct key_type *key_type,
-                             struct key_ctx_bi *ctx, const char *key_file,
-                             bool key_inline, const int key_direction,
-                             const char *key_name, const char *opt_name);
-
-/*
- * Inline functions
- */
-
-/**
- * As memcmp(), but constant-time.
- * Returns 0 when data is equal, non-zero otherwise.
- */
-int memcmp_constant_time(const void *a, const void *b, size_t size);
-
-/**
- * To be used when printing a string that may contain inline data.
- *
- * If "is_inline" is true, return the inline tag.
- * If "is_inline" is false and "str" is not NULL, return "str".
- * Return the constant string "[NULL]" otherwise.
- *
- * @param str       the original string to return when is_inline is false
- * @param is_inline true when str contains an inline data of some sort
- */
-const char *print_key_filename(const char *str, bool is_inline);
-
-/**
- * Creates and validates an instance of struct key_type with the provided
- * algs.
- *
- * @param cipher    the cipher algorithm to use (must be a string literal)
- * @param md        the digest algorithm to use (must be a string literal)
- * @param optname   the name of the option requiring the key_type object
- *
- * @return          the initialized key_type instance
- */
-static inline struct key_type
-create_kt(const char *cipher, const char *md, const char *optname)
-{
-    struct key_type kt;
-    kt.cipher = cipher;
-    kt.digest = md;
-
-    if (cipher_defined(kt.cipher) && !cipher_valid(kt.cipher))
-    {
-        msg(M_WARN, "ERROR: --%s requires %s support.", optname, kt.cipher);
-        return (struct key_type) { 0 };
-    }
-    if (md_defined(kt.digest) && !md_valid(kt.digest))
-    {
-        msg(M_WARN, "ERROR: --%s requires %s support.", optname, kt.digest);
-        return (struct key_type) { 0 };
-    }
-
-    return kt;
-}
 
 #endif /* CRYPTO_H */

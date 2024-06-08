@@ -179,10 +179,6 @@ struct context_1
     struct status_output *status_output;
     bool status_output_owned;
 
-    /* HTTP proxy object */
-    struct http_proxy_info *http_proxy;
-    bool http_proxy_owned;
-
     /* SOCKS proxy object */
     struct socks_proxy_info *socks_proxy;
     bool socks_proxy_owned;

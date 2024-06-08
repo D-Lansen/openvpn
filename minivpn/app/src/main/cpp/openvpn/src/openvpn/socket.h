@@ -214,9 +214,6 @@ struct link_socket
     struct buffer stream_buf_data;
     bool stream_reset;
 
-    /* HTTP proxy */
-    struct http_proxy_info *http_proxy;
-
     /* Socks proxy */
     struct socks_proxy_info *socks_proxy;
     struct link_socket_actual socks_relay; /* Socks UDP relay address */

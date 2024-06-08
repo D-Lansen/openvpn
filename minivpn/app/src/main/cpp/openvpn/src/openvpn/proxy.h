@@ -58,38 +58,5 @@ struct http_proxy_options {
     bool inline_creds;
 };
 
-struct http_proxy_options_simple {
-    const char *server;
-    const char *port;
-    int auth_retry;
-};
-
-struct http_proxy_info {
-    bool defined;
-    int auth_method;
-    struct http_proxy_options options;
-    struct user_pass up;
-    char *proxy_authenticate;
-    bool queried_creds;
-};
-
-struct http_proxy_options *init_http_proxy_options_once(struct http_proxy_options **hpo,
-                                                        struct gc_arena *gc);
-
-struct http_proxy_info *http_proxy_new(const struct http_proxy_options *o);
-
-void http_proxy_close(struct http_proxy_info *hp);
-
-bool establish_http_proxy_passthru(struct http_proxy_info *p,
-                                   socket_descriptor_t sd,  /* already open to proxy */
-                                   const char *host,        /* openvpn server remote */
-                                   const char *port,          /* openvpn server port */
-                                   struct event_timeout *server_poll_timeout,
-                                   struct buffer *lookahead,
-                                   volatile int *signal_received);
-
-uint8_t *make_base64_string2(const uint8_t *str, int str_len, struct gc_arena *gc);
-
-uint8_t *make_base64_string(const uint8_t *str, struct gc_arena *gc);
 
 #endif /* PROXY_H */

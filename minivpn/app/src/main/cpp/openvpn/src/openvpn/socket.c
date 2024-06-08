@@ -362,33 +362,6 @@ do_preresolve(struct context *c)
         {
             remote = ce->remote;
         }
-
-        /* HTTP remote hostname does not need to be resolved */
-        if (!ce->http_proxy_options)
-        {
-            status = do_preresolve_host(c, remote, ce->remote_port,
-                                        ce->af, flags);
-            if (status != 0)
-            {
-                goto err;
-            }
-        }
-
-        /* Preresolve proxy */
-        if (ce->http_proxy_options)
-        {
-            status = do_preresolve_host(c,
-                                        ce->http_proxy_options->server,
-                                        ce->http_proxy_options->port,
-                                        ce->af,
-                                        preresolve_flags);
-
-            if (status != 0)
-            {
-                goto err;
-            }
-        }
-
         if (ce->socks_proxy_server)
         {
             status = do_preresolve_host(c,
@@ -1847,7 +1820,6 @@ link_socket_init_phase1(struct context *c, int mode)
     sock->remote_host = remote_host;
     sock->remote_port = remote_port;
     sock->dns_cache = c->c1.dns_cache;
-    sock->http_proxy = c->c1.http_proxy;
     sock->socks_proxy = c->c1.socks_proxy;
     sock->bind_local = o->ce.bind_local;
     sock->resolve_retry_seconds = o->resolve_retry_seconds;
@@ -1889,21 +1861,7 @@ link_socket_init_phase1(struct context *c, int mode)
         sock->info.af = c->c2.accept_from->info.af;
     }
 
-    /* are we running in HTTP proxy mode? */
-    if (sock->http_proxy)
-    {
-        ASSERT(sock->info.proto == PROTO_TCP_CLIENT);
-
-        /* the proxy server */
-        sock->remote_host = c->c1.http_proxy->options.server;
-        sock->remote_port = c->c1.http_proxy->options.port;
-
-        /* the OpenVPN server we will use the proxy to connect to */
-        sock->proxy_dest_host = remote_host;
-        sock->proxy_dest_port = remote_port;
-    }
-    /* or in Socks proxy mode? */
-    else if (sock->socks_proxy)
+     if (sock->socks_proxy)
     {
         /* the proxy server */
         sock->remote_host = c->c1.socks_proxy->server;
@@ -2060,16 +2018,6 @@ phase2_tcp_client(struct link_socket *sock, struct signal_info *sig_info)
             return;
         }
 
-        if (sock->http_proxy)
-        {
-            proxy_retry = establish_http_proxy_passthru(sock->http_proxy,
-                                                        sock->sd,
-                                                        sock->proxy_dest_host,
-                                                        sock->proxy_dest_port,
-                                                        sock->server_poll_timeout,
-                                                        &sock->stream_buf.residual,
-                                                        &sig_info->signal_received);
-        }
         else if (sock->socks_proxy)
         {
             establish_socks_proxy_passthru(sock->socks_proxy,
@@ -2077,11 +2025,6 @@ phase2_tcp_client(struct link_socket *sock, struct signal_info *sig_info)
                                            sock->proxy_dest_host,
                                            sock->proxy_dest_port,
                                            &sig_info->signal_received);
-        }
-        if (proxy_retry)
-        {
-            openvpn_close_socket(sock->sd);
-            sock->sd = create_socket_tcp(sock->info.lsa->current_remote);
         }
 
     } while (proxy_retry);

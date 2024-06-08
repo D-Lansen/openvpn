@@ -270,7 +270,7 @@ tls_init_control_channel_frame_parameters(struct frame *frame, int tls_mtu)
     overhead += 10;
 
     /* tls-auth and tls-crypt */
-    overhead += max_int(tls_crypt_buf_overhead(),
+    overhead += max_int(packet_id_size(true) + TLS_CRYPT_TAG_SIZE + TLS_CRYPT_BLOCK_SIZE,
                         packet_id_size(true) + OPENVPN_MAX_HMAC_SIZE);
 
     /* TCP length field and opcode */
