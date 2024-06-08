@@ -1708,12 +1708,15 @@ tun_abort(void)
  * equal, or either one is all-zeroes.
  */
 static bool
-options_hash_changed_or_zero(const struct sha256_digest *a,
-                             const struct sha256_digest *b)
+options_hash_changed_or_zero(const time_t *a,
+                             const time_t *b)
 {
-    const struct sha256_digest zero = {{0}};
-    return memcmp(a, b, sizeof(struct sha256_digest))
-           || !memcmp(a, &zero, sizeof(struct sha256_digest));
+    const time_t zero = 0;
+    if ((a == 0 )|| ( a != b) ){
+        return true;
+    } else{
+        return false;
+    }
 }
 
 /**
@@ -2319,9 +2322,6 @@ frame_finalize_options(struct context *c, const struct options *o)
 static void
 key_schedule_free(struct key_schedule *ks, bool free_ssl_ctx)
 {
-    if (free_ssl_ctx) {
-        free_key_ctx(&ks->auth_token_key);
-    }
     CLEAR(*ks);
 }
 
@@ -2348,64 +2348,6 @@ init_crypto_pre(struct context *c, const unsigned int flags)
         rand_ctx_enable_prediction_resistance();
     }
 #endif
-}
-/*
- * Initialize the tls-auth/crypt key context
- */
-static void
-do_init_tls_wrap_key(struct context *c)
-{
-    const struct options *options = &c->options;
-
-    /* TLS handshake authentication (--tls-auth) */
-    if (options->ce.tls_auth_file)
-    {
-//        /* Initialize key_type for tls-auth with auth only */
-//        CLEAR(c->c1.ks.tls_auth_key_type);
-//        c->c1.ks.tls_auth_key_type.cipher = "none";
-//        c->c1.ks.tls_auth_key_type.digest = options->authname;
-//        if (!md_valid(options->authname))
-//        {
-//            msg(M_FATAL, "ERROR: tls-auth enabled, but no valid --auth "
-//                "algorithm specified ('%s')", options->authname);
-//        }
-
-//        crypto_read_openvpn_key(&c->c1.ks.tls_auth_key_type,
-//                                &c->c1.ks.tls_wrap_key,
-//                                options->ce.tls_auth_file,
-//                                options->ce.tls_auth_file_inline,
-//                                options->ce.key_direction,
-//                                "Control Channel Authentication", "tls-auth");
-    }
-
-    /* TLS handshake encryption+authentication (--tls-crypt) */
-    if (options->ce.tls_crypt_file)
-    {
-//        tls_crypt_init_key(&c->c1.ks.tls_wrap_key,
-//                           options->ce.tls_crypt_file,
-//                           options->ce.tls_crypt_file_inline,
-//                           options->tls_server);
-    }
-
-    /* tls-crypt with client-specific keys (--tls-crypt-v2) */
-    if (options->ce.tls_crypt_v2_file)
-    {
-//        if (options->tls_server)
-//        {
-//            tls_crypt_v2_init_server_key(&c->c1.ks.tls_crypt_v2_server_key,
-//                                         true, options->ce.tls_crypt_v2_file,
-//                                         options->ce.tls_crypt_v2_file_inline);
-//        }
-//        else
-//        {
-//            tls_crypt_v2_init_client_key(&c->c1.ks.tls_wrap_key,
-//                                         &c->c1.ks.tls_crypt_v2_wkc,
-//                                         options->ce.tls_crypt_v2_file,
-//                                         options->ce.tls_crypt_v2_file_inline);
-//        }
-    }
-
-
 }
 
 /*
@@ -2576,9 +2518,6 @@ do_init_crypto_tls(struct context *c, const unsigned int flags)
     to.auth_token_generate = options->auth_token_generate;
     to.auth_token_lifetime = options->auth_token_lifetime;
     to.auth_token_call_auth = options->auth_token_call_auth;
-    to.auth_token_key = c->c1.ks.auth_token_key;
-
-    to.x509_track = options->x509_track;
 
 #ifdef ENABLE_MANAGEMENT
     to.sci = &options->sc_info;
@@ -2606,47 +2545,6 @@ do_init_crypto_tls(struct context *c, const unsigned int flags)
     }
 #endif /* HAVE_EXPORT_KEYING_MATERIAL */
 
-    /* TLS handshake authentication (--tls-auth) */
-    if (options->ce.tls_auth_file)
-    {
-        to.tls_wrap.mode = TLS_WRAP_NONE;
-        to.tls_wrap.opt.key_ctx_bi = c->c1.ks.tls_wrap_key;
-        to.tls_wrap.opt.pid_persist = &c->c1.pid_persist;
-        to.tls_wrap.opt.flags |= CO_PACKET_ID_LONG_FORM;
-    }
-
-    /* TLS handshake encryption (--tls-crypt) */
-    if (options->ce.tls_crypt_file
-        || (options->ce.tls_crypt_v2_file && options->tls_client))
-    {
-        to.tls_wrap.mode = TLS_WRAP_NONE;
-        to.tls_wrap.opt.key_ctx_bi = c->c1.ks.tls_wrap_key;
-        to.tls_wrap.opt.pid_persist = &c->c1.pid_persist;
-        to.tls_wrap.opt.flags |= CO_PACKET_ID_LONG_FORM;
-
-        if (options->ce.tls_crypt_v2_file)
-        {
-            to.tls_wrap.tls_crypt_v2_wkc = &c->c1.ks.tls_crypt_v2_wkc;
-        }
-    }
-
-    if (options->ce.tls_crypt_v2_file)
-    {
-        to.tls_crypt_v2 = true;
-        if (options->tls_server)
-        {
-            to.tls_wrap.tls_crypt_v2_server_key = c->c1.ks.tls_crypt_v2_server_key;
-            to.tls_crypt_v2_verify_script = c->options.tls_crypt_v2_verify_script;
-            if (options->ce.tls_crypt_v2_force_cookie)
-            {
-                to.tls_wrap.opt.flags |= CO_FORCE_TLSCRYPTV2_COOKIE;
-            }
-        }
-    }
-
-    /* let the TLS engine know if keys have to be installed in DCO or not */
-    to.dco_enabled = dco_enabled(options);
-
     /*
      * Initialize OpenVPN's master TLS-mode object.
      */
@@ -2663,8 +2561,8 @@ do_init_crypto_tls(struct context *c, const unsigned int flags)
 
     if (flags & CF_INIT_TLS_AUTH_STANDALONE)
     {
-        c->c2.tls_auth_standalone = tls_auth_standalone_init(&to, &c->c2.gc);
-        c->c2.session_id_hmac = session_id_hmac_init();
+//        c->c2.tls_auth_standalone = tls_auth_standalone_init(&to, &c->c2.gc);
+//        c->c2.session_id_hmac = session_id_hmac_init();
     }
 }
 
@@ -3078,12 +2976,6 @@ do_close_tls(struct context *c)
     free(c->c2.options_string_remote);
 
     c->c2.options_string_local = c->c2.options_string_remote = NULL;
-
-    if (c->c2.pulled_options_state)
-    {
-        md_ctx_cleanup(c->c2.pulled_options_state);
-        md_ctx_free(c->c2.pulled_options_state);
-    }
 }
 
 /*
@@ -3092,16 +2984,6 @@ do_close_tls(struct context *c)
 static void
 do_close_free_key_schedule(struct context *c, bool free_ssl_ctx)
 {
-    /*
-     * always free the tls_auth/crypt key. If persist_key is true, the key will
-     * be reloaded from memory (pre-cached)
-     */
-    free_key_ctx(&c->c1.ks.tls_crypt_v2_server_key);
-    free_key_ctx_bi(&c->c1.ks.tls_wrap_key);
-    CLEAR(c->c1.ks.tls_wrap_key);
-    buf_clear(&c->c1.ks.tls_crypt_v2_wkc);
-    free_buf(&c->c1.ks.tls_crypt_v2_wkc);
-
     if (!(c->sig->signal_received == SIGUSR1 && c->options.persist_key))
     {
         key_schedule_free(&c->c1.ks, free_ssl_ctx);
@@ -4016,16 +3898,9 @@ inherit_context_child(struct context *dest,
 
     dest->c1.ks.key_type = src->c1.ks.key_type;
     /* inherit SSL context */
-//    dest->c1.ks.ssl_ctx = src->c1.ks.ssl_ctx;
-    dest->c1.ks.tls_wrap_key = src->c1.ks.tls_wrap_key;
-    dest->c1.ks.tls_auth_key_type = src->c1.ks.tls_auth_key_type;
-    dest->c1.ks.tls_crypt_v2_server_key = src->c1.ks.tls_crypt_v2_server_key;
     /* inherit pre-NCP ciphers */
     dest->options.ciphername = src->options.ciphername;
     dest->options.authname = src->options.authname;
-
-    /* inherit auth-token */
-    dest->c1.ks.auth_token_key = src->c1.ks.auth_token_key;
 
     /* options */
     dest->options = src->options;

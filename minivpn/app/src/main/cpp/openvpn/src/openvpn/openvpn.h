@@ -62,11 +62,11 @@ struct key_schedule
 //    struct tls_root_ctx ssl_ctx;
 
     /* optional TLS control channel wrapping */
-    struct key_type tls_auth_key_type;
-    struct key_ctx_bi tls_wrap_key;
-    struct key_ctx tls_crypt_v2_server_key;
-    struct buffer tls_crypt_v2_wkc;             /**< Wrapped client key */
-    struct key_ctx auth_token_key;
+//    struct key_type tls_auth_key_type;
+//    struct key_ctx_bi tls_wrap_key;
+//    struct key_ctx tls_crypt_v2_server_key;
+//    struct buffer tls_crypt_v2_wkc;             /**< Wrapped client key */
+//    struct key_ctx auth_token_key;
 };
 
 /*
@@ -188,7 +188,7 @@ struct context_1
     bool ifconfig_pool_persist_owned;
 
     /* if client mode, hash of option strings we pulled from server */
-    struct sha256_digest pulled_options_digest_save;
+    time_t pulled_options_digest_save;
     /**< Hash of option strings received from the
      *   remote OpenVPN server.  Only used in
      *   client-mode. */
@@ -430,8 +430,8 @@ struct context_2
 
     /* hash of pulled options, so we can compare when options change */
     bool pulled_options_digest_init_done;
-    md_ctx_t *pulled_options_state;
-    struct sha256_digest pulled_options_digest;
+//    md_ctx_t *pulled_options_state;
+    time_t pulled_options_digest;
 
     struct event_timeout scheduled_exit;
     int scheduled_exit_signal;

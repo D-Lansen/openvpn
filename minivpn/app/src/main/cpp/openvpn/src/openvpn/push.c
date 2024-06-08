@@ -952,7 +952,6 @@ push_update_digest(md_ctx_t *ctx, struct buffer *buf, const struct options *opt)
         {
             continue;
         }
-        md_ctx_update(ctx, (const uint8_t *) line, strlen(line)+1);
     }
 }
 
@@ -969,8 +968,6 @@ process_incoming_push_reply(struct context *c,
         struct buffer buf_orig = (*buf);
         if (!c->c2.pulled_options_digest_init_done)
         {
-            c->c2.pulled_options_state = md_ctx_new();
-            md_ctx_init(c->c2.pulled_options_state, "SHA256");
             c->c2.pulled_options_digest_init_done = true;
         }
         if (apply_push_options(&c->options,
@@ -979,17 +976,14 @@ process_incoming_push_reply(struct context *c,
                                option_types_found,
                                c->c2.es))
         {
-            push_update_digest(c->c2.pulled_options_state, &buf_orig,
+            push_update_digest(NULL, &buf_orig,
                                &c->options);
             switch (c->options.push_continuation)
             {
                 case 0:
                 case 1:
-                    md_ctx_final(c->c2.pulled_options_state,
-                                 c->c2.pulled_options_digest.digest);
-                    md_ctx_cleanup(c->c2.pulled_options_state);
-                    md_ctx_free(c->c2.pulled_options_state);
-                    c->c2.pulled_options_state = NULL;
+                    update_time();
+                    c->c2.pulled_options_digest = now;
                     c->c2.pulled_options_digest_init_done = false;
                     ret = PUSH_MSG_REPLY;
                     break;

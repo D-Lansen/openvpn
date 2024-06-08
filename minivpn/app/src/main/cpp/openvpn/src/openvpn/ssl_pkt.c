@@ -82,17 +82,3 @@ cleanup:
     return ret;
 }
 
-
-hmac_ctx_t *
-session_id_hmac_init(void)
-{
-    /* We assume that SHA256 is always available */
-    ASSERT(md_valid("SHA256"));
-    hmac_ctx_t *hmac_ctx = hmac_ctx_new();
-
-    uint8_t key[SHA256_DIGEST_LENGTH];
-    ASSERT(rand_bytes(key, sizeof(key)));
-
-    hmac_ctx_init(hmac_ctx, key, "SHA256");
-    return hmac_ctx;
-}

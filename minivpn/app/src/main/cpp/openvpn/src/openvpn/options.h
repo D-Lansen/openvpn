@@ -654,8 +654,6 @@ struct options
 
     bool tls_exit;
 
-    const struct x509_track *x509_track;
-
     /* special state parms */
     int foreign_option_index;
 

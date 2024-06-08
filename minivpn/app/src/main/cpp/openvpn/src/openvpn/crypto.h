@@ -216,10 +216,6 @@ struct key_direction_state
  */
 struct key_ctx_bi
 {
-    struct key_ctx encrypt;     /**< Cipher and/or HMAC contexts for sending
-                                 *   direction. */
-    struct key_ctx decrypt;     /**< cipher and/or HMAC contexts for
-                                 *   receiving direction. */
     bool initialized;
 };
 

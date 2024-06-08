@@ -457,11 +457,6 @@ tls_wrap_free(struct tls_wrap_ctx *tls_wrap)
         packet_id_free(&tls_wrap->opt.packet_id);
     }
 
-    if (tls_wrap->cleanup_key_ctx)
-    {
-        free_key_ctx_bi(&tls_wrap->opt.key_ctx_bi);
-    }
-
     free_buf(&tls_wrap->tls_crypt_v2_metadata);
     free_buf(&tls_wrap->work);
 }

@@ -677,7 +677,6 @@ key_state_free(struct key_state *ks, bool clear)
 {
     ks->state = S_UNDEF;
 
-    free_key_ctx_bi(&ks->crypto_options.key_ctx_bi);
     free_buf(&ks->plaintext_read_buf);
     free_buf(&ks->plaintext_write_buf);
     free_buf(&ks->ack_write_buf);
