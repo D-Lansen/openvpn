@@ -35,8 +35,6 @@
 #include "misc.h"
 #include "mbuf.h"
 
-#include "memdbg.h"
-
 struct mbuf_set *
 mbuf_init(unsigned int size)
 {

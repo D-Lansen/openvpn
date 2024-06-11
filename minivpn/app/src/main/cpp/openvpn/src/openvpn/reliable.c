@@ -39,7 +39,6 @@
 #include "common.h"
 #include "reliable.h"
 
-#include "memdbg.h"
 #include "misc.h"
 
 /* calculates test - base while allowing for base or test wraparound. test is

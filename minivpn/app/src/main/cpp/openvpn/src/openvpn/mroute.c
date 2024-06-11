@@ -35,8 +35,6 @@
 #include "error.h"
 #include "socket.h"
 
-#include "memdbg.h"
-
 void
 mroute_addr_init(struct mroute_addr *addr)
 {

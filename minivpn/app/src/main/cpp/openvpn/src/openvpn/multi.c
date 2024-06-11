@@ -46,8 +46,6 @@
 #include "vlan.h"
 #include <inttypes.h>
 
-#include "memdbg.h"
-
 
 #include "crypto_backend.h"
 #include "ssl_util.h"
@@ -502,8 +500,6 @@ multi_del_iroutes(struct multi_context *m,
 {
     const struct iroute *ir;
     const struct iroute_ipv6 *ir6;
-
-    dco_delete_iroutes(m, mi);
 
     if (TUNNEL_TYPE(mi->context.c1.tuntap) == DEV_TYPE_TUN)
     {
@@ -1209,14 +1205,6 @@ multi_learn_in_addr_t(struct multi_context *m,
         management_learn_addr(management, &mi->context.c2.mda_context, &addr, primary);
     }
 #endif
-    if (!primary)
-    {
-        /* "primary" is the VPN ifconfig address of the peer and already
-         * known to DCO, so only install "extra" iroutes (primary = false)
-         */
-        dco_install_iroute(m, mi, &addr);
-    }
-
     return owner;
 }
 
@@ -1248,14 +1236,6 @@ multi_learn_in6_addr(struct multi_context *m,
         management_learn_addr(management, &mi->context.c2.mda_context, &addr, primary);
     }
 #endif
-    if (!primary)
-    {
-        /* "primary" is the VPN ifconfig address of the peer and already
-         * known to DCO, so only install "extra" iroutes (primary = false)
-         */
-        dco_install_iroute(m, mi, &addr);
-    }
-
     return owner;
 }
 
@@ -1755,14 +1735,6 @@ multi_client_set_protocol_options(struct context *c)
     {
         tls_multi->use_peer_id = true;
         o->use_peer_id = true;
-    }
-    else if (dco_enabled(o))
-    {
-        msg(M_INFO, "Client does not support DATA_V2. Data channel offloaing "
-            "requires DATA_V2. Dropping client.");
-        auth_set_client_reason(tls_multi, "Data channel negotiation "
-                               "failed (missing DATA_V2)");
-        return false;
     }
 
     if (proto & IV_PROTO_REQUEST_PUSH)
@@ -2335,31 +2307,6 @@ multi_client_connect_late_setup(struct multi_context *m,
      * has not failed */
     else
     {
-        if (dco_enabled(&mi->context.options))
-        {
-            int ret = dco_multi_add_new_peer(m, mi);
-            if (ret < 0)
-            {
-                msg(D_DCO, "Cannot add peer to DCO: %s (%d)", strerror(-ret), ret);
-                mi->context.c2.tls_multi->multi_state = CAS_FAILED;
-            }
-
-            if (mi->context.options.ping_send_timeout || mi->context.c2.frame.mss_fix)
-            {
-                ret = dco_set_peer(&mi->context.c1.tuntap->dco,
-                                       mi->context.c2.tls_multi->peer_id,
-                                       mi->context.options.ping_send_timeout,
-                                       mi->context.options.ping_rec_timeout,
-                                       mi->context.c2.frame.mss_fix);
-                if (ret < 0)
-                {
-                    msg(D_DCO, "Cannot set parameters for DCO peer (id=%u): %s",
-                        mi->context.c2.tls_multi->peer_id, strerror(-ret));
-                    mi->context.c2.tls_multi->multi_state = CAS_FAILED;
-                }
-            }
-        }
-
         if (!multi_client_generate_tls_keys(&mi->context))
         {
             mi->context.c2.tls_multi->multi_state = CAS_FAILED;
@@ -2620,14 +2567,6 @@ multi_connection_established(struct multi_context *m, struct multi_instance *mi)
         }
 
         (*cur_handler_index)++;
-    }
-
-    /* Check if we have forbidding options in the current mode */
-    if (dco_enabled(&mi->context.options)
-        && !dco_check_option_conflict(D_MULTI_ERRORS, &mi->context.options))
-    {
-        msg(D_MULTI_ERRORS, "MULTI: client has been rejected due to incompatible DCO options");
-        cc_succeeded = false;
     }
 
     if (cc_succeeded)

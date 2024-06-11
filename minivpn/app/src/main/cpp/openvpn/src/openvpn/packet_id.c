@@ -42,8 +42,6 @@
 #include "misc.h"
 #include "integer.h"
 
-#include "memdbg.h"
-
 /* #define PID_SIMULATE_BACKTRACK */
 
 /*

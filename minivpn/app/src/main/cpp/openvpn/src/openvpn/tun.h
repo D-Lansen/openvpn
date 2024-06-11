@@ -215,8 +215,6 @@ struct tuntap
 #endif
     /* used for printing status info only */
     unsigned int rwflags_debug;
-
-    dco_context_t dco;
 };
 
 static inline bool

@@ -59,10 +59,8 @@
 #include "forward.h"
 #include "ssl_verify.h"
 #include "platform.h"
-#include "dco.h"
 #include <ctype.h>
 
-#include "memdbg.h"
 
 const char title_string[] =
     PACKAGE_STRING
@@ -866,7 +864,6 @@ init_options(struct options *o, const bool init_gc)
     o->replay = true;
     o->replay_window = DEFAULT_SEQ_BACKTRACK;
     o->replay_time = DEFAULT_TIME_BACKTRACK;
-    o->key_direction = KEY_DIRECTION_BIDIRECTIONAL;
 #ifdef ENABLE_PREDICTION_RESISTANCE
     o->use_prediction_resistance = false;
 #endif
@@ -1706,8 +1703,6 @@ show_connection_entry(const struct connection_entry *o)
     SHOW_INT(explicit_exit_notification);
 
     SHOW_STR_INLINE(tls_auth_file);
-    SHOW_PARM(key_direction, keydirection2ascii(o->key_direction, false, true),
-              "%s");
     SHOW_STR_INLINE(tls_crypt_file);
     SHOW_STR_INLINE(tls_crypt_v2_file);
 }
@@ -1906,7 +1901,6 @@ show_settings(const struct options *o)
 #endif
 
     SHOW_STR_INLINE(shared_secret_file);
-    SHOW_PARM(key_direction, keydirection2ascii(o->key_direction, false, true), "%s");
     SHOW_STR(ciphername);
     SHOW_STR(ncp_ciphers);
     SHOW_STR(authname);
@@ -3156,12 +3150,6 @@ options_postprocess_verify(const struct options *o)
 
     dns_options_verify(M_FATAL, &o->dns_options);
 
-    if (dco_enabled(o) && o->enable_c2c)
-    {
-        msg(M_WARN, "Note: --client-to-client has no effect when using data "
-            "channel offload: packets are always sent to the VPN "
-            "interface and then routed based on the system routing table");
-    }
 }
 
 /**
@@ -3371,15 +3359,8 @@ options_postprocess_mutate(struct options *o, struct env_set *es)
 
     /* check if any option should force disabling DCO */
 #if defined(TARGET_LINUX)
-    o->tuntap_options.disable_dco = !dco_check_option_conflict(D_DCO, o);
+    o->tuntap_options.disable_dco = true;
 #endif
-
-    if (dco_enabled(o) && o->dev_node)
-    {
-        msg(M_WARN, "Note: ignoring --dev-node as it has no effect when using "
-            "data channel offload");
-        o->dev_node = NULL;
-    }
 
     /*
      * Save certain parms before modifying options during connect, especially
@@ -3751,16 +3732,16 @@ options_string(const struct options *o,
 #define TLS_CLIENT (o->tls_client)
 #define TLS_SERVER (o->tls_server)
 
-    /*
-     * Key direction
-     */
-    {
-        const char *kd = keydirection2ascii(o->key_direction, remote, false);
-        if (kd)
-        {
-            buf_printf(&out, ",keydir %s", kd);
-        }
-    }
+//    /*
+//     * Key direction
+//     */
+//    {
+//        const char *kd = keydirection2ascii(o->key_direction, remote, false);
+//        if (kd)
+//        {
+//            buf_printf(&out, ",keydir %s", kd);
+//        }
+//    }
 
     /*
      * Crypto Options
@@ -7644,47 +7625,47 @@ add_option(struct options *options,
     }
     else if (streq(p[0], "key-direction") && p[1] && !p[2])
     {
-        int key_direction;
-
-        VERIFY_PERMISSION(OPT_P_GENERAL|OPT_P_CONNECTION);
-
-        key_direction = ascii2keydirection(msglevel, p[1]);
-        if (key_direction >= 0)
-        {
-            if (permission_mask & OPT_P_GENERAL)
-            {
-                options->key_direction = key_direction;
-            }
-            else if (permission_mask & OPT_P_CONNECTION)
-            {
-                options->ce.key_direction = key_direction;
-            }
-        }
-        else
-        {
-            goto err;
-        }
+//        int key_direction;
+//
+//        VERIFY_PERMISSION(OPT_P_GENERAL|OPT_P_CONNECTION);
+//
+//        key_direction = ascii2keydirection(msglevel, p[1]);
+//        if (key_direction >= 0)
+//        {
+//            if (permission_mask & OPT_P_GENERAL)
+//            {
+//                options->key_direction = key_direction;
+//            }
+//            else if (permission_mask & OPT_P_CONNECTION)
+//            {
+//                options->ce.key_direction = key_direction;
+//            }
+//        }
+//        else
+//        {
+//            goto err;
+//        }
     }
     else if (streq(p[0], "secret") && p[1] && !p[3])
     {
-        msg(M_WARN, "DEPRECATED OPTION: The option --secret is deprecated.");
-        VERIFY_PERMISSION(OPT_P_GENERAL|OPT_P_INLINE);
-        options->shared_secret_file = p[1];
-        options->shared_secret_file_inline = is_inline;
-        if (!is_inline && p[2])
-        {
-            int key_direction;
-
-            key_direction = ascii2keydirection(msglevel, p[2]);
-            if (key_direction >= 0)
-            {
-                options->key_direction = key_direction;
-            }
-            else
-            {
-                goto err;
-            }
-        }
+//        msg(M_WARN, "DEPRECATED OPTION: The option --secret is deprecated.");
+//        VERIFY_PERMISSION(OPT_P_GENERAL|OPT_P_INLINE);
+//        options->shared_secret_file = p[1];
+//        options->shared_secret_file_inline = is_inline;
+//        if (!is_inline && p[2])
+//        {
+//            int key_direction;
+//
+//            key_direction = ascii2keydirection(msglevel, p[2]);
+//            if (key_direction >= 0)
+//            {
+//                options->key_direction = key_direction;
+//            }
+//            else
+//            {
+//                goto err;
+//            }
+//        }
     }
     else if (streq(p[0], "genkey") && !p[4])
     {

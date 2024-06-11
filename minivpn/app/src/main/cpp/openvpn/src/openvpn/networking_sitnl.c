@@ -28,7 +28,6 @@
 
 #include "syshead.h"
 
-#include "dco.h"
 #include "errlevel.h"
 #include "buffer.h"
 #include "misc.h"

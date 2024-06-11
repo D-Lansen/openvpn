@@ -37,7 +37,6 @@
 #include "crypto.h"
 #include "ps.h"
 
-#include "memdbg.h"
 
 struct port_share *port_share = NULL; /* GLOBAL */
 

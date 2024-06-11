@@ -32,7 +32,6 @@
 #include "clinat.h"
 #include "proto.h"
 #include "socket.h"
-#include "memdbg.h"
 
 static bool
 add_entry(struct client_nat_option_list *dest,

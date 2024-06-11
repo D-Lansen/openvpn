@@ -39,7 +39,6 @@
 #include "error.h"
 #include "otime.h"
 
-#include "memdbg.h"
 
 /**
  * Perform adaptive compression housekeeping.

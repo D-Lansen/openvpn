@@ -35,7 +35,6 @@
 #include "misc.h"
 #include "fragment.h"
 #include "integer.h"
-#include "memdbg.h"
 
 #define FRAG_ERR(s) { errmsg = s; goto error; }
 

@@ -43,8 +43,6 @@
 #include "common.h"
 #include "manage.h"
 
-#include "memdbg.h"
-
 #ifdef ENABLE_PKCS11
 #include "pkcs11.h"
 #endif

@@ -32,7 +32,6 @@
 #include "proto.h"
 #include "error.h"
 
-#include "memdbg.h"
 
 /*
  * If raw tunnel packet is IPv<X>, return true and increment

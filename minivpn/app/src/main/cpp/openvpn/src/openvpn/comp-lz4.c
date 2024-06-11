@@ -36,8 +36,6 @@
 #include "comp.h"
 #include "error.h"
 
-#include "memdbg.h"
-
 
 static void
 lz4_compress_init(struct compress_context *compctx)

@@ -33,8 +33,6 @@
 #include "error.h"
 #include "platform.h"
 
-#include "memdbg.h"
-
 #include "run_command.h"
 
 /* contains an SSEC_x value defined in platform.h */

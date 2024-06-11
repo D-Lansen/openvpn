@@ -34,7 +34,6 @@
 #include "crypto.h"
 #include "schedule.h"
 
-#include "memdbg.h"
 
 #ifdef SCHEDULE_TEST
 

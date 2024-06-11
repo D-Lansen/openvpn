@@ -35,7 +35,6 @@
 #include "error.h"
 #include "otime.h"
 
-#include "memdbg.h"
 
 static void
 stub_compress_init(struct compress_context *compctx)

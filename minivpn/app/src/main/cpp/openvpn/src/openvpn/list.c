@@ -34,8 +34,6 @@
 #include "list.h"
 #include "misc.h"
 
-#include "memdbg.h"
-
 struct hash *
 hash_init(const int n_buckets,
           const uint32_t iv,

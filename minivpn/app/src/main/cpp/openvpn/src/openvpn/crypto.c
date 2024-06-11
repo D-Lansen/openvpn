@@ -35,7 +35,6 @@
 #include "integer.h"
 #include "platform.h"
 
-#include "memdbg.h"
 
 /*
  * Encryption and Compression Routines.

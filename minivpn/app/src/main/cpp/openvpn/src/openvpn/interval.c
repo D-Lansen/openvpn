@@ -31,8 +31,6 @@
 
 #include "interval.h"
 
-#include "memdbg.h"
-
 void
 interval_init(struct interval *top, int horizon, int refresh)
 {

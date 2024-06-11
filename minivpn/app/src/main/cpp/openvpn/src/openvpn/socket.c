@@ -41,8 +41,6 @@
 #include "openvpn.h"
 #include "forward.h"
 
-#include "memdbg.h"
-
 /*
  * Convert sockflags/getaddr_flags into getaddr_flags
  */

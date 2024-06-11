@@ -41,8 +41,6 @@
 
 #include "base64.h"
 
-#include "memdbg.h"
-
 static char base64_chars[] =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 /*

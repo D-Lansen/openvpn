@@ -35,8 +35,6 @@
 #include "mtu.h"
 #include "misc.h"
 
-#include "memdbg.h"
-
 #include <wchar.h>
 
 size_t

@@ -36,7 +36,6 @@
 #include "ssl_ncp.h"
 #include "manage.h"
 
-#include "memdbg.h"
 #include "ssl_util.h"
 #include "options_util.h"
 

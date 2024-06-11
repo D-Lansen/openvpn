@@ -38,8 +38,6 @@
 #include "manage.h"
 #include "openvpn.h"
 
-#include "memdbg.h"
-
 /* Handle signals */
 
 struct signal_info siginfo_static; /* GLOBAL */

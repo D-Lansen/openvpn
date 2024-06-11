@@ -33,7 +33,6 @@
 #include "socket.h"
 #include "error.h"
 
-#include "memdbg.h"
 
 static int
 get_dhcp_message_type(const struct dhcp *dhcp, const int optlen)

@@ -34,8 +34,6 @@
 #include "pool.h"
 #include "push.h"
 
-#include "memdbg.h"
-
 
 static const char *
 print_netmask(int netbits, struct gc_arena *gc)

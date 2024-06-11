@@ -993,8 +993,6 @@ tls_multi_free(struct tls_multi *multi, bool clear)
 
     wipe_auth_token(multi);
 
-    free(multi->remote_ciphername);
-
     for (int i = 0; i < TM_SIZE; ++i)
     {
         tls_session_free(&multi->session[i], false);
@@ -1188,7 +1186,6 @@ session_move_active(struct tls_multi *multi, struct tls_session *session,
     ks->state = S_ACTIVE;
     /* Cancel negotiation timeout */
     ks->must_negotiate = 0;
-    INCR_SUCCESS;
 
     /* Set outgoing address for data channel packets */
     link_socket_set_outgoing_addr(to_link_socket_info, &ks->remote_addr,
@@ -1227,7 +1224,6 @@ tls_process_state(struct tls_multi *multi,
     if (ks->state == S_INITIAL)
     {
         state_change = session_move_pre_start(session, ks, false);
-        msg(M_INFO, "lichen1 session_move_pre_start status:%d",ks->state);
     }
 
     /* Are we timed out on receive? */
@@ -1256,10 +1252,7 @@ tls_process_state(struct tls_multi *multi,
         session_move_active(multi, session, to_link_socket_info, ks);
         state_change = true;
 
-        multi->remote_ciphername = NULL;
         ks->authenticated = KS_AUTH_TRUE;
-
-        msg(M_INFO,"lichen5 Wait for ACK status:%d",ks->state);
     }
 
     if (!to_link->len && reliable_can_send(ks->send_reliable))
@@ -1273,14 +1266,12 @@ tls_process_state(struct tls_multi *multi,
         write_control_auth(session, ks, &b, to_link_addr, opcode,
                            CONTROL_SEND_ACK_MAX, true);
         *to_link = b;
-        msg(M_INFO, "lichen_sed to_link.len:%d status:%d",to_link->len,ks->state);
 
         return true;
     }
 
 
     struct reliable_entry *entry = reliable_get_entry_sequenced(ks->rec_reliable);
-//    if (entry && ks->state< S_ACTIVE)
     if (entry)
     {
         /* The first packet from the peer (the reset packet) is special and
@@ -1324,8 +1315,6 @@ tls_process_state(struct tls_multi *multi,
         memset(BPTR(buf), 0, BLEN(buf));  /* erase data just written */
         buf->len = 0;
         state_change = true;
-
-//        int status = key_state_write_plaintext(&ks->ks_ssl, buf);
 
     }
 

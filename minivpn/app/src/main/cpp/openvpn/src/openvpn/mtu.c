@@ -37,8 +37,6 @@
 #include "options.h"
 #include "crypto.h"
 
-#include "memdbg.h"
-
 /* allocate a buffer for socket or tun layer */
 void
 alloc_buf_sock_tun(struct buffer *buf,

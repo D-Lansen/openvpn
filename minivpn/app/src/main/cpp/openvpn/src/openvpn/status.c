@@ -34,8 +34,6 @@
 #include "misc.h"
 #include "fdmisc.h"
 
-#include "memdbg.h"
-
 /*
  * printf-style interface for outputting status info
  */

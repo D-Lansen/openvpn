@@ -42,7 +42,6 @@
 #include "options.h"
 #include "networking.h"
 
-#include "memdbg.h"
 
 #if defined(TARGET_LINUX) || defined(TARGET_ANDROID)
 #include <linux/rtnetlink.h>            /* RTM_GETROUTE etc. */

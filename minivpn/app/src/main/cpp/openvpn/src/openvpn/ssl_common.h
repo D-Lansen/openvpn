@@ -655,9 +655,7 @@ struct tls_multi
     /* Only used when DCO is used to remember how many keys we installed
      * for this session */
     int dco_keys_installed;
-    bool dco_peer_added;
-
-    dco_context_t *dco;
+//    bool dco_peer_added;
 };
 
 /**  gets an item  of \c key_state objects in the

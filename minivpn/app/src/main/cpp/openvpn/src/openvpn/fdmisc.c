@@ -32,8 +32,6 @@
 #include "fdmisc.h"
 #include "error.h"
 
-#include "memdbg.h"
-
 /* Set a file descriptor to non-blocking */
 bool
 set_nonblock_action(socket_descriptor_t fd)

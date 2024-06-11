@@ -32,8 +32,6 @@
 #include "multi.h"
 #include "forward.h"
 
-#include "memdbg.h"
-
 #ifdef HAVE_SYS_INOTIFY_H
 #include <sys/inotify.h>
 #endif
@@ -283,9 +281,6 @@ multi_tcp_wait(const struct context *c,
     }
 #endif
     tun_set(c->c1.tuntap, mtcp->es, EVENT_READ, MTCP_TUN, persistent);
-#if defined(TARGET_LINUX)
-    dco_event_set(&c->c1.tuntap->dco, mtcp->es, MTCP_DCO);
-#endif
 
 #ifdef ENABLE_MANAGEMENT
     if (management)
@@ -758,7 +753,6 @@ multi_tcp_process_io(struct multi_context *m)
                 ASSERT(m->top.c2.link_socket);
                 socket_reset_listen_persistent(m->top.c2.link_socket);
                 mi = multi_create_instance_tcp(m);
-                msg(M_INFO,"lichen is here 8 mi");
                 if (mi)
                 {
                     multi_tcp_action(m, mi, TA_INITIAL, false);

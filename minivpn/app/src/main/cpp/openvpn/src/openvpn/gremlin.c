@@ -43,8 +43,6 @@
 #include "otime.h"
 #include "gremlin.h"
 
-#include "memdbg.h"
-
 /*
  * Parameters for packet corruption and droppage.
  * Each parameter has 4 possible levels, 0 = disabled,

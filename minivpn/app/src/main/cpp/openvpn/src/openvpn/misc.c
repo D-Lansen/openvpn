@@ -43,8 +43,6 @@
 #include "route.h"
 #include "console.h"
 
-#include "memdbg.h"
-
 #ifdef ENABLE_IPROUTE
 const char *iproute_path = IPROUTE_PATH; /* GLOBAL */
 #endif

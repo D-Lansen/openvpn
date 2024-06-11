@@ -37,8 +37,6 @@
 #include "error.h"
 #include "misc.h"
 
-#include "memdbg.h"
-
 #include "platform.h"
 
 #if _WIN32
@@ -177,17 +175,6 @@ need_keep_caps(struct context *c)
     if (!c)
     {
         return -1;
-    }
-
-    if (dco_enabled(&c->options))
-    {
-#ifdef TARGET_LINUX
-        /* DCO on Linux does not work at all without CAP_NET_ADMIN */
-        return 1;
-#else
-        /* Windows/BSD/... has no equivalent capability mechanism */
-        return -1;
-#endif
     }
 
 #ifdef ENABLE_SITNL

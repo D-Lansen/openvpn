@@ -29,7 +29,6 @@
 
 #include "syshead.h"
 #include "shaper.h"
-#include "memdbg.h"
 
 /*
  * We want to wake up in delay microseconds.  If timeval is larger

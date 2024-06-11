@@ -48,8 +48,6 @@
 #include "block_dns.h"
 #include "networking.h"
 
-#include "memdbg.h"
-
 #ifdef _WIN32
 #include "openvpn-msg.h"
 #endif
@@ -1870,22 +1868,9 @@ open_tun_dco_generic(const char *dev, const char *dev_type,
         {
             openvpn_snprintf(dynamic_name, sizeof(dynamic_name),
                              "%s%d", dev, i);
-            int ret = open_tun_dco(tt, ctx, dynamic_name);
-            if (ret == 0)
-            {
-                dynamic_opened = true;
-                msg(M_INFO, "DCO device %s opened", dynamic_name);
-                break;
-            }
-            /* "permission denied" won't succeed if we try 256 times */
-            else if (ret == -EPERM)
-            {
-                break;
-            }
-        }
-        if (!dynamic_opened)
-        {
-            msg(M_FATAL, "Cannot allocate DCO dev dynamically");
+            dynamic_opened = true;
+            msg(M_INFO, "DCO device %s opened", dynamic_name);
+            break;
         }
         /* tt->actual_name is passed to up and down scripts and used as
          * the ifconfig dev name */
@@ -1896,23 +1881,7 @@ open_tun_dco_generic(const char *dev, const char *dev_type,
      */
     else
     {
-        int ret = open_tun_dco(tt, ctx, dev);
-        if (ret == -EEXIST)
-        {
-            msg(M_INFO, "DCO device %s already exists, won't be destroyed at shutdown",
-                dev);
-            tt->persistent_if = true;
-        }
-        else if (ret < 0)
-        {
-            msg(M_ERR, "Cannot open DCO device %s: %s (%d)", dev,
-                strerror(-ret), ret);
-        }
-        else
-        {
-            msg(M_INFO, "DCO device %s opened", dev);
-        }
-
+        msg(M_INFO, "DCO device %s opened", dev);
         /* tt->actual_name is passed to up and down scripts and used as the ifconfig dev name */
         tt->actual_name = string_alloc(dev, NULL);
     }
@@ -2301,12 +2270,6 @@ close_tun(struct tuntap *tt, openvpn_net_ctx_t *ctx)
         net_ctx_reset(ctx);
     }
 
-#ifdef TARGET_LINUX
-    if (tun_dco_enabled(tt))
-    {
-        close_tun_dco(tt, ctx);
-    }
-#endif
     close_tun_generic(tt);
     free(tt);
 }

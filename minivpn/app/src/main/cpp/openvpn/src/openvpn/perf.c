@@ -36,7 +36,6 @@
 #include "error.h"
 #include "otime.h"
 
-#include "memdbg.h"
 
 static const char *metric_names[] = {
     "PERF_BIO_READ_PLAINTEXT",

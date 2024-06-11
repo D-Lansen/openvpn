@@ -44,8 +44,6 @@
 #include "misc.h"
 #include "proxy.h"
 
-#include "memdbg.h"
-
 #define UP_TYPE_SOCKS           "SOCKS Proxy"
 
 struct socks_proxy_info *

@@ -41,8 +41,6 @@
 #include "misc.h"
 #include "mstats.h"
 
-#include "memdbg.h"
-
 volatile struct mmap_stats *mmap_stats = NULL; /* GLOBAL */
 static char mmap_fn[128];
 

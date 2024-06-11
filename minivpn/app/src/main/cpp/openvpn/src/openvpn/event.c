@@ -39,8 +39,6 @@
 #include <sys/epoll.h>
 #endif
 
-#include "memdbg.h"
-
 /*
  * Some OSes will prefer select() over poll()
  * when both are available.

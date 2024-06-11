@@ -53,7 +53,6 @@
 #include "forward.h"
 #include "auth_token.h"
 #include "mss.h"
-#include "dco.h"
 
 static struct context *static_context; /* GLOBAL */
 static const char *saved_pid_file_name; /* GLOBAL */
@@ -961,25 +960,16 @@ do_init_timers(struct context *c, bool deferred)
         event_timeout_init(&c->c2.inactivity_interval, c->options.inactivity_timeout, now);
     }
 
-    /* initialize pings */
-    if (dco_enabled(&c->options))
+    if (c->options.ping_send_timeout)
     {
-        /* The DCO kernel module will send the pings instead of user space */
-        event_timeout_clear(&c->c2.ping_rec_interval);
-        event_timeout_clear(&c->c2.ping_send_interval);
+        event_timeout_init(&c->c2.ping_send_interval, c->options.ping_send_timeout, 0);
     }
-    else
-    {
-        if (c->options.ping_send_timeout)
-        {
-            event_timeout_init(&c->c2.ping_send_interval, c->options.ping_send_timeout, 0);
-        }
 
-        if (c->options.ping_rec_timeout)
-        {
-            event_timeout_init(&c->c2.ping_rec_interval, c->options.ping_rec_timeout, now);
-        }
+    if (c->options.ping_rec_timeout)
+    {
+        event_timeout_init(&c->c2.ping_rec_interval, c->options.ping_rec_timeout, now);
     }
+
 
     if (!deferred)
     {
@@ -1060,15 +1050,6 @@ do_init_route_list(const struct options *options,
     int dev = dev_type_enum(options->dev, options->dev_type);
     int metric = 0;
 
-    /* if DCO is enabled we have both regular routes and iroutes in the system
-     * routing table, and normal routes must have a higher metric for that to
-     * work so that iroutes are always matched first
-     */
-    if (dco_enabled(options))
-    {
-        metric = DCO_DEFAULT_METRIC;
-    }
-
     if (dev == DEV_TYPE_TUN && (options->topology == TOP_NET30 || options->topology == TOP_P2P))
     {
         gw = options->ifconfig_remote_netmask;
@@ -1105,11 +1086,6 @@ do_init_route_ipv6_list(const struct options *options,
     const char *gw = NULL;
     int metric = -1;            /* no metric set */
 
-    /* see explanation in do_init_route_list() */
-    if (dco_enabled(options))
-    {
-        metric = DCO_DEFAULT_METRIC;
-    }
 
     gw = options->ifconfig_ipv6_remote;         /* default GW = remote end */
     if (options->route_ipv6_default_gateway)
@@ -1380,12 +1356,6 @@ do_open_tun(struct context *c)
     /* initialize (but do not open) tun/tap object */
     do_init_tun(c);
 
-    /* inherit the dco context from the tuntap object */
-    if (c->c2.tls_multi)
-    {
-        c->c2.tls_multi->dco = &c->c1.tuntap->dco;
-    }
-
 #ifdef _WIN32
     /* store (hide) interactive service handle in tuntap_options */
     c->c1.tuntap->options.msg_channel = c->options.msg_channel;
@@ -1434,10 +1404,6 @@ do_open_tun(struct context *c)
     /* Store the old fd inside the fd so open_tun can use it */
     c->c1.tuntap->fd = oldtunfd;
 #endif
-    if (dco_enabled(&c->options))
-    {
-        ovpn_dco_init(c->mode, &c->c1.tuntap->dco);
-    }
 
     /* open the tun device */
     open_tun(c->options.dev, c->options.dev_type, c->options.dev_node,
@@ -1747,22 +1713,6 @@ do_deferred_options_part2(struct context *c)
         return false;
     }
 
-    if (dco_enabled(&c->options)
-        && (c->options.ping_send_timeout || c->c2.frame.mss_fix))
-    {
-        int ret = dco_set_peer(&c->c1.tuntap->dco,
-                               c->c2.tls_multi->peer_id,
-                               c->options.ping_send_timeout,
-                               c->options.ping_rec_timeout,
-                               c->c2.frame.mss_fix);
-        if (ret < 0)
-        {
-            msg(D_DCO, "Cannot set parameters for DCO peer (id=%u): %s",
-                c->c2.tls_multi->peer_id, strerror(-ret));
-            return false;
-        }
-    }
-
     return true;
 }
 
@@ -1804,19 +1754,6 @@ do_up(struct context *c, bool pulled_options, unsigned int option_types_found)
                 management_sleep(1);
                 c->c2.did_open_tun = do_open_tun(c);
                 update_time();
-            }
-        }
-
-        if (c->mode == MODE_POINT_TO_POINT)
-        {
-            /* ovpn-dco requires adding the peer now, before any option can be set,
-             * but *after* having parsed the pushed peer-id in do_deferred_options()
-             */
-            int ret = dco_p2p_add_new_peer(c);
-            if (ret < 0)
-            {
-                msg(D_DCO, "Cannot add peer to DCO: %s (%d)", strerror(-ret), ret);
-                return false;
             }
         }
 
@@ -2043,33 +1980,6 @@ do_deferred_options(struct context *c, const unsigned int found)
         c->c2.tls_multi->use_peer_id = true;
         c->c2.tls_multi->peer_id = c->options.peer_id;
     }
-
-    /* process (potentially) pushed options */
-    if (c->options.pull)
-    {
-//        if (!check_pull_client_ncp(c, found))
-//        {
-//            return false;
-//        }
-
-        /* Check if pushed options are compatible with DCO, if enabled */
-        if (dco_enabled(&c->options)
-            && !dco_check_pull_options(D_PUSH_ERRORS, &c->options))
-        {
-            msg(D_PUSH_ERRORS, "OPTIONS ERROR: pushed options are incompatible "
-                "with data channel offload. Use --disable-dco to connect to "
-                "this server");
-            return false;
-        }
-    }
-
-//    struct tls_session *session = &c->c2.tls_multi->session[TM_ACTIVE];
-//    if (!check_session_cipher(session, &c->options))
-//    {
-//        /* The update_session_cipher method will already print an error */
-//        return false;
-//    }
-
 
     /* Cipher is considered safe, so we can use it to calculate the max
      * MTU size */
@@ -2553,16 +2463,7 @@ do_init_crypto_tls(struct context *c, const unsigned int flags)
         //c->c2.tls_multi = NULL;
         c->c2.tls_multi = tls_multi_init(&to);
         /* inherit the dco context from the tuntap object */
-        if (c->c1.tuntap)
-        {
-            c->c2.tls_multi->dco = &c->c1.tuntap->dco;
-        }
-    }
 
-    if (flags & CF_INIT_TLS_AUTH_STANDALONE)
-    {
-//        c->c2.tls_auth_standalone = tls_auth_standalone_init(&to, &c->c2.gc);
-//        c->c2.session_id_hmac = session_id_hmac_init();
     }
 }
 
@@ -3826,10 +3727,6 @@ close_instance(struct context *c)
 
         /* free buffers */
         do_close_free_buf(c);
-
-        /* close peer for DCO if enabled, needs peer-id so must be done before
-         * closing TLS contexts */
-        dco_remove_peer(c);
 
         /* close TLS */
         do_close_tls(c);

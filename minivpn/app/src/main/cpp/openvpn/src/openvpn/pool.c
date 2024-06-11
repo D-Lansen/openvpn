@@ -35,7 +35,6 @@
 #include "socket.h"
 #include "otime.h"
 
-#include "memdbg.h"
 
 static void
 ifconfig_pool_entry_free(struct ifconfig_pool_entry *ipe, bool hard)

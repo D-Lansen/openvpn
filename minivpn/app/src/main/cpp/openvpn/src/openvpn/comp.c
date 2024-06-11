@@ -35,8 +35,6 @@
 #include "error.h"
 #include "otime.h"
 
-#include "memdbg.h"
-
 struct compress_context *
 comp_init(const struct compress_options *opt)
 {

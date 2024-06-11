@@ -41,9 +41,6 @@
 #include "dhcp.h"
 #include "common.h"
 #include "ssl_verify.h"
-#include "dco.h"
-
-#include "memdbg.h"
 
 #include "mstats.h"
 
@@ -141,18 +138,6 @@ context_reschedule_sec(struct context *c, int sec)
     }
 }
 
-void
-check_dco_key_status(struct context *c)
-{
-    /* DCO context is not yet initialised or enabled */
-    if (!dco_enabled(&c->options))
-    {
-        return;
-    }
-
-    dco_update_keys(&c->c1.tuntap->dco, c->c2.tls_multi);
-}
-
 /*
  * In TLS mode, let TLS level respond to any control-channel
  * packets which were received, or prepare any packets for
@@ -195,12 +180,6 @@ check_tls(struct context *c)
     }
 
     interval_schedule_wakeup(&c->c2.tmp_int, &wakeup);
-
-    /* Our current code has no good hooks in the TLS machinery to update
-     * DCO keys. So we check the key status after the whole TLS machinery
-     * has been completed and potentially update them
-     */
-    check_dco_key_status(c);
 
     if (wakeup)
     {
@@ -555,14 +534,6 @@ encrypt_sign(struct context *c, bool comp_frag)
     struct context_buffers *b = c->c2.buffers;
     const uint8_t *orig_buf = c->c2.buf.data;
     struct crypto_options *co = NULL;
-
-    if (dco_enabled(&c->options))
-    {
-        msg(M_WARN, "Attempting to send data packet while data channel offload is in use. "
-            "Dropping packet");
-        c->c2.buf.len = 0;
-    }
-
     /*
      * Drop non-TLS outgoing packet if client-connect script/plugin
      * has not yet succeeded. In non-TLS tls_multi mode is not defined
@@ -1672,18 +1643,9 @@ process_outgoing_link(struct context *c)
                 /* If Socks5 over UDP, prepend header */
                 socks_preprocess_outgoing_link(c, &to_addr, &size_delta);
 
-                /* Send packet */
-                if (c->c2.link_socket->info.dco_installed)
-                {
-                    size = dco_do_write(&c->c1.tuntap->dco,
-                                        c->c2.tls_multi->peer_id,
-                                        &c->c2.to_link);
-                }
-                else
-                {
-                    size = link_socket_write(c->c2.link_socket, &c->c2.to_link,
+                size = link_socket_write(c->c2.link_socket, &c->c2.to_link,
                                              to_addr);
-                }
+
 
                 /* Undo effect of prepend */
                 link_socket_write_post_size_adjust(&size, size_delta, &c->c2.to_link);
@@ -2057,12 +2019,6 @@ io_wait_dowork(struct context *c, const unsigned int flags)
      */
     socket_set(c->c2.link_socket, c->c2.event_set, socket, (void *)&socket_shift, NULL);
     tun_set(c->c1.tuntap, c->c2.event_set, tuntap, (void *)&tun_shift, NULL);
-#if defined(TARGET_LINUX)
-    if (socket & EVENT_READ && c->c2.did_open_tun)
-    {
-        dco_event_set(&c->c1.tuntap->dco, c->c2.event_set, (void *)&dco_shift);
-    }
-#endif
 
 #ifdef ENABLE_MANAGEMENT
     if (management)

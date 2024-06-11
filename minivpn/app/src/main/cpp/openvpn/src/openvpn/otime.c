@@ -31,7 +31,6 @@
 
 #include "otime.h"
 
-#include "memdbg.h"
 
 time_t now = 0;            /* GLOBAL */
 

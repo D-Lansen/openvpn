@@ -43,7 +43,6 @@
 #include "crypto.h"
 #include "session_id.h"
 
-#include "memdbg.h"
 
 const struct session_id x_session_id_zero;
 
