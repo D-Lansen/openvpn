@@ -184,6 +184,7 @@ calculate_crypto_overhead(const struct key_type *kt,
         }
     }
 
+    msg(M_INFO,"crypto_overhead_header_size:%d   pkt_id_size:%d  occ:%s",crypto_overhead,pkt_id_size,occ?"true":"false");
     return crypto_overhead;
 }
 
@@ -227,18 +228,6 @@ init_key_type(struct key_type *kt, const char *ciphername,
         if (!cipher_valid(ciphername))
         {
             msg(M_FATAL, "Cipher %s not supported", ciphername);
-        }
-
-        /* check legal cipher mode */
-        aead_cipher = cipher_kt_mode_aead(kt->cipher);
-        if (!(cipher_kt_mode_cbc(kt->cipher)
-              || (tls_mode && aead_cipher)
-#ifdef ENABLE_OFB_CFB_MODE
-              || (tls_mode && cipher_kt_mode_ofb_cfb(kt->cipher))
-#endif
-              ))
-        {
-            msg(M_FATAL, "Cipher '%s' mode not supported", ciphername);
         }
 
         if (OPENVPN_MAX_CIPHER_BLOCK_SIZE < cipher_kt_block_size(kt->cipher))
@@ -519,61 +508,4 @@ translate_cipher_name_to_openvpn(const char *cipher_name)
     }
 
     return pair->openvpn_name;
-}
-
-bool
-generate_ephemeral_key(struct buffer *key, const char *key_name)
-{
-    const int len = BCAP(key);
-
-    msg(M_INFO, "Using random %s.", key_name);
-
-    if (!rand_bytes(BEND(key), len))
-    {
-        msg(M_WARN, "ERROR: could not generate random key");
-        return false;
-    }
-
-    buf_inc_len(key, len);
-
-    return true;
-}
-
-bool
-read_pem_key_file(struct buffer *key, const char *pem_name,
-                  const char *key_file, bool key_inline)
-{
-    bool ret = false;
-    struct buffer key_pem = { 0 };
-    struct gc_arena gc = gc_new();
-
-    if (!key_inline)
-    {
-        key_pem = buffer_read_from_file(key_file, &gc);
-        if (!buf_valid(&key_pem))
-        {
-            msg(M_WARN, "ERROR: failed to read %s file (%s)",
-                pem_name, key_file);
-            goto cleanup;
-        }
-    }
-    else
-    {
-        buf_set_read(&key_pem, (const void *)key_file, strlen(key_file) + 1);
-    }
-
-    if (!crypto_pem_decode(pem_name, key, &key_pem))
-    {
-        msg(M_WARN, "ERROR: %s pem decode failed", pem_name);
-        goto cleanup;
-    }
-
-    ret = true;
-cleanup:
-    if (!key_inline)
-    {
-        buf_clear(&key_pem);
-    }
-    gc_free(&gc);
-    return ret;
 }

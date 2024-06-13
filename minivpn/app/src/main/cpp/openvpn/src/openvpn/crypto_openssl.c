@@ -305,135 +305,6 @@ const size_t cipher_name_translation_table_count =
     sizeof(cipher_name_translation_table) / sizeof(*cipher_name_translation_table);
 
 
-struct collect_ciphers {
-    /* If we ever exceed this, we must be more selective */
-    const EVP_CIPHER *list[1000];
-    size_t num;
-};
-
-void
-print_digest(EVP_MD *digest, void *unused)
-{
-    printf("%s %d bit digest size\n", md_kt_name(EVP_MD_get0_name(digest)),
-           EVP_MD_size(digest) * 8);
-}
-
-void
-show_available_digests(void)
-{
-#ifndef ENABLE_SMALL
-    printf("The following message digests are available for use with\n"
-           PACKAGE_NAME ".  A message digest is used in conjunction with\n"
-           "the HMAC function, to authenticate received packets.\n"
-           "You can specify a message digest as parameter to\n"
-           "the --auth option.\n");
-    printf("See also openssl list -digest-algorithms\n\n");
-#endif
-
-#if OPENSSL_VERSION_NUMBER >= 0x30000000L
-    EVP_MD_do_all_provided(NULL, print_digest, NULL);
-#else
-    for (int nid = 0; nid < 10000; ++nid)
-    {
-        const EVP_MD *digest = EVP_get_digestbynid(nid);
-        if (digest)
-        {
-            /* We cast the const away so we can keep the function prototype
-             * compatible with EVP_MD_do_all_provided */
-            print_digest((EVP_MD *)digest, NULL);
-        }
-    }
-#endif
-    printf("\n");
-}
-
-void
-show_available_engines(void)
-{
-#if HAVE_OPENSSL_ENGINE /* Only defined for OpenSSL */
-    ENGINE *e;
-
-    printf("OpenSSL Crypto Engines\n\n");
-
-    ENGINE_load_builtin_engines();
-
-    e = ENGINE_get_first();
-    while (e)
-    {
-        printf("%s [%s]\n",
-               ENGINE_get_name(e),
-               ENGINE_get_id(e));
-        e = ENGINE_get_next(e);
-    }
-    ENGINE_cleanup();
-#else  /* if HAVE_OPENSSL_ENGINE */
-    printf("Sorry, OpenSSL hardware crypto engine functionality is not available.\n");
-#endif
-}
-
-
-bool
-crypto_pem_decode(const char *name, struct buffer *dst,
-                  const struct buffer *src)
-{
-    bool ret = false;
-
-    BIO *bio = BIO_new_mem_buf((char *)BPTR(src), BLEN(src));
-    if (!bio)
-    {
-        crypto_msg(M_FATAL, "Cannot open memory BIO for PEM decode");
-    }
-
-    char *name_read = NULL;
-    char *header_read = NULL;
-    uint8_t *data_read = NULL;
-    long data_read_len = 0;
-    if (!PEM_read_bio(bio, &name_read, &header_read, &data_read,
-                      &data_read_len))
-    {
-        dmsg(D_CRYPT_ERRORS, "%s: PEM decode failed", __func__);
-        goto cleanup;
-    }
-
-    if (strcmp(name, name_read))
-    {
-        dmsg(D_CRYPT_ERRORS,
-             "%s: unexpected PEM name (got '%s', expected '%s')",
-             __func__, name_read, name);
-        goto cleanup;
-    }
-
-    uint8_t *dst_data = buf_write_alloc(dst, data_read_len);
-    if (!dst_data)
-    {
-        dmsg(D_CRYPT_ERRORS, "%s: dst too small (%i, needs %li)", __func__,
-             BCAP(dst), data_read_len);
-        goto cleanup;
-    }
-    memcpy(dst_data, data_read, data_read_len);
-
-    ret = true;
-cleanup:
-    OPENSSL_free(name_read);
-    OPENSSL_free(header_read);
-    OPENSSL_free(data_read);
-    if (!BIO_free(bio))
-    {
-        ret = false;
-    }
-
-    return ret;
-}
-
-/*
- *
- * Random number functions, used in cases where we want
- * reasonably strong cryptographic random number generation
- * without depleting our entropy pool.  Used for random
- * IV values and a number of other miscellaneous tasks.
- *
- */
-
 int
 rand_bytes(uint8_t *output, int len)
 {
@@ -445,11 +316,6 @@ rand_bytes(uint8_t *output, int len)
     return 1;
 }
 
-/*
- *
- * Generic cipher key type functions
- *
- */
 
 static evp_cipher_type *
 cipher_get(const char *ciphername)
@@ -642,6 +508,9 @@ cipher_kt_mode_cbc(const char *ciphername)
 #endif
                           && !(EVP_CIPHER_flags(cipher) & EVP_CIPH_FLAG_AEAD_CIPHER));
     EVP_CIPHER_free(cipher);
+
+    //msg(M_INFO,"%s is cbc:  %s",ciphername,ret?"true":"false"); true
+
     return ret;
 }
 
@@ -673,117 +542,9 @@ cipher_kt_mode_aead(const char *ciphername)
     }
 
     EVP_CIPHER_free(cipher);
+
+    // return false
     return isaead;
-}
-
-/*
- *
- * Generic cipher context functions
- *
- */
-
-cipher_ctx_t *
-cipher_ctx_new(void)
-{
-    EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
-    check_malloc_return(ctx);
-    return ctx;
-}
-
-void
-cipher_ctx_free(EVP_CIPHER_CTX *ctx)
-{
-    EVP_CIPHER_CTX_free(ctx);
-}
-
-void
-cipher_ctx_init(EVP_CIPHER_CTX *ctx, const uint8_t *key,
-                const char *ciphername, int enc)
-{
-    ASSERT(NULL != ciphername && NULL != ctx);
-    evp_cipher_type *kt = cipher_get(ciphername);
-
-    EVP_CIPHER_CTX_reset(ctx);
-    if (!EVP_CipherInit(ctx, kt, NULL, NULL, enc))
-    {
-        crypto_msg(M_FATAL, "EVP cipher init #1");
-    }
-    if (!EVP_CipherInit_ex(ctx, NULL, NULL, key, NULL, enc))
-    {
-        crypto_msg(M_FATAL, "EVP cipher init #2");
-    }
-
-    EVP_CIPHER_free(kt);
-    /* make sure we used a big enough key */
-    ASSERT(EVP_CIPHER_CTX_key_length(ctx) <= EVP_CIPHER_key_length(kt));
-}
-
-int
-cipher_ctx_reset(EVP_CIPHER_CTX *ctx, const uint8_t *iv_buf)
-{
-    return EVP_CipherInit_ex(ctx, NULL, NULL, NULL, iv_buf, -1);
-}
-
-int
-cipher_ctx_update(EVP_CIPHER_CTX *ctx, uint8_t *dst, int *dst_len,
-                  uint8_t *src, int src_len)
-{
-    if (!EVP_CipherUpdate(ctx, dst, dst_len, src, src_len))
-    {
-        crypto_msg(M_FATAL, "%s: EVP_CipherUpdate() failed", __func__);
-    }
-    return 1;
-}
-
-int
-cipher_ctx_final(EVP_CIPHER_CTX *ctx, uint8_t *dst, int *dst_len)
-{
-    return EVP_CipherFinal(ctx, dst, dst_len);
-}
-
-void
-cipher_des_encrypt_ecb(const unsigned char key[DES_KEY_LENGTH],
-                       unsigned char src[DES_KEY_LENGTH],
-                       unsigned char dst[DES_KEY_LENGTH])
-{
-    /* We are using 3DES here with three times the same key to cheat
-     * and emulate DES as 3DES is better supported than DES */
-    EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
-    if (!ctx)
-    {
-        crypto_msg(M_FATAL, "%s: EVP_CIPHER_CTX_new() failed", __func__);
-    }
-
-    unsigned char key3[DES_KEY_LENGTH*3];
-    for (int i = 0; i < 3; i++)
-    {
-        memcpy(key3 + (i * DES_KEY_LENGTH), key, DES_KEY_LENGTH);
-    }
-
-    if (!EVP_EncryptInit_ex(ctx, EVP_des_ede3_ecb(), NULL, key3, NULL))
-    {
-        crypto_msg(M_FATAL, "%s: EVP_EncryptInit_ex() failed", __func__);
-    }
-
-    int len;
-
-    /* The EVP_EncryptFinal method will write to the dst+len pointer even
-     * though there is nothing to encrypt anymore, provide space for that to
-     * not overflow the stack */
-    unsigned char dst2[DES_KEY_LENGTH * 2];
-    if (!EVP_EncryptUpdate(ctx, dst2, &len, src, DES_KEY_LENGTH))
-    {
-        crypto_msg(M_FATAL, "%s: EVP_EncryptUpdate() failed", __func__);
-    }
-
-    if (!EVP_EncryptFinal(ctx, dst2 + len, &len))
-    {
-        crypto_msg(M_FATAL, "%s: EVP_EncryptFinal() failed", __func__);
-    }
-
-    memcpy(dst, dst2, DES_KEY_LENGTH);
-
-    EVP_CIPHER_CTX_free(ctx);
 }
 
 /*
@@ -879,108 +640,11 @@ md_kt_size(const char *mdname)
     evp_md_type *kt = md_get(mdname);
     unsigned char size =  (unsigned char)EVP_MD_size(kt);
     EVP_MD_free(kt);
+    msg(M_INFO,"md_kt_size:%s:%d",mdname,size);
     return size;
 }
 
 
-/*
- *
- * Generic message digest functions
- *
- */
 
-int
-md_full(const char *mdname, const uint8_t *src, int src_len, uint8_t *dst)
-{
-    unsigned int in_md_len = 0;
-    evp_md_type *kt = md_get(mdname);
-
-    int ret = EVP_Digest(src, src_len, dst, &in_md_len, kt, NULL);
-    EVP_MD_free(kt);
-    return ret;
-}
-
-EVP_MD_CTX *
-md_ctx_new(void)
-{
-    EVP_MD_CTX *ctx = EVP_MD_CTX_new();
-    check_malloc_return(ctx);
-    return ctx;
-}
-
-void
-md_ctx_free(EVP_MD_CTX *ctx)
-{
-    EVP_MD_CTX_free(ctx);
-}
-
-void
-md_ctx_init(EVP_MD_CTX *ctx, const char *mdname)
-{
-    evp_md_type *kt = md_get(mdname);
-    ASSERT(NULL != ctx && NULL != kt);
-
-    EVP_MD_CTX_init(ctx);
-    if (!EVP_DigestInit(ctx, kt))
-    {
-        crypto_msg(M_FATAL, "EVP_DigestInit failed");
-    }
-    EVP_MD_free(kt);
-}
-
-void
-md_ctx_cleanup(EVP_MD_CTX *ctx)
-{
-    EVP_MD_CTX_reset(ctx);
-}
-
-int
-md_ctx_size(const EVP_MD_CTX *ctx)
-{
-    return EVP_MD_CTX_size(ctx);
-}
-
-void
-md_ctx_update(EVP_MD_CTX *ctx, const uint8_t *src, int src_len)
-{
-    EVP_DigestUpdate(ctx, src, src_len);
-}
-
-void
-md_ctx_final(EVP_MD_CTX *ctx, uint8_t *dst)
-{
-    unsigned int in_md_len = 0;
-
-    EVP_DigestFinal(ctx, dst, &in_md_len);
-}
-
-
-/*
- *
- * Generic HMAC functions
- *
- */
-
-hmac_ctx_t *
-hmac_ctx_new(void)
-{
-    hmac_ctx_t *ctx;
-    ALLOC_OBJ_CLEAR(ctx, hmac_ctx_t);
-    EVP_MAC *hmac = EVP_MAC_fetch(NULL, "HMAC", NULL);
-    ctx->ctx = EVP_MAC_CTX_new(hmac);
-    check_malloc_return(ctx->ctx);
-
-    EVP_MAC_free(hmac);
-
-    return ctx;
-}
-
-void
-hmac_ctx_free(hmac_ctx_t *ctx)
-{
-    EVP_MAC_CTX_free(ctx->ctx);
-    secure_memzero(ctx, sizeof(hmac_ctx_t));
-    free(ctx);
-}
 
 #endif /* ENABLE_CRYPTO_OPENSSL */

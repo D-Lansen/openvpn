@@ -50,7 +50,6 @@
 #include "misc.h"
 #include "socket.h"
 #include "packet_id.h"
-#include "pkcs11.h"
 #include "push.h"
 #include "pool.h"
 #include "proto.h"
@@ -828,7 +827,7 @@ init_options(struct options *o, const bool init_gc)
     o->resolve_retry_seconds = RESOLV_RETRY_INFINITE;
     o->resolve_in_advance = false;
     o->proto_force = -1;
-    o->occ = true;
+    o->occ = false;
 #ifdef ENABLE_MANAGEMENT
     o->management_log_history_cache = 250;
     o->management_echo_buffer_size = 100;
@@ -1792,7 +1791,6 @@ show_settings(const struct options *o)
     SHOW_STR(ifconfig_ipv6_remote);
 
     SHOW_INT(shaper);
-    SHOW_INT(mtu_test);
 
     SHOW_BOOL(mlock);
 
@@ -1844,7 +1842,6 @@ show_settings(const struct options *o)
     SHOW_INT(status_file_version);
     SHOW_INT(status_file_update_freq);
 
-    SHOW_BOOL(occ);
     SHOW_INT(rcvbuf);
     SHOW_INT(sndbuf);
 #if defined(TARGET_LINUX) && HAVE_DECL_SO_MARK
@@ -2197,11 +2194,6 @@ options_postprocess_verify_ce(const struct options *options,
     if (options->ce.tun_mtu_defined && options->ce.link_mtu_defined)
     {
         msg(M_USAGE, "only one of --tun-mtu or --link-mtu may be defined");
-    }
-
-    if (!proto_is_udp(ce->proto) && options->mtu_test)
-    {
-        msg(M_USAGE, "--mtu-test only makes sense with --proto udp");
     }
 
     /* will we be pulling options from server? */
@@ -3732,16 +3724,6 @@ options_string(const struct options *o,
 #define TLS_CLIENT (o->tls_client)
 #define TLS_SERVER (o->tls_server)
 
-//    /*
-//     * Key direction
-//     */
-//    {
-//        const char *kd = keydirection2ascii(o->key_direction, remote, false);
-//        if (kd)
-//        {
-//            buf_printf(&out, ",keydir %s", kd);
-//        }
-//    }
 
     /*
      * Crypto Options
@@ -5825,11 +5807,6 @@ add_option(struct options *options,
         VERIFY_PERMISSION(OPT_P_MTU|OPT_P_CONNECTION);
         options->ce.mtu_discover_type = translate_mtu_discover_type_name(p[1]);
     }
-    else if (streq(p[0], "mtu-test") && !p[1])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        options->mtu_test = true;
-    }
     else if (streq(p[0], "nice") && p[1] && !p[2])
     {
         VERIFY_PERMISSION(OPT_P_NICE);
@@ -6402,11 +6379,6 @@ add_option(struct options *options,
         {
             msg(msglevel, "Unknown parameter to --mssfix: %s", p[2]);
         }
-    }
-    else if (streq(p[0], "disable-occ") && !p[1])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        options->occ = false;
     }
     else if (streq(p[0], "server") && p[1] && p[2] && !p[4])
     {

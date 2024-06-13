@@ -43,10 +43,6 @@
 #include "common.h"
 #include "manage.h"
 
-#ifdef ENABLE_PKCS11
-#include "pkcs11.h"
-#endif
-
 #define MANAGEMENT_ECHO_PULL_INFO 0
 
 #if MANAGEMENT_ECHO_PULL_INFO

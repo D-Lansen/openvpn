@@ -48,7 +48,6 @@
 #define TO_LINK_DEF(c)  (LINK_OUT(c) || TO_LINK_FRAG(c))
 
 #include "openvpn.h"
-#include "occ.h"
 #include "ping.h"
 
 #define IOW_TO_TUN          (1<<0)

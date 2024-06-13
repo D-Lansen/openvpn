@@ -36,13 +36,10 @@
 #include "init.h"
 #include "run_command.h"
 #include "sig.h"
-#include "occ.h"
 #include "list.h"
 #include "otime.h"
 #include "pool.h"
 #include "gremlin.h"
-#include "occ.h"
-#include "pkcs11.h"
 #include "ps.h"
 #include "lladdr.h"
 #include "ping.h"
@@ -976,19 +973,6 @@ do_init_timers(struct context *c, bool deferred)
         /* initialize connection establishment timer */
         event_timeout_init(&c->c2.wait_for_connect, 1, now);
 
-        /* initialize occ timers */
-
-        if (c->options.occ
-            && !TLS_MODE(c)
-            && c->c2.options_string_local && c->c2.options_string_remote)
-        {
-            event_timeout_init(&c->c2.occ_interval, OCC_INTERVAL_SECONDS, now);
-        }
-
-        if (c->options.mtu_test)
-        {
-            event_timeout_init(&c->c2.occ_mtu_load_test_interval, OCC_MTU_LOAD_INTERVAL_SECONDS, now);
-        }
 
         /* initialize packet_id persistence timer */
         if (c->options.packet_id_file)
@@ -2383,8 +2367,6 @@ do_init_crypto_tls(struct context *c, const unsigned int flags)
         to.xmit_hold = true;
     }
 
-    to.disable_occ = !options->occ;
-
     to.verify_command = options->tls_verify;
     to.verify_export_cert = options->tls_export_cert;
     to.verify_x509_type = (options->verify_x509_type & 0xff);
@@ -2491,41 +2473,12 @@ do_init_frame_tls(struct context *c)
     }
 }
 
-/*
- * No encryption or authentication.
- */
-static void
-do_init_crypto_none(struct context *c)
-{
-    ASSERT(!c->options.test_crypto);
-
-    /* Initialise key_type with auth/cipher "none", so the key_type struct is
-     * valid */
-    init_key_type(&c->c1.ks.key_type, "none", "none",
-                  c->options.test_crypto, true);
-
-    msg(M_WARN,
-        "******* WARNING *******: All encryption and authentication features "
-        "disabled -- All data will be tunnelled as clear text and will not be "
-        "protected against man-in-the-middle changes. "
-        "PLEASE DO RECONSIDER THIS CONFIGURATION!");
-}
-
 static void
 do_init_crypto(struct context *c, const unsigned int flags)
 {
-//    if (c->options.shared_secret_file)
-//    {
-//        do_init_crypto_static(c, flags);
-//    }
-//    else
     if (c->options.tls_server || c->options.tls_client)
     {
         do_init_crypto_tls(c, flags);
-    }
-    else                        /* no encryption or authentication. */
-    {
-        do_init_crypto_none(c);
     }
 }
 
@@ -2554,17 +2507,6 @@ do_init_frame(struct context *c)
      */
     c->c2.frame_fragment = c->c2.frame;
     c->c2.frame_fragment_initial = c->c2.frame_fragment;
-#endif
-
-#if defined(ENABLE_FRAGMENT)
-    /*
-     * MTU advisories
-     */
-    if (c->options.ce.fragment && c->options.mtu_test)
-    {
-        msg(M_WARN,
-            "WARNING: using --fragment and --mtu-test together may produce an inaccurate MTU test result");
-    }
 #endif
 
 #ifdef ENABLE_FRAGMENT
@@ -3518,11 +3460,11 @@ init_instance(struct context *c, const struct env_set *env, const unsigned int f
         do_open_ifconfig_pool_persist(c);
     }
 
-    /* reset OCC state */
-    if (c->mode == CM_P2P || child)
-    {
-        c->c2.occ_op = occ_reset_op();
-    }
+//    /* reset OCC state */
+//    if (c->mode == CM_P2P || child)
+//    {
+//        c->c2.occ_op = occ_reset_op();
+//    }
 
     /* our wait-for-i/o objects, different for posix vs. win32 */
     if (c->mode == CM_P2P)

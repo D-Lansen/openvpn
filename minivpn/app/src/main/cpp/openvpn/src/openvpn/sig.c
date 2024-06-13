@@ -34,7 +34,6 @@
 #include "init.h"
 #include "status.h"
 #include "sig.h"
-#include "occ.h"
 #include "manage.h"
 #include "openvpn.h"
 
@@ -349,12 +348,12 @@ process_explicit_exit_notification_init(struct context *c)
     halt_non_edge_triggered_signals();
     c->c2.explicit_exit_notification_time_wait = now;
 
-    /* Check if we are in TLS mode and should send the notification via data
-     * channel */
-    if (cc_exit_notify_enabled(c))
-    {
-        send_control_channel_string(c, "EXIT", D_PUSH);
-    }
+//    /* Check if we are in TLS mode and should send the notification via data
+//     * channel */
+//    if (cc_exit_notify_enabled(c))
+//    {
+//        send_control_channel_string(c, "EXIT", D_PUSH);
+//    }
 }
 
 void
@@ -370,10 +369,6 @@ process_explicit_exit_notification_timer_wakeup(struct context *c)
             event_timeout_clear(&c->c2.explicit_exit_notification_interval);
             c->sig->signal_received = SIGTERM;
             c->sig->signal_text = "exit-with-notification";
-        }
-        else if (!cc_exit_notify_enabled(c))
-        {
-            c->c2.occ_op = OCC_EXIT;
         }
     }
 }

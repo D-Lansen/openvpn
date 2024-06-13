@@ -300,7 +300,6 @@ struct tls_options
     /* from command line */
     bool replay;
     bool single_session;
-    bool disable_occ;
     int mode;
     bool pull;
     /**

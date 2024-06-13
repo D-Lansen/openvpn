@@ -35,7 +35,6 @@
 #include "gremlin.h"
 #include "mss.h"
 #include "event.h"
-#include "occ.h"
 #include "ping.h"
 #include "ps.h"
 #include "dhcp.h"
@@ -683,12 +682,6 @@ process_coarse_timers(struct context *c)
         }
     }
 
-    /* Should we send an OCC_REQUEST message? */
-    check_send_occ_req(c);
-
-    /* Should we send an MTU load test? */
-    check_send_occ_load_test(c);
-
     /* Should we send an OCC_EXIT message to remote? */
     if (c->c2.explicit_exit_notification_time_wait)
     {
@@ -1054,11 +1047,11 @@ process_incoming_link_part2(struct context *c, struct link_socket_info *lsi, con
             c->c2.buf.len = 0; /* drop packet */
         }
 
-        /* Did we just receive an OCC packet? */
-        if (is_occ_msg(&c->c2.buf))
-        {
-            process_received_occ_msg(c);
-        }
+//        /* Did we just receive an OCC packet? */
+//        if (is_occ_msg(&c->c2.buf))
+//        {
+//            process_received_occ_msg(c);
+//        }
 
         buffer_turnover(orig_buf, &c->c2.to_tun, &c->c2.buf, &c->c2.buffers->read_link_buf);
 
@@ -1850,6 +1843,7 @@ pre_select(struct context *c)
 
     /* check coarse timers? */
     check_coarse_timers(c);
+
     if (c->sig->signal_received)
     {
         return;
@@ -1875,8 +1869,6 @@ pre_select(struct context *c)
         check_incoming_control_channel(c);
     }
 
-    /* Should we send an OCC message? */
-    check_send_occ_msg(c);
 
 #ifdef ENABLE_FRAGMENT
     /* Should we deliver a datagram fragment to remote? */

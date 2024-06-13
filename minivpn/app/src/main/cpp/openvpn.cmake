@@ -41,7 +41,6 @@ set(openvpn_srcs
         openvpn/src/openvpn/mtu.c
         openvpn/src/openvpn/multi.c
         openvpn/src/openvpn/networking_sitnl.c
-        openvpn/src/openvpn/occ.c
         openvpn/src/openvpn/openvpn.c
         openvpn/src/openvpn/options.c
         openvpn/src/openvpn/options_util.c
@@ -49,8 +48,6 @@ set(openvpn_srcs
         openvpn/src/openvpn/packet_id.c
         openvpn/src/openvpn/perf.c
         openvpn/src/openvpn/ping.c
-        openvpn/src/openvpn/pkcs11.c
-        openvpn/src/openvpn/pkcs11_openssl.c
         openvpn/src/openvpn/platform.c
         openvpn/src/openvpn/pool.c
         openvpn/src/openvpn/proto.c

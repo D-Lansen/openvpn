@@ -7,6 +7,8 @@
 
 #define ENABLE_FRAGMENT 1
 
+#define ENABLE_MANAGEMENT 1
+
 /* Enable LZ4 compression library */
 #define ENABLE_LZ4 1
 

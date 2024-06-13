@@ -101,6 +101,8 @@ frame_calculate_protocol_header_size(const struct key_type *kt,
     /* For figuring out the crypto overhead, we need the size of the payload
      * including all headers that also get encrypted as part of the payload */
     header_size += calculate_crypto_overhead(kt, pkt_id_size, occ);
+    //header_size += pkt_id_size;
+
     return header_size;
 }
 

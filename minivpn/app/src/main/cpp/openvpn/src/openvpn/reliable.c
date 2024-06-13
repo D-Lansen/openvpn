@@ -812,9 +812,6 @@ reliable_mark_active_outgoing(struct reliable *rel, struct buffer *buf, int opco
             packet_id_type net_pid;
             e->packet_id = rel->packet_id++;
             net_pid = htonpid(e->packet_id);
-
-            msg(M_INFO,"[%d]send  packet_id:%d",buf->len, e->packet_id);
-
             ASSERT(buf_write_prepend(buf, &net_pid, sizeof(net_pid)));
             e->active = true;
             e->opcode = opcode;
