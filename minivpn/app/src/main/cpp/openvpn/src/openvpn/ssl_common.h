@@ -266,7 +266,6 @@ struct tls_wrap_ctx
     } mode;                     /**< Control channel wrapping mode */
     struct crypto_options opt;  /**< Crypto state */
     struct buffer work;         /**< Work buffer (only for --tls-crypt) */
-    struct key_ctx tls_crypt_v2_server_key;  /**< Decrypts client keys */
     const struct buffer *tls_crypt_v2_wkc;   /**< Wrapped client key,
                                               *   sent to server */
     struct buffer tls_crypt_v2_metadata;     /**< Received from client */
@@ -330,10 +329,6 @@ struct tls_options
     int ns_cert_type;
     unsigned remote_cert_ku[MAX_PARMS];
     const char *remote_cert_eku;
-    struct verify_hash_list *verify_hash;
-    int verify_hash_depth;
-    bool verify_hash_no_ca;
-    hash_algo_type verify_hash_algo;
 #ifdef ENABLE_X509ALTUSERNAME
     char *x509_username_field[MAX_PARMS];
 #else
@@ -369,8 +364,6 @@ struct tls_options
                                  * options->auth_token_generate. */
     bool auth_token_call_auth; /**< always call normal authentication */
     unsigned int auth_token_lifetime;
-
-    struct key_ctx auth_token_key;
 
     /* use the client-config-dir as a positive authenticator */
     const char *client_config_dir_exclusive;

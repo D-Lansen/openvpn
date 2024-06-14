@@ -1037,12 +1037,8 @@ tls_session_update_crypto_params_do_work(struct tls_multi *multi,
         return true;
     }
 
-    bool packet_id_long_form = cipher_kt_mode_ofb_cfb(session->opt->key_type.cipher);
     session->opt->crypto_flags &= ~(CO_PACKET_ID_LONG_FORM);
-    if (packet_id_long_form)
-    {
-        session->opt->crypto_flags |= CO_PACKET_ID_LONG_FORM;
-    }
+
 
     frame_calculate_dynamic(frame, &session->opt->key_type, options, lsi);
 

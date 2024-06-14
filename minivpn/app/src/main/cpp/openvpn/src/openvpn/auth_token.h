@@ -23,13 +23,6 @@
 #ifndef AUTH_TOKEN_H
 #define AUTH_TOKEN_H
 
-/**
- * Loads an HMAC secret from a file or if no file is present generates a
- * epheremal secret for the run time of the server and stores it into ctx
- */
-void
-auth_token_init_secret(struct key_ctx *key_ctx, const char *key_file,
-                       bool key_inline);
 
 /**
  * Wipes the authentication token out of the memory, frees and cleans up

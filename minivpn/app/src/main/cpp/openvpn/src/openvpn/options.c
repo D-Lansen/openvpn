@@ -1956,23 +1956,7 @@ show_settings(const struct options *o)
         }
     }
     SHOW_STR(remote_cert_eku);
-    if (o->verify_hash)
-    {
-        SHOW_INT(verify_hash_algo);
-        SHOW_INT(verify_hash_depth);
-        struct gc_arena gc = gc_new();
-        struct verify_hash_list *hl = o->verify_hash;
-        int digest_len = (o->verify_hash_algo == MD_SHA1) ? SHA_DIGEST_LENGTH :
-                         SHA256_DIGEST_LENGTH;
-        while (hl)
-        {
-            char *s = format_hex_ex(hl->hash, digest_len, 0,
-                                    1, ":", &gc);
-            SHOW_PARM(verify_hash, s, "%s");
-            hl = hl->next;
-        }
-        gc_free(&gc);
-    }
+
     SHOW_INT(ssl_flags);
 
     SHOW_INT(tls_timeout);
@@ -2872,7 +2856,7 @@ options_postprocess_mutate_ce(struct options *o, struct connection_entry *ce)
      * Set MTU defaults
      */
     {
-        if (!ce->tun_mtu_defined && !ce->link_mtu_defined)
+        if (!ce->tun_mtu_defined)
         {
             ce->tun_mtu_defined = true;
         }
@@ -3157,14 +3141,7 @@ options_postprocess_setdefault_ncpciphers(struct options *o)
         /* custom --data-ciphers set, keep list */
         return;
     }
-    else if (cipher_valid("CHACHA20-POLY1305"))
-    {
-        o->ncp_ciphers = "AES-256-GCM:AES-128-GCM:CHACHA20-POLY1305";
-    }
-    else
-    {
-        o->ncp_ciphers = "AES-256-GCM:AES-128-GCM";
-    }
+    o->ncp_ciphers = "AES-256-GCM:AES-128-GCM";
 }
 
 static void
@@ -3304,11 +3281,11 @@ options_postprocess_mutate(struct options *o, struct env_set *es)
     options_postprocess_cipher(o);
     options_postprocess_mutate_invariant(o);
 
-    o->ncp_ciphers = mutate_ncp_cipher_list(o->ncp_ciphers, &o->gc);
-    if (o->ncp_ciphers == NULL)
-    {
-        msg(M_USAGE, "--data-ciphers list contains unsupported ciphers or is too long.");
-    }
+//    o->ncp_ciphers = mutate_ncp_cipher_list(o->ncp_ciphers, &o->gc);
+//    if (o->ncp_ciphers == NULL)
+//    {
+//        msg(M_USAGE, "--data-ciphers list contains unsupported ciphers or is too long.");
+//    }
 
     if (o->remote_list && !o->connection_list)
     {
@@ -3588,223 +3565,6 @@ options_postprocess_pull(struct options *o, struct env_set *es)
     return success;
 }
 
-/*
- * Build an options string to represent data channel encryption options.
- * This string must match exactly between peers.  The keysize is checked
- * separately by read_key().
- *
- * The following options must match on both peers:
- *
- * Tunnel options:
- *
- * --dev tun|tap [unit number need not match]
- * --dev-type tun|tap
- * --link-mtu
- * --udp-mtu
- * --tun-mtu
- * --proto udp
- * --proto tcp-client [matched with --proto tcp-server
- *                     on the other end of the connection]
- * --proto tcp-server [matched with --proto tcp-client on
- *                     the other end of the connection]
- * --tun-ipv6
- * --ifconfig x y [matched with --ifconfig y x on
- *                 the other end of the connection]
- *
- * --comp-lzo
- * --compress alg
- * --fragment
- *
- * Crypto Options:
- *
- * --cipher
- * --auth
- * --keysize
- * --secret
- * --no-replay
- *
- * SSL Options:
- *
- * --tls-auth
- * --tls-client [matched with --tls-server on
- *               the other end of the connection]
- * --tls-server [matched with --tls-client on
- *               the other end of the connection]
- */
-char *
-options_string(const struct options *o,
-               const struct frame *frame,
-               struct tuntap *tt,
-               openvpn_net_ctx_t *ctx,
-               bool remote,
-               struct gc_arena *gc)
-{
-    struct buffer out = alloc_buf(OPTION_LINE_SIZE);
-    bool tt_local = false;
-
-    buf_printf(&out, "V4");
-
-    /*
-     * Tunnel Options
-     */
-
-    buf_printf(&out, ",dev-type %s", dev_type_string(o->dev, o->dev_type));
-    /* the link-mtu that we send has only a meaning if have a fixed
-     * cipher (p2p) or have a fallback cipher configured for older non
-     * ncp clients. But not sending it will make even 2.4 complain
-     * about it being missing. So still send it. */
-    buf_printf(&out, ",link-mtu %u",
-               (unsigned int) calc_options_string_link_mtu(o, frame));
-
-    buf_printf(&out, ",tun-mtu %d", frame->tun_mtu);
-    buf_printf(&out, ",proto %s",  proto_remote(o->ce.proto, remote));
-
-    bool p2p_nopull = o->mode == MODE_POINT_TO_POINT && !PULL_DEFINED(o);
-    /* send tun_ipv6 only in peer2peer mode - in client/server mode, it
-     * is usually pushed by the server, triggering a non-helpful warning
-     */
-    if (o->ifconfig_ipv6_local && p2p_nopull)
-    {
-        buf_printf(&out, ",tun-ipv6");
-    }
-
-    /*
-     * Try to get ifconfig parameters into the options string.
-     * If tt is undefined, make a temporary instantiation.
-     */
-    if (!tt)
-    {
-        tt = init_tun(o->dev,
-                      o->dev_type,
-                      o->topology,
-                      o->ifconfig_local,
-                      o->ifconfig_remote_netmask,
-                      o->ifconfig_ipv6_local,
-                      o->ifconfig_ipv6_netbits,
-                      o->ifconfig_ipv6_remote,
-                      NULL,
-                      NULL,
-                      false,
-                      NULL,
-                      ctx);
-        if (tt)
-        {
-            tt_local = true;
-        }
-    }
-
-    if (tt && p2p_nopull)
-    {
-        const char *ios = ifconfig_options_string(tt, remote, o->ifconfig_nowarn, gc);
-        if (ios && strlen(ios))
-        {
-            buf_printf(&out, ",ifconfig %s", ios);
-        }
-    }
-    if (tt_local)
-    {
-        free(tt);
-        tt = NULL;
-    }
-
-#ifdef USE_COMP
-    if (o->comp.alg != COMP_ALG_UNDEF)
-    {
-        buf_printf(&out, ",comp-lzo"); /* for compatibility, this simply indicates that compression context is active, not necessarily LZO per-se */
-    }
-#endif
-
-#ifdef ENABLE_FRAGMENT
-    if (o->ce.fragment)
-    {
-        buf_printf(&out, ",mtu-dynamic");
-    }
-#endif
-
-#define TLS_CLIENT (o->tls_client)
-#define TLS_SERVER (o->tls_server)
-
-
-    /*
-     * Crypto Options
-     */
-    if (o->shared_secret_file || TLS_CLIENT || TLS_SERVER)
-    {
-        struct key_type kt;
-
-        ASSERT((o->shared_secret_file != NULL)
-               + (TLS_CLIENT == true)
-               + (TLS_SERVER == true)
-               <= 1);
-
-        /* Skip resolving BF-CBC to allow SSL libraries without BF-CBC
-         * to work here in the default configuration */
-        const char *ciphername = o->ciphername;
-        int keysize = 0;
-
-        if (strcmp(o->ciphername, "BF-CBC") == 0)
-        {
-            init_key_type(&kt, "none", o->authname, true, false);
-            keysize = 128;
-        }
-        else
-        {
-            init_key_type(&kt, o->ciphername, o->authname, true, false);
-            ciphername = cipher_kt_name(kt.cipher);
-            if (cipher_defined(o->ciphername))
-            {
-                keysize = cipher_kt_key_size(kt.cipher) * 8;
-            }
-        }
-        /* Only announce the cipher to our peer if we are willing to
-         * support it */
-        if (p2p_nopull || tls_item_in_cipher_list(ciphername, o->ncp_ciphers))
-        {
-            buf_printf(&out, ",cipher %s", ciphername);
-        }
-        buf_printf(&out, ",auth %s", md_kt_name(kt.digest));
-        buf_printf(&out, ",keysize %d", keysize);
-        if (o->shared_secret_file)
-        {
-            buf_printf(&out, ",secret");
-        }
-        if (!o->replay)
-        {
-            buf_printf(&out, ",no-replay");
-        }
-
-#ifdef ENABLE_PREDICTION_RESISTANCE
-        if (o->use_prediction_resistance)
-        {
-            buf_printf(&out, ",use-prediction-resistance");
-        }
-#endif
-    }
-
-#undef TLS_CLIENT
-#undef TLS_SERVER
-
-    return BSTR(&out);
-}
-
-/*
- * Compare option strings for equality.
- * If the first two chars of the strings differ, it means that
- * we are looking at different versions of the options string,
- * therefore don't compare them and return true.
- */
-
-bool
-options_cmp_equal(char *actual, const char *expected)
-{
-    return options_cmp_equal_safe(actual, expected, strlen(actual) + 1);
-}
-
-void
-options_warning(char *actual, const char *expected)
-{
-    options_warning_safe(actual, expected, strlen(actual) + 1);
-}
 
 static const char *
 options_warning_extract_parm1(const char *option_string,
@@ -3936,71 +3696,6 @@ options_warning_safe_ml(const int msglevel, char *actual, const char *expected, 
     gc_free(&gc);
 }
 
-bool
-options_cmp_equal_safe(char *actual, const char *expected, size_t actual_n)
-{
-    struct gc_arena gc = gc_new();
-    bool ret = true;
-
-    if (actual_n > 0)
-    {
-        actual[actual_n - 1] = 0;
-#ifndef ENABLE_STRICT_OPTIONS_CHECK
-        if (strncmp(actual, expected, 2))
-        {
-            msg(D_SHOW_OCC, "NOTE: Options consistency check may be skewed by version differences");
-            options_warning_safe_ml(D_SHOW_OCC, actual, expected, actual_n);
-        }
-        else
-#endif
-        ret = !strcmp(actual, expected);
-    }
-    gc_free(&gc);
-    return ret;
-}
-
-void
-options_warning_safe(char *actual, const char *expected, size_t actual_n)
-{
-    options_warning_safe_ml(M_WARN, actual, expected, actual_n);
-}
-
-const char *
-options_string_version(const char *s, struct gc_arena *gc)
-{
-    struct buffer out = alloc_buf_gc(4, gc);
-    strncpynt((char *) BPTR(&out), s, 3);
-    return BSTR(&out);
-}
-
-
-
-#ifdef _WIN32
-/**
- * Parses --windows-driver config option
- *
- * @param str       value of --windows-driver option
- * @param msglevel  msglevel to report parsing error
- * @return enum windows_driver_type  driver type, WINDOWS_DRIVER_UNSPECIFIED on unknown --windows-driver value
- */
-static enum windows_driver_type
-parse_windows_driver(const char *str, const int msglevel)
-{
-    if (streq(str, "tap-windows6"))
-    {
-        return WINDOWS_DRIVER_TAP_WINDOWS6;
-    }
-    else if (streq(str, "wintun"))
-    {
-        return WINDOWS_DRIVER_WINTUN;
-    }
-    else
-    {
-        msg(msglevel, "--windows-driver must be tap-windows6 or wintun");
-        return WINDOWS_DRIVER_UNSPECIFIED;
-    }
-}
-#endif
 
 /*
  * parse/print topology coding
@@ -5736,12 +5431,6 @@ add_option(struct options *options,
             msg(msglevel, "--remap-usr1 parm must be 'SIGHUP' or 'SIGTERM'");
             goto err;
         }
-    }
-    else if ((streq(p[0], "link-mtu") || streq(p[0], "udp-mtu")) && p[1] && !p[2])
-    {
-        VERIFY_PERMISSION(OPT_P_MTU|OPT_P_CONNECTION);
-        options->ce.link_mtu = positive_atoi(p[1]);
-        options->ce.link_mtu_defined = true;
     }
     else if (streq(p[0], "tun-mtu") && p[1] && !p[2])
     {
@@ -7763,44 +7452,11 @@ add_option(struct options *options,
         VERIFY_PERMISSION(OPT_P_GENERAL);
         options->mute_replay_warnings = true;
     }
-    else if (streq(p[0], "replay-persist") && p[1] && !p[2])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        options->packet_id_file = p[1];
-    }
     else if (streq(p[0], "test-crypto") && !p[1])
     {
         VERIFY_PERMISSION(OPT_P_GENERAL);
         options->test_crypto = true;
     }
-#ifndef ENABLE_CRYPTO_MBEDTLS
-    else if (streq(p[0], "engine") && !p[2])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        if (p[1])
-        {
-            options->engine = p[1];
-        }
-        else
-        {
-            options->engine = "auto";
-        }
-    }
-#endif /* ENABLE_CRYPTO_MBEDTLS */
-    else if (streq(p[0], "providers") && p[1])
-    {
-        for (size_t j = 1; j < MAX_PARMS && p[j] != NULL; j++)
-        {
-            options->providers.names[j] = p[j];
-        }
-    }
-#ifdef ENABLE_PREDICTION_RESISTANCE
-    else if (streq(p[0], "use-prediction-resistance") && !p[1])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        options->use_prediction_resistance = true;
-    }
-#endif
     else if (streq(p[0], "show-tls") && !p[1])
     {
         VERIFY_PERMISSION(OPT_P_GENERAL);
@@ -7834,75 +7490,6 @@ add_option(struct options *options,
 //        VERIFY_PERMISSION(OPT_P_GENERAL|OPT_P_INLINE);
 //        options->cert_file = p[1];
 //        options->cert_file_inline = is_inline;
-    }
-    else if (streq(p[0], "extra-certs") && p[1] && !p[2])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL|OPT_P_INLINE);
-        options->extra_certs_file = p[1];
-        options->extra_certs_file_inline = is_inline;
-    }
-    else if ((streq(p[0], "verify-hash") && p[1] && !p[3])
-             || (streq(p[0], "peer-fingerprint") && p[1] && !p[2]))
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL|OPT_P_INLINE);
-
-        int verify_hash_depth = 0;
-        if (streq(p[0], "verify-hash"))
-        {
-            msg(M_WARN, "DEPRECATED OPTION: The option --verify-hash is deprecated. "
-                "You should switch to the either use the level 1 certificate as "
-                "--ca option, use --tls-verify or use --peer-fingerprint");
-            /* verify level 1 cert, i.e. the CA that signed the leaf cert */
-            verify_hash_depth = 1;
-        }
-
-        options->verify_hash_algo = MD_SHA256;
-
-        int digest_len = SHA256_DIGEST_LENGTH;
-
-        if (options->verify_hash && options->verify_hash_depth != verify_hash_depth)
-        {
-            msg(msglevel, "ERROR: Setting %s not allowed. --verify-hash and"
-                " --peer-fingerprint are mutually exclusive", p[0]);
-            goto err;
-        }
-
-        if (streq(p[0], "verify-hash"))
-        {
-            if ((!p[2] && !is_inline) || (p[2] && streq(p[2], "SHA1")))
-            {
-                options->verify_hash_algo = MD_SHA1;
-                digest_len = SHA_DIGEST_LENGTH;
-            }
-            else if (p[2] && !streq(p[2], "SHA256"))
-            {
-                msg(msglevel, "invalid or unsupported hashing algorithm: %s "
-                    "(only SHA1 and SHA256 are supported)", p[2]);
-                goto err;
-            }
-        }
-
-        struct verify_hash_list *newlist;
-        newlist = parse_hash_fingerprint_multiline(p[1], digest_len,
-                                                   msglevel, &options->gc);
-
-        /* Append the new list to the end of our current list */
-        if (!options->verify_hash)
-        {
-            options->verify_hash = newlist;
-            options->verify_hash_depth = verify_hash_depth;
-        }
-        else
-        {
-            /* since both the old and new list can have multiple entries
-             * we need to go to the end of one of them to concatenate them  */
-            struct verify_hash_list *listend = options->verify_hash;
-            while (listend->next)
-            {
-                listend = listend->next;
-            }
-            listend->next = newlist;
-        }
     }
 #ifdef ENABLE_CRYPTOAPI
     else if (streq(p[0], "cryptoapicert") && p[1] && !p[2])

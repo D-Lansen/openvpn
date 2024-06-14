@@ -973,13 +973,6 @@ do_init_timers(struct context *c, bool deferred)
         /* initialize connection establishment timer */
         event_timeout_init(&c->c2.wait_for_connect, 1, now);
 
-
-        /* initialize packet_id persistence timer */
-        if (c->options.packet_id_file)
-        {
-            event_timeout_init(&c->c2.packet_id_persist_interval, 60, now);
-        }
-
         /* initialize tmp_int optimization that limits the number of times we call
          * tls_multi_process in the main event loop */
         interval_init(&c->c2.tmp_int, TLS_MULTI_HORIZON, TLS_MULTI_REFRESH);
@@ -2106,21 +2099,10 @@ get_frame_mtu(struct context *c, const struct options *o)
 {
     size_t mtu;
 
-    if (o->ce.link_mtu_defined)
-    {
-        ASSERT(o->ce.link_mtu_defined);
-        /* if we have a link mtu defined we calculate what the old code
-         * would have come up with as tun-mtu */
-        size_t overhead = frame_calculate_protocol_header_size(&c->c1.ks.key_type,
-                                                               o, true);
-        mtu = o->ce.link_mtu - overhead;
+    ASSERT(o->ce.tun_mtu_defined);
 
-    }
-    else
-    {
-        ASSERT(o->ce.tun_mtu_defined);
-        mtu = o->ce.tun_mtu;
-    }
+    mtu = o->ce.tun_mtu;
+
 
     if (mtu < TUN_MTU_MIN)
     {
@@ -2222,26 +2204,6 @@ key_schedule_free(struct key_schedule *ks, bool free_ssl_ctx)
 static void
 init_crypto_pre(struct context *c, const unsigned int flags)
 {
-    if (c->options.engine)
-    {
-        crypto_init_lib_engine(c->options.engine);
-    }
-
-    if (flags & CF_LOAD_PERSISTED_PACKET_ID)
-    {
-        /* load a persisted packet-id for cross-session replay-protection */
-        if (c->options.packet_id_file)
-        {
-            packet_id_persist_load(&c->c1.pid_persist, c->options.packet_id_file);
-        }
-    }
-
-#ifdef ENABLE_PREDICTION_RESISTANCE
-    if (c->options.use_prediction_resistance)
-    {
-        rand_ctx_enable_prediction_resistance();
-    }
-#endif
 }
 
 /*
@@ -2253,11 +2215,8 @@ do_init_crypto_tls_c1(struct context *c)
 {
     const struct options *options = &c->options;
     const char *ciphername = options->ciphername;
-    /* Do not warn if the cipher is used only in OCC */
-    bool warn = options->enable_ncp_fallback;
     init_key_type(&c->c1.ks.key_type, ciphername, options->authname,
-                  true, warn);
-
+                  true, false);
 }
 
 static void
@@ -2295,7 +2254,7 @@ do_init_crypto_tls(struct context *c, const unsigned int flags)
     check_replay_consistency(&c->c1.ks.key_type, options->replay);
 
     /* In short form, unique datagram identifier is 32 bits, in long form 64 bits */
-    packet_id_long_form = cipher_kt_mode_ofb_cfb(c->c1.ks.key_type.cipher);
+    packet_id_long_form = false;
 
     /* Set all command-line TLS-related options */
     CLEAR(to);
@@ -2311,7 +2270,6 @@ do_init_crypto_tls(struct context *c, const unsigned int flags)
         to.crypto_flags |= CO_PACKET_ID_LONG_FORM;
     }
 
-//    to.ssl_ctx = c->c1.ks.ssl_ctx;
     to.key_type = c->c1.ks.key_type;
     to.server = options->tls_server;
     to.replay = options->replay;
@@ -2377,10 +2335,6 @@ do_init_crypto_tls(struct context *c, const unsigned int flags)
     to.ns_cert_type = options->ns_cert_type;
     memcpy(to.remote_cert_ku, options->remote_cert_ku, sizeof(to.remote_cert_ku));
     to.remote_cert_eku = options->remote_cert_eku;
-    to.verify_hash = options->verify_hash;
-    to.verify_hash_algo = options->verify_hash_algo;
-    to.verify_hash_depth = options->verify_hash_depth;
-    to.verify_hash_no_ca = options->verify_hash_no_ca;
 #ifdef ENABLE_X509ALTUSERNAME
     memcpy(to.x509_username_field, options->x509_username_field, sizeof(to.x509_username_field));
 #else
@@ -2723,38 +2677,6 @@ do_print_data_channel_mtu_parms(struct context *c)
                     "Fragmentation MTU parms");
     }
 #endif
-}
-
-/*
- * Get local and remote options compatibility strings.
- */
-static void
-do_compute_occ_strings(struct context *c)
-{
-    struct gc_arena gc = gc_new();
-
-    c->c2.options_string_local =
-        options_string(&c->options, &c->c2.frame, c->c1.tuntap, &c->net_ctx,
-                       false, &gc);
-    c->c2.options_string_remote =
-        options_string(&c->options, &c->c2.frame, c->c1.tuntap, &c->net_ctx,
-                       true, &gc);
-
-    msg(D_SHOW_OCC, "Local Options String (VER=%s): '%s'",
-        options_string_version(c->c2.options_string_local, &gc),
-        c->c2.options_string_local);
-    msg(D_SHOW_OCC, "Expected Remote Options String (VER=%s): '%s'",
-        options_string_version(c->c2.options_string_remote, &gc),
-        c->c2.options_string_remote);
-
-    if (c->c2.tls_multi)
-    {
-        tls_multi_init_set_options(c->c2.tls_multi,
-                                   c->c2.options_string_local,
-                                   c->c2.options_string_remote);
-    }
-
-    gc_free(&gc);
 }
 
 /*
@@ -3560,12 +3482,6 @@ init_instance(struct context *c, const struct env_set *env, const unsigned int f
 
     /* print MTU info */
     do_print_data_channel_mtu_parms(c);
-
-    /* get local and remote options compatibility strings */
-    if (c->mode == CM_P2P || child)
-    {
-        do_compute_occ_strings(c);
-    }
 
     /* initialize output speed limiter */
     if (c->mode == CM_P2P)

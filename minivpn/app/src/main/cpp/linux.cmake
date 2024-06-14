@@ -1,5 +1,5 @@
 include(lz4.cmake)
 include(lzo.cmake)
-include(openssl_linux.cmake)
+#include(openssl_linux.cmake)
 include(openvpn.cmake)
-target_link_libraries(openvpn openssl lzo lz4)
+target_link_libraries(openvpn lzo lz4)

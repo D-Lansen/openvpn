@@ -43,7 +43,6 @@
 #include "crypto_backend.h"
 #include "dns.h"
 
-
 /*
  * Maximum number of parameters associated with an option,
  * including the option name itself.
@@ -192,13 +191,6 @@ struct remote_list
     struct remote_entry *array[CONNECTION_LIST_SIZE];
 };
 
-struct provider_list
-{
-    /* Names of the providers */
-    const char *names[MAX_PARMS];
-    /* Pointers to the loaded providers to unload them */
-    provider_t *providers[MAX_PARMS];
-};
 
 enum vlan_acceptable_frames
 {
@@ -221,6 +213,9 @@ enum genkey_type {
     GENKEY_TLS_CRYPTV2_SERVER,
     GENKEY_AUTH_TOKEN
 };
+
+
+#define SHA256_DIGEST_LENGTH 32
 
 struct verify_hash_list
 {
@@ -548,7 +543,6 @@ struct options
     const char *ncp_ciphers;
     const char *authname;
     const char *engine;
-    struct provider_list providers;
     bool replay;
     bool mute_replay_warnings;
     int replay_window;
@@ -590,10 +584,6 @@ struct options
     int ns_cert_type; /* set to 0, NS_CERT_CHECK_SERVER, or NS_CERT_CHECK_CLIENT */
     unsigned remote_cert_ku[MAX_PARMS];
     const char *remote_cert_eku;
-    struct verify_hash_list *verify_hash;
-    hash_algo_type verify_hash_algo;
-    int verify_hash_depth;
-    bool verify_hash_no_ca;
     unsigned int ssl_flags; /* set to SSLF_x flags from ssl.h */
 
 #ifdef ENABLE_PKCS11

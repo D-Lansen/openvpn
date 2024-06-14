@@ -62,7 +62,7 @@ calc_packet_id_size_dc(const struct options *options, const struct key_type *kt)
 
     bool tlsmode = options->tls_server || options->tls_client;
 
-    bool packet_id_long_form = !tlsmode || cipher_kt_mode_ofb_cfb(kt->cipher);
+    bool packet_id_long_form = !tlsmode || false;
 
     return packet_id_size(packet_id_long_form);
 }
@@ -152,58 +152,6 @@ frame_calculate_payload_overhead(const struct frame *frame,
     return overhead;
 }
 
-size_t
-frame_calculate_payload_size(const struct frame *frame,
-                             const struct options *options,
-                             const struct key_type *kt)
-{
-    size_t payload_size = options->ce.tun_mtu;
-    payload_size += frame_calculate_payload_overhead(frame, options, kt, true);
-    return payload_size;
-}
-
-size_t
-calc_options_string_link_mtu(const struct options *o, const struct frame *frame)
-{
-    struct key_type occ_kt;
-
-    /* neither --secret nor TLS mode */
-    if (!o->tls_client && !o->tls_server && !o->shared_secret_file)
-    {
-        init_key_type(&occ_kt, "none", "none", false, false);
-        return frame_calculate_payload_size(frame, o, &occ_kt);
-    }
-
-    /* o->ciphername might be BF-CBC even though the underlying SSL library
-     * does not support it. For this reason we workaround this corner case
-     * by pretending to have no encryption enabled and by manually adding
-     * the required packet overhead to the MTU computation.
-     */
-    const char *ciphername = o->ciphername;
-
-    unsigned int overhead = 0;
-
-    if (strcmp(o->ciphername, "BF-CBC") == 0)
-    {
-        /* none has no overhead, so use this to later add only --auth
-         * overhead */
-
-        /* overhead of BF-CBC: 64 bit block size, 64 bit IV size */
-        overhead += 64/8 + 64/8;
-        /* set ciphername to none, so its size does get added in the
-         * fake_kt and the cipher is not tried to be resolved */
-        ciphername = "none";
-    }
-
-    /* We pass tlsmode always true here since as we do not need to check if
-     * the ciphers are actually valid for non tls in occ calucation */
-    init_key_type(&occ_kt, ciphername, o->authname, true, false);
-
-    unsigned int payload = frame_calculate_payload_size(frame, o, &occ_kt);
-    overhead += frame_calculate_protocol_header_size(&occ_kt, o, true);
-
-    return payload + overhead;
-}
 
 void
 frame_print(const struct frame *frame,

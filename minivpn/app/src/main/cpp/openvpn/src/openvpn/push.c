@@ -936,7 +936,7 @@ process_incoming_push_request(struct context *c)
 }
 
 static void
-push_update_digest(md_ctx_t *ctx, struct buffer *buf, const struct options *opt)
+push_update_digest(void *ctx, struct buffer *buf, const struct options *opt)
 {
     char line[OPTION_PARM_SIZE];
     while (buf_parse(buf, ',', line, sizeof(line)))

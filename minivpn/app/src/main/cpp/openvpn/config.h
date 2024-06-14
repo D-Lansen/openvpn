@@ -5,7 +5,7 @@
 
 #define ENABLE_DEBUG 1
 
-#define ENABLE_FRAGMENT 1
+//#define ENABLE_FRAGMENT 1
 
 #define ENABLE_MANAGEMENT 1
 
@@ -430,7 +430,7 @@
 #define ENABLE_DEBUG 1
 
 /* Enable internal fragmentation support */
-#define ENABLE_FRAGMENT 1
+// #define ENABLE_FRAGMENT 1
 
 #define ENABLE_MANAGEMENT 1
 

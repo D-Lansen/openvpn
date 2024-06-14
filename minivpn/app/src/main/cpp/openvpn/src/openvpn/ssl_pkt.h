@@ -80,15 +80,6 @@ struct tls_auth_standalone
     struct frame frame;
 };
 
-/* Creates an SHA256 HMAC context with a random key that is used for the
- * session id.
- *
- * We do not support loading this from a config file since continuing session
- * between restarts of OpenVPN has never been supported and that includes
- * early session setup.
- */
-hmac_ctx_t *session_id_hmac_init(void);
-
 
 /*
  * Write a control channel authentication record.

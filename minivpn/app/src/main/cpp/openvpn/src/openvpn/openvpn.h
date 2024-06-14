@@ -58,15 +58,6 @@ struct key_schedule
     /* pre-shared static key, read from a file */
     struct key_ctx_bi static_key;
 
-    /* our global SSL context */
-//    struct tls_root_ctx ssl_ctx;
-
-    /* optional TLS control channel wrapping */
-//    struct key_type tls_auth_key_type;
-//    struct key_ctx_bi tls_wrap_key;
-//    struct key_ctx tls_crypt_v2_server_key;
-//    struct buffer tls_crypt_v2_wkc;             /**< Wrapped client key */
-//    struct key_ctx auth_token_key;
 };
 
 /*
@@ -315,21 +306,6 @@ struct context_2
                                   *   tunnel. */
 
     struct tls_auth_standalone *tls_auth_standalone;
-    /**< TLS state structure required for the
-     *   initial authentication of a client's
-     *   connection attempt.  This structure
-     *   is used by the \c
-     *   tls_pre_decrypt_lite() function when
-     *   it performs the HMAC firewall check
-     *   on the first connection packet
-     *   received from a new client.  See the
-     *   \c --tls-auth commandline option. */
-
-
-    hmac_ctx_t *session_id_hmac;
-    /**< the HMAC we use to generate and verify our syn cookie like
-     * session ids from the server.
-     */
 
     /* used to optimize calls to tls_multi_process */
     struct interval tmp_int;
@@ -524,11 +500,6 @@ struct context
 
 #define TLS_MODE(c) ((c)->c2.tls_multi != NULL)
 #define PROTO_DUMP_FLAGS (check_debug_level(D_LINK_RW_VERBOSE) ? (PD_SHOW_DATA|PD_VERBOSE) : 0)
-#define PROTO_DUMP(buf, gc) protocol_dump((buf), \
-                                          PROTO_DUMP_FLAGS   \
-                                          |(c->c2.tls_multi ? PD_TLS : 0)   \
-                                          |(c->options.tls_auth_file ? md_kt_size(c->c1.ks.key_type.digest) : 0), \
-                                          gc)
 
 /* this represents "disabled peer-id" */
 #define MAX_PEER_ID 0xFFFFFF

@@ -897,7 +897,7 @@ process_incoming_link_part1(struct context *c, struct link_socket_info *lsi, boo
         proto2ascii(lsi->proto, lsi->af, true),
         BLEN(&c->c2.buf),
         print_link_socket_actual(&c->c2.from, &gc),
-        PROTO_DUMP(&c->c2.buf, &gc));
+        "PROTO_DUMP");
 
     /*
      * Good, non-zero length packet received.
@@ -1626,7 +1626,7 @@ process_outgoing_link(struct context *c)
                 proto2ascii(c->c2.link_socket->info.proto, c->c2.link_socket->info.af, true),
                 BLEN(&c->c2.to_link),
                 print_link_socket_actual(c->c2.to_link_addr, &gc),
-                PROTO_DUMP(&c->c2.to_link, &gc));
+                "PROTO_DUMP");
 
             /* Packet send complexified by possible Socks5 usage */
             {

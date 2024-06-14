@@ -913,7 +913,7 @@ multi_print_status(struct multi_context *m, struct status_output *so, const int 
                                   sep,
 #endif
                                   sep, mi->context.c2.tls_multi ? mi->context.c2.tls_multi->peer_id : UINT32_MAX,
-                                  sep, translate_cipher_name_to_openvpn(mi->context.options.ciphername));
+                                  sep, mi->context.options.ciphername);
                 }
                 gc_free(&gc);
             }

@@ -128,11 +128,6 @@
 #include "packet_id.h"
 #include "mtu.h"
 
-/** Wrapper struct to pass around SHA256 digests */
-struct sha256_digest {
-    uint8_t digest[SHA256_DIGEST_LENGTH];
-};
-
 /*
  * Defines a key type and key length for both cipher and HMAC.
  */
@@ -153,24 +148,6 @@ struct key
     uint8_t hmac[MAX_HMAC_KEY_LENGTH];
     /**< %Key material for HMAC operations. */
 };
-
-
-/**
- * Container for one set of cipher and/or HMAC contexts.
- * @ingroup control_processor
- */
-struct key_ctx
-{
-    cipher_ctx_t *cipher;       /**< Generic cipher %context. */
-    hmac_ctx_t *hmac;           /**< Generic HMAC %context. */
-    uint8_t implicit_iv[OPENVPN_MAX_IV_LENGTH];
-    /**< The implicit part of the IV */
-    size_t implicit_iv_len;     /**< The length of implicit_iv */
-};
-
-#define KEY_DIRECTION_BIDIRECTIONAL 0 /* same keys for both directions */
-#define KEY_DIRECTION_NORMAL        1 /* encrypt with keys[0], decrypt with keys[1] */
-#define KEY_DIRECTION_INVERSE       2 /* encrypt with keys[1], decrypt with keys[0] */
 
 /**
  * Container for bidirectional cipher and HMAC %key material.
@@ -312,22 +289,6 @@ int read_key(struct key *key, const struct key_type *kt, struct buffer *buf);
  */
 void init_key_type(struct key_type *kt, const char *ciphername,
                    const char *authname, bool tls_mode, bool warn);
-
-/*
- * Key context functions
- */
-
-void init_key_ctx(struct key_ctx *ctx, const struct key *key,
-                  const struct key_type *kt, int enc,
-                  const char *prefix);
-
-void free_key_ctx(struct key_ctx *ctx);
-
-void init_key_ctx_bi(struct key_ctx_bi *ctx, const struct key2 *key2,
-                     int key_direction, const struct key_type *kt,
-                     const char *name);
-
-void free_key_ctx_bi(struct key_ctx_bi *ctx);
 
 
 /**************************************************************************/
