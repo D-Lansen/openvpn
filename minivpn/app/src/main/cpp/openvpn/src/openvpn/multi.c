@@ -2316,7 +2316,6 @@ multi_client_connect_late_setup(struct multi_context *m,
     /* send push reply if ready */
     if (mi->context.c2.push_request_received)
     {
-        msg(M_INFO,"lichen is here 3");
         process_incoming_push_request(&mi->context);
     }
 

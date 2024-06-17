@@ -10,10 +10,10 @@
 #define ENABLE_MANAGEMENT 1
 
 /* Enable LZ4 compression library */
-#define ENABLE_LZ4 1
-
-/* Enable LZO compression library */
-#define ENABLE_LZO 1
+// #define ENABLE_LZ4 1
+//
+// /* Enable LZO compression library */
+// #define ENABLE_LZO 1
 
 /* Enable OFB and CFB cipher modes */
 #define ENABLE_OFB_CFB_MODE 1
@@ -126,7 +126,7 @@
 #define HAVE_LIBGEN_H 1
 
 /* Define to 1 if you have the `lz4' library (-llz4). */
-#define HAVE_LIBLZ4 1
+//#define HAVE_LIBLZ4 1
 
 /* Define to 1 if you have the `wolfssl' library (-lwolfssl). */
 /* #undef HAVE_LIBWOLFSSL */
@@ -421,10 +421,10 @@
 /* via android.mk */
 #define ENABLE_CRYPTO_OPENSSL 1
 /* Use LZO compression library */
-#define ENABLE_LZO 1
+//#define ENABLE_LZO 1
 #define ENABLE_SNAPPY 1
-#define ENABLE_LZ4 1
-#define NEED_COMPAT_LZ4 1
+//#define ENABLE_LZ4 1
+//#define NEED_COMPAT_LZ4 1
 
 /* Enable debugging support */
 #define ENABLE_DEBUG 1
@@ -440,8 +440,8 @@
 // New version
 #define HAVE_INET_NTOP 1
 #define HAVE_INET_PTON 1
-#define HAVE_LZO_LZOUTIL_H 1
-#define HAVE_LZO_LZO1X_H 1
+//#define HAVE_LZO_LZOUTIL_H 1
+//#define HAVE_LZO_LZO1X_H 1
 #define HAVE_SYS_TIME_H 1
 #define HAVE_TIME_H 1
 // #define HAVE_CONFIG_VERSION_H 1

@@ -181,12 +181,6 @@ void
 prng_bytes(uint8_t *output, int len)
 {
     ASSERT(rand_bytes(output, len));
-    msg(M_INFO,"rnd_size:%d",len);
-    if (len==8){
-        msg(M_INFO,"rnd:%ld",(long)output);
-    } else {
-        msg(M_INFO,"=============rnd==========");
-    }
 }
 
 long int
@@ -198,6 +192,5 @@ get_random(void)
     {
         l = -l;
     }
-    msg(M_INFO,"rnd:%ld",l);
     return l;
 }

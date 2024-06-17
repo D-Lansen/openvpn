@@ -43,21 +43,6 @@
 #include "crypto_backend.h"
 #include "openssl_compat.h"
 
-//#include <openssl/conf.h>
-//#include <openssl/des.h>
-//#include <openssl/err.h>
-//#include <openssl/evp.h>
-//#include <openssl/objects.h>
-//#include <openssl/rand.h>
-//#include <openssl/ssl.h>
-
-//#if (OPENSSL_VERSION_NUMBER >= 0x10100000L) && !defined(LIBRESSL_VERSION_NUMBER)
-//#include <openssl/kdf.h>
-//#endif
-//#if OPENSSL_VERSION_NUMBER >= 0x30000000L
-//#include <openssl/provider.h>
-//#endif
-
 int
 rand_bytes(uint8_t *output, int len)
 {

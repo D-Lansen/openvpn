@@ -30,7 +30,6 @@ set(openvpn_srcs
         openvpn/src/openvpn/interval.c
         openvpn/src/openvpn/list.c
         openvpn/src/openvpn/lladdr.c
-        openvpn/src/openvpn/lzo.c
         openvpn/src/openvpn/manage.c
         openvpn/src/openvpn/mbuf.c
         openvpn/src/openvpn/misc.c

@@ -734,7 +734,6 @@ send_push_reply(struct context *c, struct push_list *per_client_push_list)
 
     if (BLEN(&buf) > sizeof(push_reply_cmd)-1)
     {
-        msg(M_INFO,"lichen is here 2");
         const bool status = send_control_channel_string(c, BSTR(&buf), D_PUSH);
         if (!status)
         {
