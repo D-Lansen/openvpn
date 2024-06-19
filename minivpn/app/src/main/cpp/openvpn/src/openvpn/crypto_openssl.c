@@ -41,7 +41,6 @@
 #include "integer.h"
 #include "crypto.h"
 #include "crypto_backend.h"
-#include "openssl_compat.h"
 
 int
 rand_bytes(uint8_t *output, int len)

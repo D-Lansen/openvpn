@@ -804,7 +804,6 @@ addrlist_port_match(const struct openvpn_sockaddr *a1, const struct addrinfo *a2
 }
 
 
-
 static inline bool
 addr_port_match(const struct openvpn_sockaddr *a1, const struct openvpn_sockaddr *a2)
 {
@@ -1131,24 +1130,6 @@ size_t link_socket_write_udp_posix_sendmsg(struct link_socket *sock,
 
 
 static inline size_t
-link_socket_write_udp_posix(struct link_socket *sock,
-                            struct buffer *buf,
-                            struct link_socket_actual *to)
-{
-#if ENABLE_IP_PKTINFO
-    if (proto_is_udp(sock->info.proto) && (sock->sockflags & SF_USE_IP_PKTINFO)
-        && addr_defined_ipi(to))
-    {
-        return link_socket_write_udp_posix_sendmsg(sock, buf, to);
-    }
-    else
-#endif
-    return sendto(sock->sd, BPTR(buf), BLEN(buf), 0,
-                  (struct sockaddr *) &to->dest.addr.sa,
-                  (socklen_t) af_addr_size(to->dest.addr.sa.sa_family));
-}
-
-static inline size_t
 link_socket_write_tcp_posix(struct link_socket *sock,
                             struct buffer *buf,
                             struct link_socket_actual *to)
@@ -1158,37 +1139,14 @@ link_socket_write_tcp_posix(struct link_socket *sock,
 
 #endif /* ifdef _WIN32 */
 
-static inline size_t
-link_socket_write_udp(struct link_socket *sock,
-                      struct buffer *buf,
-                      struct link_socket_actual *to)
-{
-#ifdef _WIN32
-    return link_socket_write_win32(sock, buf, to);
-#else
-    return link_socket_write_udp_posix(sock, buf, to);
-#endif
-}
-
 /* write a TCP or UDP packet to link */
 static inline int
 link_socket_write(struct link_socket *sock,
                   struct buffer *buf,
                   struct link_socket_actual *to)
 {
-    if (proto_is_udp(sock->info.proto)) /* unified UDPv4 and UDPv6 */
-    {
-        return link_socket_write_udp(sock, buf, to);
-    }
-    else if (proto_is_tcp(sock->info.proto)) /* unified TCPv4 and TCPv6 */
-    {
-        return link_socket_write_tcp(sock, buf, to);
-    }
-    else
-    {
-        ASSERT(0);
-        return -1; /* NOTREACHED */
-    }
+    ASSERT(!proto_is_udp(sock->info.proto)); /* unified UDPv4 and UDPv6 */
+    return link_socket_write_tcp(sock, buf, to);
 }
 
 #if PASSTOS_CAPABILITY

@@ -27,15 +27,34 @@ android {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
     }
-    externalNativeBuild {
-        cmake {
-            path file('src/main/cpp/CMakeLists.txt')
-            version '3.22.1'
-        }
-    }
+
     buildFeatures {
         viewBinding true
     }
+
+    def useClionLibs = true
+
+    if (useClionLibs){
+        //use jniLibs
+        packagingOptions{
+            pickFirst 'lib/arm64-v8a/libopenvpn.so'
+            pickFirst 'lib/arm64-v8a/libvpn.so'
+        }
+    }else{
+        //use cmake and set jniLibs not enable
+        externalNativeBuild {
+            cmake {
+                path file('src/main/cpp/CMakeLists.txt')
+                version '3.22.1'
+            }
+        }
+        sourceSets{
+            main{
+                jniLibs.srcDirs = ['libs']
+            }
+        }
+    }
+
 }
 
 dependencies {
