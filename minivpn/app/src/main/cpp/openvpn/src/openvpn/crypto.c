@@ -162,12 +162,7 @@ void
 init_key_type(struct key_type *kt, const char *ciphername,
               const char *authname, bool tls_mode, bool warn)
 {
-    bool aead_cipher = false;
-    ASSERT(ciphername);
-    ASSERT(authname);
     CLEAR(*kt);
-    kt->cipher = ciphername;
-    kt->digest = authname;
 }
 
 

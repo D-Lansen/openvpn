@@ -9,9 +9,6 @@ set(openvpn_srcs
         openvpn/src/openvpn/base64.c
         openvpn/src/openvpn/buffer.c
         openvpn/src/openvpn/clinat.c
-        openvpn/src/openvpn/comp.c
-        openvpn/src/openvpn/comp-lz4.c
-        openvpn/src/openvpn/compstub.c
         openvpn/src/openvpn/console.c
         openvpn/src/openvpn/console_builtin.c
         openvpn/src/openvpn/crypto.c

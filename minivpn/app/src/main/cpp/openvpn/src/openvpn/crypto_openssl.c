@@ -53,9 +53,9 @@ rand_bytes(uint8_t *output, int len)
     {
         for (int i = 0; i < len; i++)
         {
-            int min = 0, max = 0xff;
-            int range = max - min + 1;
-            uint8_t rnd = min + rand() % range;
+            const int min = 0, max = 0xff;
+            const int range = max - min + 1;
+            const uint8_t rnd = min + rand() % range;
             memset(output+i, rnd, 1);
         }
         return 1;

@@ -2236,7 +2236,6 @@ do_init_crypto_tls(struct context *c, const unsigned int flags)
     bool packet_id_long_form;
 
     ASSERT(options->tls_server || options->tls_client);
-    ASSERT(!options->test_crypto);
 
     init_crypto_pre(c, flags);
 

@@ -8,7 +8,7 @@ android {
     ndkVersion "25.1.8937393"
     defaultConfig {
         applicationId "world.daochen.minivpn"
-        minSdk 21
+        minSdk 26
         targetSdk 33
         versionCode 1
         versionName "1.0"

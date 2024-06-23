@@ -1908,7 +1908,6 @@ show_settings(const struct options *o)
     SHOW_BOOL(mute_replay_warnings);
     SHOW_INT(replay_window);
     SHOW_INT(replay_time);
-    SHOW_STR(packet_id_file);
 #ifdef ENABLE_PREDICTION_RESISTANCE
     SHOW_BOOL(use_prediction_resistance);
 #endif
@@ -2142,14 +2141,7 @@ options_postprocess_verify_ce(const struct options *options,
 
     init_options(&defaults, true);
 
-    if (options->test_crypto)
-    {
-        notnull(options->shared_secret_file, "key file (--secret)");
-    }
-    else
-    {
-        notnull(options->dev, "TUN/TAP device (--dev)");
-    }
+    notnull(options->dev, "TUN/TAP device (--dev)");
 
     /*
      * Get tun/tap/null device type
@@ -3161,28 +3153,6 @@ options_postprocess_cipher(struct options *o)
             o->enable_ncp_fallback = true;
         }
         return;
-    }
-
-    /* pull or P2MP mode */
-    if (!o->ciphername)
-    {
-        /* We still need to set the ciphername to BF-CBC since various other
-         * parts of OpenVPN assert that the ciphername is set */
-        o->ciphername = "BF-CBC";
-
-        msg(M_INFO, "Note: --cipher is not set. OpenVPN versions before 2.5 "
-            "defaulted to BF-CBC as fallback when cipher negotiation "
-            "failed in this case. If you need this fallback please add "
-            "'--data-ciphers-fallback 'BF-CBC' to your configuration "
-            "and/or add BF-CBC to --data-ciphers.");
-    }
-    else if (!o->enable_ncp_fallback
-             && !tls_item_in_cipher_list(o->ciphername, o->ncp_ciphers))
-    {
-        msg(M_WARN, "DEPRECATED OPTION: --cipher set to '%s' but missing in "
-            "--data-ciphers (%s). OpenVPN ignores --cipher for cipher "
-            "negotiations. ",
-            o->ciphername, o->ncp_ciphers);
     }
 }
 
@@ -4610,27 +4580,6 @@ set_user_script(struct options *options,
 #endif
 }
 
-#ifdef USE_COMP
-static void
-show_compression_warning(struct compress_options *info)
-{
-    if (comp_non_stub_enabled(info))
-    {
-        /*
-         * Check if already displayed the strong warning and enabled full
-         * compression
-         */
-        if (!(info->flags & COMP_F_ALLOW_COMPRESS))
-        {
-            msg(M_WARN, "WARNING: Compression for receiving enabled. "
-                "Compression has been used in the past to break encryption. "
-                "Sent packets are not compressed unless \"allow-compression yes\" "
-                "is also set.");
-        }
-    }
-}
-#endif
-
 bool
 key_is_external(const struct options *options)
 {
@@ -4928,13 +4877,6 @@ add_option(struct options *options,
         VERIFY_PERMISSION(OPT_P_GENERAL);
         options->dev_type = p[1];
     }
-#ifdef _WIN32
-    else if (streq(p[0], "windows-driver") && p[1] && !p[2])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        options->windows_driver = parse_windows_driver(p[1], M_FATAL);
-    }
-#endif
     else if (streq(p[0], "disable-dco"))
     {
 #if defined(TARGET_LINUX)
@@ -5159,6 +5101,26 @@ add_option(struct options *options,
             connection_entry_load_re(&options->ce, &re);
         }
     }
+    else if (streq(p[0], "remote-cert-tls") && p[1] && !p[2])
+    {
+        VERIFY_PERMISSION(OPT_P_GENERAL);
+
+        if (streq(p[1], "server"))
+        {
+            options->remote_cert_ku[0] = OPENVPN_KU_REQUIRED;
+            options->remote_cert_eku = "TLS Web Server Authentication";
+        }
+        else if (streq(p[1], "client"))
+        {
+            options->remote_cert_ku[0] = OPENVPN_KU_REQUIRED;
+            options->remote_cert_eku = "TLS Web Client Authentication";
+        }
+        else
+        {
+            msg(msglevel, "--remote-cert-tls must be 'client' or 'server'");
+            goto err;
+        }
+    }
     else if (streq(p[0], "resolv-retry") && p[1] && !p[2])
     {
         VERIFY_PERMISSION(OPT_P_GENERAL);
@@ -5170,6 +5132,9 @@ add_option(struct options *options,
         {
             options->resolve_retry_seconds = positive_atoi(p[1]);
         }
+    }
+    else if (streq(p[0], "block-outside-dns") && !p[1])
+    {
     }
     else if ((streq(p[0], "preresolve") || streq(p[0], "ip-remote-hint")) && !p[2])
     {
@@ -5366,22 +5331,7 @@ add_option(struct options *options,
 #endif
     else if (streq(p[0], "verb") && p[1] && !p[2])
     {
-        VERIFY_PERMISSION(OPT_P_MESSAGES);
-        options->verbosity = positive_atoi(p[1]);
-        if (options->verbosity >= (D_TLS_DEBUG_MED & M_DEBUG_LEVEL))
-        {
-            /* We pass this flag to the SSL library to avoid
-             * mbed TLS always generating debug level logging */
-            options->ssl_flags |= SSLF_TLS_DEBUG_ENABLED;
-        }
-#if !defined(ENABLE_DEBUG) && !defined(ENABLE_SMALL)
-        /* Warn when a debug verbosity is supplied when built without debug support */
-        if (options->verbosity >= 7)
-        {
-            msg(M_WARN, "NOTE: debug verbosity (--verb %d) is enabled but this build lacks debug support.",
-                options->verbosity);
-        }
-#endif
+
     }
     else if (streq(p[0], "mute") && p[1] && !p[2])
     {
@@ -5649,234 +5599,7 @@ add_option(struct options *options,
         }
         options->proto_force = proto_force;
     }
-    else if (streq(p[0], "http-proxy") && p[1] && !p[5])
-    {
-    }
-    else if (streq(p[0], "http-proxy-user-pass") && p[1])
-    {
 
-    }
-    else if (streq(p[0], "http-proxy-retry") || streq(p[0], "socks-proxy-retry"))
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL|OPT_P_CONNECTION);
-        msg(M_WARN, "DEPRECATED OPTION: http-proxy-retry and socks-proxy-retry: "
-            "In OpenVPN 2.4 proxy connection retries are handled like regular connections. "
-            "Use connect-retry-max 1 to get a similar behavior as before.");
-    }
-    else if (streq(p[0], "http-proxy-timeout") && p[1] && !p[2])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL|OPT_P_CONNECTION);
-        msg(M_WARN, "DEPRECATED OPTION: http-proxy-timeout: In OpenVPN 2.4 the timeout until a connection to a "
-            "server is established is managed with a single timeout set by connect-timeout");
-    }
-    else if (streq(p[0], "http-proxy-option") && p[1] && !p[4])
-    {
-    }
-    else if (streq(p[0], "socks-proxy") && p[1] && !p[4])
-    {
-    }
-    else if (streq(p[0], "keepalive") && p[1] && p[2] && !p[3])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        options->keepalive_ping = atoi(p[1]);
-        options->keepalive_timeout = atoi(p[2]);
-    }
-    else if (streq(p[0], "ping") && p[1] && !p[2])
-    {
-        VERIFY_PERMISSION(OPT_P_TIMER);
-        options->ping_send_timeout = positive_atoi(p[1]);
-    }
-    else if (streq(p[0], "ping-exit") && p[1] && !p[2])
-    {
-        VERIFY_PERMISSION(OPT_P_TIMER);
-        options->ping_rec_timeout = positive_atoi(p[1]);
-        options->ping_rec_timeout_action = PING_EXIT;
-    }
-    else if (streq(p[0], "ping-restart") && p[1] && !p[2])
-    {
-        VERIFY_PERMISSION(OPT_P_TIMER);
-        options->ping_rec_timeout = positive_atoi(p[1]);
-        options->ping_rec_timeout_action = PING_RESTART;
-    }
-    else if (streq(p[0], "ping-timer-rem") && !p[1])
-    {
-        VERIFY_PERMISSION(OPT_P_TIMER);
-        options->ping_timer_remote = true;
-    }
-    else if (streq(p[0], "explicit-exit-notify") && !p[2])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL|OPT_P_CONNECTION|OPT_P_EXPLICIT_NOTIFY);
-        if (p[1])
-        {
-            options->ce.explicit_exit_notification = positive_atoi(p[1]);
-        }
-        else
-        {
-            options->ce.explicit_exit_notification = 1;
-        }
-    }
-    else if (streq(p[0], "persist-tun") && !p[1])
-    {
-        VERIFY_PERMISSION(OPT_P_PERSIST);
-        options->persist_tun = true;
-    }
-    else if (streq(p[0], "persist-key") && !p[1])
-    {
-        VERIFY_PERMISSION(OPT_P_PERSIST);
-        options->persist_key = true;
-    }
-    else if (streq(p[0], "persist-local-ip") && !p[1])
-    {
-        VERIFY_PERMISSION(OPT_P_PERSIST_IP);
-        options->persist_local_ip = true;
-    }
-    else if (streq(p[0], "persist-remote-ip") && !p[1])
-    {
-        VERIFY_PERMISSION(OPT_P_PERSIST_IP);
-        options->persist_remote_ip = true;
-    }
-    else if (streq(p[0], "client-nat") && p[1] && p[2] && p[3] && p[4] && !p[5])
-    {
-        VERIFY_PERMISSION(OPT_P_ROUTE);
-        cnol_check_alloc(options);
-        add_client_nat_to_option_list(options->client_nat, p[1], p[2], p[3], p[4], msglevel);
-    }
-    else if (streq(p[0], "route") && p[1] && !p[5])
-    {
-        VERIFY_PERMISSION(OPT_P_ROUTE);
-        rol_check_alloc(options);
-        if (pull_mode)
-        {
-            if (!ip_or_dns_addr_safe(p[1], options->allow_pull_fqdn) && !is_special_addr(p[1])) /* FQDN -- may be DNS name */
-            {
-                msg(msglevel, "route parameter network/IP '%s' must be a valid address", p[1]);
-                goto err;
-            }
-            if (p[2] && !ip_addr_dotted_quad_safe(p[2])) /* FQDN -- must be IP address */
-            {
-                msg(msglevel, "route parameter netmask '%s' must be an IP address", p[2]);
-                goto err;
-            }
-            if (p[3] && !ip_or_dns_addr_safe(p[3], options->allow_pull_fqdn) && !is_special_addr(p[3])) /* FQDN -- may be DNS name */
-            {
-                msg(msglevel, "route parameter gateway '%s' must be a valid address", p[3]);
-                goto err;
-            }
-        }
-        add_route_to_option_list(options->routes, p[1], p[2], p[3], p[4]);
-    }
-    else if (streq(p[0], "route-ipv6") && p[1] && !p[4])
-    {
-        VERIFY_PERMISSION(OPT_P_ROUTE);
-        rol6_check_alloc(options);
-        if (pull_mode)
-        {
-            if (!ipv6_addr_safe_hexplusbits(p[1]))
-            {
-                msg(msglevel, "route-ipv6 parameter network/IP '%s' must be a valid address", p[1]);
-                goto err;
-            }
-            if (p[2] && !ipv6_addr_safe(p[2]))
-            {
-                msg(msglevel, "route-ipv6 parameter gateway '%s' must be a valid address", p[2]);
-                goto err;
-            }
-            /* p[3] is metric, if present */
-        }
-        add_route_ipv6_to_option_list(options->routes_ipv6, p[1], p[2], p[3]);
-    }
-    else if (streq(p[0], "max-routes") && !p[2])
-    {
-        msg(M_WARN, "DEPRECATED OPTION: --max-routes option ignored."
-            "The number of routes is unlimited as of OpenVPN 2.4. "
-            "This option will be removed in a future version, "
-            "please remove it from your configuration.");
-    }
-    else if (streq(p[0], "route-gateway") && p[1] && !p[2])
-    {
-        VERIFY_PERMISSION(OPT_P_ROUTE_EXTRAS);
-        if (streq(p[1], "dhcp"))
-        {
-            options->route_gateway_via_dhcp = true;
-        }
-        else
-        {
-            if (ip_or_dns_addr_safe(p[1], options->allow_pull_fqdn) || is_special_addr(p[1])) /* FQDN -- may be DNS name */
-            {
-                options->route_default_gateway = p[1];
-            }
-            else
-            {
-                msg(msglevel, "route-gateway parm '%s' must be a valid address", p[1]);
-                goto err;
-            }
-        }
-    }
-    else if (streq(p[0], "route-ipv6-gateway") && p[1] && !p[2])
-    {
-        if (ipv6_addr_safe(p[1]))
-        {
-            options->route_ipv6_default_gateway = p[1];
-        }
-        else
-        {
-            msg(msglevel, "route-ipv6-gateway parm '%s' must be a valid address", p[1]);
-            goto err;
-        }
-    }
-    else if (streq(p[0], "route-metric") && p[1] && !p[2])
-    {
-        VERIFY_PERMISSION(OPT_P_ROUTE);
-        options->route_default_metric = positive_atoi(p[1]);
-    }
-    else if (streq(p[0], "route-delay") && !p[3])
-    {
-        VERIFY_PERMISSION(OPT_P_ROUTE_EXTRAS);
-        options->route_delay_defined = true;
-        if (p[1])
-        {
-            options->route_delay = positive_atoi(p[1]);
-            if (p[2])
-            {
-                options->route_delay_window = positive_atoi(p[2]);
-            }
-        }
-        else
-        {
-            options->route_delay = 0;
-        }
-    }
-    else if (streq(p[0], "route-up") && p[1])
-    {
-        VERIFY_PERMISSION(OPT_P_SCRIPT);
-        if (!no_more_than_n_args(msglevel, p, 2, NM_QUOTE_HINT))
-        {
-            goto err;
-        }
-        set_user_script(options, &options->route_script, p[1], "route-up", false);
-    }
-    else if (streq(p[0], "route-pre-down") && p[1])
-    {
-        VERIFY_PERMISSION(OPT_P_SCRIPT);
-        if (!no_more_than_n_args(msglevel, p, 2, NM_QUOTE_HINT))
-        {
-            goto err;
-        }
-        set_user_script(options,
-                        &options->route_predown_script,
-                        p[1],
-                        "route-pre-down", true);
-    }
-    else if (streq(p[0], "route-noexec") && !p[1])
-    {
-        VERIFY_PERMISSION(OPT_P_SCRIPT);
-        options->route_noexec = true;
-    }
-    else if (streq(p[0], "route-nopull") && !p[1])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        options->route_nopull = true;
-    }
     else if (streq(p[0], "pull-filter") && p[1] && p[2] && !p[3])
     {
         struct pull_filter *f;
@@ -6069,6 +5792,7 @@ add_option(struct options *options,
             msg(msglevel, "Unknown parameter to --mssfix: %s", p[2]);
         }
     }
+
     else if (streq(p[0], "server") && p[1] && p[2] && !p[4])
     {
         const int lev = M_WARN;
@@ -6124,39 +5848,6 @@ add_option(struct options *options,
         options->server_network_ipv6 = network;
         options->server_netbits_ipv6 = netbits;
     }
-    else if (streq(p[0], "server-bridge") && p[1] && p[2] && p[3] && p[4] && !p[5])
-    {
-        const int lev = M_WARN;
-        bool error = false;
-        in_addr_t ip, netmask, pool_start, pool_end;
-
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        ip = get_ip_addr(p[1], lev, &error);
-        netmask = get_ip_addr(p[2], lev, &error);
-        pool_start = get_ip_addr(p[3], lev, &error);
-        pool_end = get_ip_addr(p[4], lev, &error);
-        if (error || !ip || !netmask || !pool_start || !pool_end)
-        {
-            msg(msglevel, "error parsing --server-bridge parameters");
-            goto err;
-        }
-        options->server_bridge_defined = true;
-        options->server_bridge_ip = ip;
-        options->server_bridge_netmask = netmask;
-        options->server_bridge_pool_start = pool_start;
-        options->server_bridge_pool_end = pool_end;
-    }
-    else if (streq(p[0], "server-bridge") && p[1] && streq(p[1], "nogw") && !p[2])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        options->server_bridge_proxy_dhcp = true;
-        options->server_flags |= SF_NO_PUSH_ROUTE_GATEWAY;
-    }
-    else if (streq(p[0], "server-bridge") && !p[1])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        options->server_bridge_proxy_dhcp = true;
-    }
     else if (streq(p[0], "push") && p[1] && !p[2])
     {
         VERIFY_PERMISSION(OPT_P_PUSH);
@@ -6204,15 +5895,7 @@ add_option(struct options *options,
             options->ifconfig_pool_netmask = netmask;
         }
     }
-    else if (streq(p[0], "ifconfig-pool-persist") && p[1] && !p[3])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        options->ifconfig_pool_persist_filename = p[1];
-        if (p[2])
-        {
-            options->ifconfig_pool_persist_refresh_freq = positive_atoi(p[2]);
-        }
-    }
+
     else if (streq(p[0], "ifconfig-ipv6-pool") && p[1] && !p[2])
     {
         const int lev = M_WARN;
@@ -6237,372 +5920,6 @@ add_option(struct options *options,
         options->ifconfig_ipv6_pool_base = network;
         options->ifconfig_ipv6_pool_netbits = netbits;
     }
-    else if (streq(p[0], "hash-size") && p[1] && p[2] && !p[3])
-    {
-        int real, virtual;
-
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        real = atoi(p[1]);
-        virtual = atoi(p[2]);
-        if (real < 1 || virtual < 1)
-        {
-            msg(msglevel, "--hash-size sizes must be >= 1 (preferably a power of 2)");
-            goto err;
-        }
-        options->real_hash_size = real;
-        options->virtual_hash_size = real;
-    }
-    else if (streq(p[0], "connect-freq") && p[1] && p[2] && !p[3])
-    {
-        int cf_max, cf_per;
-
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        cf_max = atoi(p[1]);
-        cf_per = atoi(p[2]);
-        if (cf_max < 0 || cf_per < 0)
-        {
-            msg(msglevel, "--connect-freq parms must be > 0");
-            goto err;
-        }
-        options->cf_max = cf_max;
-        options->cf_per = cf_per;
-    }
-    else if (streq(p[0], "max-clients") && p[1] && !p[2])
-    {
-        int max_clients;
-
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        max_clients = atoi(p[1]);
-        if (max_clients < 0)
-        {
-            msg(msglevel, "--max-clients must be at least 1");
-            goto err;
-        }
-        if (max_clients >= MAX_PEER_ID) /* max peer-id value */
-        {
-            msg(msglevel, "--max-clients must be less than %d", MAX_PEER_ID);
-            goto err;
-        }
-        options->max_clients = max_clients;
-    }
-    else if (streq(p[0], "max-routes-per-client") && p[1] && !p[2])
-    {
-        VERIFY_PERMISSION(OPT_P_INHERIT);
-        options->max_routes_per_client = max_int(atoi(p[1]), 1);
-    }
-    else if (streq(p[0], "client-cert-not-required") && !p[1])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        msg(M_FATAL, "REMOVED OPTION: --client-cert-not-required, use '--verify-client-cert none' instead");
-    }
-    else if (streq(p[0], "verify-client-cert") && !p[2])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-
-        /* Reset any existing flags */
-        options->ssl_flags &= ~SSLF_CLIENT_CERT_OPTIONAL;
-        options->ssl_flags &= ~SSLF_CLIENT_CERT_NOT_REQUIRED;
-        if (p[1])
-        {
-            if (streq(p[1], "none"))
-            {
-                options->ssl_flags |= SSLF_CLIENT_CERT_NOT_REQUIRED;
-            }
-            else if (streq(p[1], "optional"))
-            {
-                options->ssl_flags |= SSLF_CLIENT_CERT_OPTIONAL;
-            }
-            else if (!streq(p[1], "require"))
-            {
-                msg(msglevel, "parameter to --verify-client-cert must be 'none', 'optional' or 'require'");
-                goto err;
-            }
-        }
-    }
-    else if (streq(p[0], "username-as-common-name") && !p[1])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        options->ssl_flags |= SSLF_USERNAME_AS_COMMON_NAME;
-    }
-    else if (streq(p[0], "auth-user-pass-optional") && !p[1])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        options->ssl_flags |= SSLF_AUTH_USER_PASS_OPTIONAL;
-    }
-    else if (streq(p[0], "opt-verify") && !p[1])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        options->ssl_flags |= SSLF_OPT_VERIFY;
-    }
-    else if (streq(p[0], "auth-user-pass-verify") && p[1])
-    {
-        VERIFY_PERMISSION(OPT_P_SCRIPT);
-        if (!no_more_than_n_args(msglevel, p, 3, NM_QUOTE_HINT))
-        {
-            goto err;
-        }
-        if (p[2])
-        {
-            if (streq(p[2], "via-env"))
-            {
-                options->auth_user_pass_verify_script_via_file = false;
-            }
-            else if (streq(p[2], "via-file"))
-            {
-                options->auth_user_pass_verify_script_via_file = true;
-            }
-            else
-            {
-                msg(msglevel, "second parm to --auth-user-pass-verify must be 'via-env' or 'via-file'");
-                goto err;
-            }
-        }
-        else
-        {
-            msg(msglevel, "--auth-user-pass-verify requires a second parameter ('via-env' or 'via-file')");
-            goto err;
-        }
-        set_user_script(options,
-                        &options->auth_user_pass_verify_script,
-                        p[1], "auth-user-pass-verify", true);
-    }
-    else if (streq(p[0], "auth-gen-token") && !p[3])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        options->auth_token_generate = true;
-        options->auth_token_lifetime = p[1] ? positive_atoi(p[1]) : 0;
-        if (p[2])
-        {
-            if (streq(p[2], "external-auth"))
-            {
-                options->auth_token_call_auth = true;
-            }
-            else
-            {
-                msg(msglevel, "Invalid argument to auth-gen-token: %s", p[2]);
-            }
-        }
-
-    }
-    else if (streq(p[0], "auth-gen-token-secret") && p[1] && !p[2])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL|OPT_P_INLINE);
-        options->auth_token_secret_file = p[1];
-        options->auth_token_secret_file_inline = is_inline;
-
-    }
-    else if (streq(p[0], "client-connect") && p[1])
-    {
-        VERIFY_PERMISSION(OPT_P_SCRIPT);
-        if (!no_more_than_n_args(msglevel, p, 2, NM_QUOTE_HINT))
-        {
-            goto err;
-        }
-        set_user_script(options, &options->client_connect_script,
-                        p[1], "client-connect", true);
-    }
-    else if (streq(p[0], "client-disconnect") && p[1])
-    {
-        VERIFY_PERMISSION(OPT_P_SCRIPT);
-        if (!no_more_than_n_args(msglevel, p, 2, NM_QUOTE_HINT))
-        {
-            goto err;
-        }
-        set_user_script(options, &options->client_disconnect_script,
-                        p[1], "client-disconnect", true);
-    }
-    else if (streq(p[0], "learn-address") && p[1])
-    {
-        VERIFY_PERMISSION(OPT_P_SCRIPT);
-        if (!no_more_than_n_args(msglevel, p, 2, NM_QUOTE_HINT))
-        {
-            goto err;
-        }
-        set_user_script(options, &options->learn_address_script,
-                        p[1], "learn-address", true);
-    }
-    else if (streq(p[0], "tmp-dir") && p[1] && !p[2])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        options->tmp_dir = p[1];
-    }
-    else if (streq(p[0], "client-config-dir") && p[1] && !p[2])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        options->client_config_dir = p[1];
-    }
-    else if (streq(p[0], "ccd-exclusive") && !p[1])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        options->ccd_exclusive = true;
-    }
-    else if (streq(p[0], "bcast-buffers") && p[1] && !p[2])
-    {
-        int n_bcast_buf;
-
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        n_bcast_buf = atoi(p[1]);
-        if (n_bcast_buf < 1)
-        {
-            msg(msglevel, "--bcast-buffers parameter must be > 0");
-        }
-        options->n_bcast_buf = n_bcast_buf;
-    }
-    else if (streq(p[0], "tcp-queue-limit") && p[1] && !p[2])
-    {
-        int tcp_queue_limit;
-
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        tcp_queue_limit = atoi(p[1]);
-        if (tcp_queue_limit < 1)
-        {
-            msg(msglevel, "--tcp-queue-limit parameter must be > 0");
-        }
-        options->tcp_queue_limit = tcp_queue_limit;
-    }
-#if PORT_SHARE
-    else if (streq(p[0], "port-share") && p[1] && p[2] && !p[4])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        options->port_share_host = p[1];
-        options->port_share_port = p[2];
-        options->port_share_journal_dir = p[3];
-    }
-#endif
-    else if (streq(p[0], "client-to-client") && !p[1])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        options->enable_c2c = true;
-    }
-    else if (streq(p[0], "duplicate-cn") && !p[1])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        options->duplicate_cn = true;
-    }
-    else if (streq(p[0], "iroute") && p[1] && !p[3])
-    {
-        VERIFY_PERMISSION(OPT_P_INSTANCE);
-        option_iroute(options, p[1], p[2], msglevel);
-    }
-    else if (streq(p[0], "iroute-ipv6") && p[1] && !p[2])
-    {
-        VERIFY_PERMISSION(OPT_P_INSTANCE);
-        option_iroute_ipv6(options, p[1], msglevel);
-    }
-    else if (streq(p[0], "ifconfig-push") && p[1] && p[2] && !p[4])
-    {
-        in_addr_t local, remote_netmask;
-
-        VERIFY_PERMISSION(OPT_P_INSTANCE);
-        local = getaddr(GETADDR_HOST_ORDER|GETADDR_RESOLVE, p[1], 0, NULL, NULL);
-        remote_netmask = getaddr(GETADDR_HOST_ORDER|GETADDR_RESOLVE, p[2], 0, NULL, NULL);
-        if (local && remote_netmask)
-        {
-            options->push_ifconfig_defined = true;
-            options->push_ifconfig_local = local;
-            options->push_ifconfig_remote_netmask = remote_netmask;
-            if (p[3])
-            {
-                options->push_ifconfig_local_alias = getaddr(GETADDR_HOST_ORDER|GETADDR_RESOLVE, p[3], 0, NULL, NULL);
-            }
-        }
-        else
-        {
-            msg(msglevel, "cannot parse --ifconfig-push addresses");
-            goto err;
-        }
-    }
-    else if (streq(p[0], "ifconfig-push-constraint") && p[1] && p[2] && !p[3])
-    {
-        in_addr_t network, netmask;
-
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        network = getaddr(GETADDR_HOST_ORDER|GETADDR_RESOLVE, p[1], 0, NULL, NULL);
-        netmask = getaddr(GETADDR_HOST_ORDER, p[2], 0, NULL, NULL);
-        if (network && netmask)
-        {
-            options->push_ifconfig_constraint_defined = true;
-            options->push_ifconfig_constraint_network = network;
-            options->push_ifconfig_constraint_netmask = netmask;
-        }
-        else
-        {
-            msg(msglevel, "cannot parse --ifconfig-push-constraint addresses");
-            goto err;
-        }
-    }
-    else if (streq(p[0], "ifconfig-ipv6-push") && p[1] && !p[3])
-    {
-        struct in6_addr local, remote;
-        unsigned int netbits;
-
-        VERIFY_PERMISSION(OPT_P_INSTANCE);
-
-        if (!get_ipv6_addr( p[1], &local, &netbits, msglevel ) )
-        {
-            msg(msglevel, "cannot parse --ifconfig-ipv6-push addresses");
-            goto err;
-        }
-
-        if (p[2])
-        {
-            if (!get_ipv6_addr( p[2], &remote, NULL, msglevel ) )
-            {
-                msg( msglevel, "cannot parse --ifconfig-ipv6-push addresses");
-                goto err;
-            }
-        }
-        else
-        {
-            if (!options->ifconfig_ipv6_local
-                || !get_ipv6_addr( options->ifconfig_ipv6_local, &remote,
-                                   NULL, msglevel ) )
-            {
-                msg( msglevel, "second argument to --ifconfig-ipv6-push missing and no global --ifconfig-ipv6 address set");
-                goto err;
-            }
-        }
-
-        options->push_ifconfig_ipv6_defined = true;
-        options->push_ifconfig_ipv6_local = local;
-        options->push_ifconfig_ipv6_netbits = netbits;
-        options->push_ifconfig_ipv6_remote = remote;
-        options->push_ifconfig_ipv6_blocked = false;
-    }
-    else if (streq(p[0], "disable") && !p[1])
-    {
-        VERIFY_PERMISSION(OPT_P_INSTANCE);
-        options->disable = true;
-    }
-    else if (streq(p[0], "tcp-nodelay") && !p[1])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        options->server_flags |= SF_TCP_NODELAY_HELPER;
-    }
-    else if (streq(p[0], "stale-routes-check") && p[1] && !p[3])
-    {
-        int ageing_time, check_interval;
-
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        ageing_time = atoi(p[1]);
-        if (p[2])
-        {
-            check_interval = atoi(p[2]);
-        }
-        else
-        {
-            check_interval = ageing_time;
-        }
-
-        if (ageing_time < 1 || check_interval < 1)
-        {
-            msg(msglevel, "--stale-routes-check aging time and check interval must be >= 1");
-            goto err;
-        }
-        options->stale_routes_ageing_time  = ageing_time;
-        options->stale_routes_check_interval = check_interval;
-    }
-
     else if (streq(p[0], "client") && !p[1])
     {
         VERIFY_PERMISSION(OPT_P_GENERAL);
@@ -6613,150 +5930,6 @@ add_option(struct options *options,
         VERIFY_PERMISSION(OPT_P_GENERAL);
         options->pull = true;
     }
-    else if (streq(p[0], "push-continuation") && p[1] && !p[2])
-    {
-        VERIFY_PERMISSION(OPT_P_PULL_MODE);
-        options->push_continuation = atoi(p[1]);
-    }
-    else if (streq(p[0], "auth-user-pass") && !p[2])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        if (p[1])
-        {
-            options->auth_user_pass_file = p[1];
-        }
-        else
-        {
-            options->auth_user_pass_file = "stdin";
-        }
-    }
-    else if (streq(p[0], "auth-retry") && p[1] && !p[2])
-    {
-//        VERIFY_PERMISSION(OPT_P_GENERAL);
-//        auth_retry_set(msglevel, p[1]);
-    }
-#ifdef ENABLE_MANAGEMENT
-    else if (streq(p[0], "static-challenge") && p[1] && p[2] && !p[3])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        options->sc_info.challenge_text = p[1];
-        if (atoi(p[2]))
-        {
-            options->sc_info.flags |= SC_ECHO;
-        }
-    }
-#endif
-    else if (streq(p[0], "msg-channel") && p[1])
-    {
-#ifdef _WIN32
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        HANDLE process = GetCurrentProcess();
-        HANDLE handle = (HANDLE) atoll(p[1]);
-        if (!DuplicateHandle(process, handle, process, &options->msg_channel, 0,
-                             FALSE, DUPLICATE_CLOSE_SOURCE | DUPLICATE_SAME_ACCESS))
-        {
-            msg(msglevel, "could not duplicate service pipe handle");
-            goto err;
-        }
-        options->route_method = ROUTE_METHOD_SERVICE;
-#else  /* ifdef _WIN32 */
-        msg(msglevel, "--msg-channel is only supported on Windows");
-        goto err;
-#endif
-    }
-#ifdef _WIN32
-    else if (streq(p[0], "win-sys") && p[1] && !p[2])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        if (streq(p[1], "env"))
-        {
-            msg(M_INFO, "NOTE: --win-sys env is default from OpenVPN 2.3.	 "
-                "This entry will now be ignored.  "
-                "Please remove this entry from your configuration file.");
-        }
-        else
-        {
-            set_win_sys_path(p[1], es);
-        }
-    }
-    else if (streq(p[0], "route-method") && p[1] && !p[2])
-    {
-        VERIFY_PERMISSION(OPT_P_ROUTE_EXTRAS);
-        if (streq(p[1], "adaptive"))
-        {
-            options->route_method = ROUTE_METHOD_ADAPTIVE;
-        }
-        else if (streq(p[1], "ipapi"))
-        {
-            options->route_method = ROUTE_METHOD_IPAPI;
-        }
-        else if (streq(p[1], "exe"))
-        {
-            options->route_method = ROUTE_METHOD_EXE;
-        }
-        else
-        {
-            msg(msglevel, "--route method must be 'adaptive', 'ipapi', or 'exe'");
-            goto err;
-        }
-    }
-    else if (streq(p[0], "ip-win32") && p[1] && !p[4])
-    {
-        const int index = ascii2ipset(p[1]);
-        struct tuntap_options *to = &options->tuntap_options;
-
-        VERIFY_PERMISSION(OPT_P_IPWIN32);
-
-        if (index < 0)
-        {
-            msg(msglevel,
-                "Bad --ip-win32 method: '%s'.  Allowed methods: %s",
-                p[1],
-                ipset2ascii_all(&gc));
-            goto err;
-        }
-
-        if (index == IPW32_SET_ADAPTIVE)
-        {
-            options->route_delay_window = IPW32_SET_ADAPTIVE_DELAY_WINDOW;
-        }
-
-        if (index == IPW32_SET_DHCP_MASQ)
-        {
-            if (p[2])
-            {
-                if (!streq(p[2], "default"))
-                {
-                    int offset = atoi(p[2]);
-
-                    if (!(offset > -256 && offset < 256))
-                    {
-                        msg(msglevel, "--ip-win32 dynamic [offset] [lease-time]: offset (%d) must be > -256 and < 256", offset);
-                        goto err;
-                    }
-
-                    to->dhcp_masq_custom_offset = true;
-                    to->dhcp_masq_offset = offset;
-                }
-
-                if (p[3])
-                {
-                    const int min_lease = 30;
-                    int lease_time;
-                    lease_time = atoi(p[3]);
-                    if (lease_time < min_lease)
-                    {
-                        msg(msglevel, "--ip-win32 dynamic [offset] [lease-time]: lease time parameter (%d) must be at least %d seconds", lease_time, min_lease);
-                        goto err;
-                    }
-                    to->dhcp_lease_time = lease_time;
-                }
-            }
-        }
-        to->ip_win32_type = index;
-        to->ip_win32_defined = true;
-    }
-#endif /* ifdef _WIN32 */
     else if (streq(p[0], "dns") && p[1])
     {
         VERIFY_PERMISSION(OPT_P_DEFAULT);
@@ -6863,222 +6036,6 @@ add_option(struct options *options,
             goto err;
         }
     }
-#if defined(_WIN32) || defined(TARGET_ANDROID)
-    else if (streq(p[0], "dhcp-option") && p[1])
-    {
-        struct tuntap_options *o = &options->tuntap_options;
-        VERIFY_PERMISSION(OPT_P_IPWIN32);
-        bool ipv6dns = false;
-
-        if ((streq(p[1], "DOMAIN") || streq(p[1], "ADAPTER_DOMAIN_SUFFIX"))
-            && p[2] && !p[3])
-        {
-            o->domain = p[2];
-        }
-        else if (streq(p[1], "NBS") && p[2] && !p[3])
-        {
-            o->netbios_scope = p[2];
-        }
-        else if (streq(p[1], "NBT") && p[2] && !p[3])
-        {
-            int t;
-            t = atoi(p[2]);
-            if (!(t == 1 || t == 2 || t == 4 || t == 8))
-            {
-                msg(msglevel, "--dhcp-option NBT: parameter (%d) must be 1, 2, 4, or 8", t);
-                goto err;
-            }
-            o->netbios_node_type = t;
-        }
-        else if ((streq(p[1], "DNS") || streq(p[1], "DNS6")) && p[2] && !p[3]
-                 && (!strstr(p[2], ":") || ipv6_addr_safe(p[2])))
-        {
-            if (strstr(p[2], ":"))
-            {
-                ipv6dns = true;
-                dhcp_option_dns6_parse(p[2], o->dns6, &o->dns6_len, msglevel);
-            }
-            else
-            {
-                dhcp_option_address_parse("DNS", p[2], o->dns, &o->dns_len, msglevel);
-            }
-        }
-        else if (streq(p[1], "WINS") && p[2] && !p[3])
-        {
-            dhcp_option_address_parse("WINS", p[2], o->wins, &o->wins_len, msglevel);
-        }
-        else if (streq(p[1], "NTP") && p[2] && !p[3])
-        {
-            dhcp_option_address_parse("NTP", p[2], o->ntp, &o->ntp_len, msglevel);
-        }
-        else if (streq(p[1], "NBDD") && p[2] && !p[3])
-        {
-            dhcp_option_address_parse("NBDD", p[2], o->nbdd, &o->nbdd_len, msglevel);
-        }
-        else if (streq(p[1], "DOMAIN-SEARCH") && p[2] && !p[3])
-        {
-            if (o->domain_search_list_len < N_SEARCH_LIST_LEN)
-            {
-                o->domain_search_list[o->domain_search_list_len++] = p[2];
-            }
-            else
-            {
-                msg(msglevel, "--dhcp-option %s: maximum of %d search entries can be specified",
-                    p[1], N_SEARCH_LIST_LEN);
-            }
-        }
-        else if (streq(p[1], "DISABLE-NBT") && !p[2])
-        {
-            o->disable_nbt = 1;
-        }
-#if defined(TARGET_ANDROID)
-        else if (streq(p[1], "PROXY_HTTP") && p[3] && !p[4])
-        {
-            o->http_proxy_port = atoi(p[3]);
-            o->http_proxy = p[2];
-        }
-#endif
-        else
-        {
-            msg(msglevel, "--dhcp-option: unknown option type '%s' or missing or unknown parameter", p[1]);
-            goto err;
-        }
-
-        /* flag that we have options to give to the TAP driver's DHCPv4 server
-         *  - skipped for "DNS6", as that's not a DHCPv4 option
-         */
-        if (!ipv6dns)
-        {
-            o->dhcp_options = true;
-        }
-    }
-#endif /* if defined(_WIN32) || defined(TARGET_ANDROID) */
-#ifdef _WIN32
-    else if (streq(p[0], "show-adapters") && !p[1])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        show_tap_win_adapters(M_INFO|M_NOPREFIX, M_WARN|M_NOPREFIX);
-        openvpn_exit(OPENVPN_EXIT_STATUS_GOOD); /* exit point */
-    }
-    else if (streq(p[0], "show-net") && !p[1])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        show_routes(M_INFO|M_NOPREFIX);
-        show_adapters(M_INFO|M_NOPREFIX);
-        openvpn_exit(OPENVPN_EXIT_STATUS_GOOD); /* exit point */
-    }
-    else if (streq(p[0], "show-net-up") && !p[1])
-    {
-        VERIFY_PERMISSION(OPT_P_UP);
-        options->show_net_up = true;
-    }
-    else if (streq(p[0], "tap-sleep") && p[1] && !p[2])
-    {
-        int s;
-        VERIFY_PERMISSION(OPT_P_IPWIN32);
-        s = atoi(p[1]);
-        if (s < 0 || s >= 256)
-        {
-            msg(msglevel, "--tap-sleep parameter must be between 0 and 255");
-            goto err;
-        }
-        options->tuntap_options.tap_sleep = s;
-    }
-    else if (streq(p[0], "dhcp-renew") && !p[1])
-    {
-        VERIFY_PERMISSION(OPT_P_IPWIN32);
-        options->tuntap_options.dhcp_renew = true;
-    }
-    else if (streq(p[0], "dhcp-pre-release") && !p[1])
-    {
-        VERIFY_PERMISSION(OPT_P_IPWIN32);
-        options->tuntap_options.dhcp_pre_release = true;
-        options->tuntap_options.dhcp_renew = true;
-    }
-    else if (streq(p[0], "dhcp-release") && !p[1])
-    {
-        msg(M_WARN, "Obsolete option --dhcp-release detected. This is now on by default");
-    }
-    else if (streq(p[0], "dhcp-internal") && p[1] && !p[2]) /* standalone method for internal use */
-    {
-        unsigned int adapter_index;
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        set_debug_level(options->verbosity, SDL_CONSTRAIN);
-        adapter_index = atou(p[1]);
-        sleep(options->tuntap_options.tap_sleep);
-        if (options->tuntap_options.dhcp_pre_release)
-        {
-            dhcp_release_by_adapter_index(adapter_index);
-        }
-        if (options->tuntap_options.dhcp_renew)
-        {
-            dhcp_renew_by_adapter_index(adapter_index);
-        }
-        openvpn_exit(OPENVPN_EXIT_STATUS_GOOD); /* exit point */
-    }
-    else if (streq(p[0], "register-dns") && !p[1])
-    {
-        VERIFY_PERMISSION(OPT_P_IPWIN32);
-        options->tuntap_options.register_dns = true;
-    }
-    else if (streq(p[0], "block-outside-dns") && !p[1])
-    {
-        VERIFY_PERMISSION(OPT_P_IPWIN32);
-        options->block_outside_dns = true;
-    }
-    else if (streq(p[0], "rdns-internal") && !p[1])
-    /* standalone method for internal use
-     *
-     * (if --register-dns is set, openvpn needs to call itself in a
-     *  sub-process to execute the required functions in a non-blocking
-     *  way, and uses --rdns-internal to signal that to itself)
-     */
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        set_debug_level(options->verbosity, SDL_CONSTRAIN);
-        if (options->tuntap_options.register_dns)
-        {
-            ipconfig_register_dns(NULL);
-        }
-        openvpn_exit(OPENVPN_EXIT_STATUS_GOOD); /* exit point */
-    }
-    else if (streq(p[0], "show-valid-subnets") && !p[1])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        show_valid_win32_tun_subnets();
-        openvpn_exit(OPENVPN_EXIT_STATUS_GOOD); /* exit point */
-    }
-    else if (streq(p[0], "pause-exit") && !p[1])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        set_pause_exit_win32();
-    }
-    else if (streq(p[0], "service") && p[1] && !p[3])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        options->exit_event_name = p[1];
-        if (p[2])
-        {
-            options->exit_event_initial_state = (atoi(p[2]) != 0);
-        }
-    }
-    else if (streq(p[0], "allow-nonadmin") && !p[2])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        tap_allow_nonadmin_access(p[1]);
-        openvpn_exit(OPENVPN_EXIT_STATUS_GOOD); /* exit point */
-    }
-    else if (streq(p[0], "user") && p[1] && !p[2])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        msg(M_WARN, "NOTE: --user option is not implemented on Windows");
-    }
-    else if (streq(p[0], "group") && p[1] && !p[2])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        msg(M_WARN, "NOTE: --group option is not implemented on Windows");
-    }
-#else  /* ifdef _WIN32 */
     else if (streq(p[0], "user") && p[1] && !p[2])
     {
         VERIFY_PERMISSION(OPT_P_GENERAL);
@@ -7094,391 +6051,23 @@ add_option(struct options *options,
         VERIFY_PERMISSION(OPT_P_IPWIN32);
         setenv_foreign_option(options, (const char **)p, 3, es);
     }
-    else if (streq(p[0], "route-method") && p[1] && !p[2]) /* ignore when pushed to non-Windows OS */
-    {
-        VERIFY_PERMISSION(OPT_P_ROUTE_EXTRAS);
-    }
-#endif /* ifdef _WIN32 */
-#if PASSTOS_CAPABILITY
-    else if (streq(p[0], "passtos") && !p[1])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        options->passtos = true;
-    }
-#endif
-#if defined(USE_COMP)
-    else if (streq(p[0], "allow-compression") && p[1] && !p[2])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-
-        if (streq(p[1], "no"))
-        {
-            options->comp.flags =
-                COMP_F_ALLOW_STUB_ONLY|COMP_F_ADVERTISE_STUBS_ONLY;
-            if (comp_non_stub_enabled(&options->comp))
-            {
-                msg(msglevel, "'--allow-compression no' conflicts with "
-                    " enabling compression");
-            }
-        }
-        else if (options->comp.flags & COMP_F_ALLOW_STUB_ONLY)
-        {
-            /* Also printed on a push to hint at configuration problems */
-            msg(msglevel, "Cannot set allow-compression to '%s' "
-                "after set to 'no'", p[1]);
-            goto err;
-        }
-        else if (streq(p[1], "asym"))
-        {
-            options->comp.flags &= ~COMP_F_ALLOW_COMPRESS;
-            options->comp.flags |= COMP_F_ALLOW_ASYM;
-        }
-        else if (streq(p[1], "yes"))
-        {
-            msg(M_WARN, "WARNING: Compression for sending and receiving enabled. Compression has "
-                "been used in the past to break encryption. Allowing compression allows "
-                "attacks that break encryption. Using \"--allow-compression yes\" is "
-                "strongly discouraged for common usage. See --compress in the manual "
-                "page for more information ");
-
-            options->comp.flags |= COMP_F_ALLOW_COMPRESS;
-        }
-        else
-        {
-            msg(msglevel, "bad allow-compression option: %s -- "
-                "must be 'yes', 'no', or 'asym'", p[1]);
-            goto err;
-        }
-    }
-    else if (streq(p[0], "comp-lzo") && !p[2])
-    {
-        VERIFY_PERMISSION(OPT_P_COMP);
-
-        /* All lzo variants do not use swap */
-        options->comp.flags &= ~COMP_F_SWAP;
-#if defined(ENABLE_LZO)
-        if (p[1] && streq(p[1], "no"))
-#endif
-        {
-            options->comp.alg = COMP_ALG_STUB;
-            options->comp.flags &= ~COMP_F_ADAPTIVE;
-        }
-#if defined(ENABLE_LZO)
-        else if (options->comp.flags & COMP_F_ALLOW_STUB_ONLY)
-        {
-            /* Also printed on a push to hint at configuration problems */
-            msg(msglevel, "Cannot set comp-lzo to '%s', "
-                "allow-compression is set to 'no'", p[1]);
-            goto err;
-        }
-        else if (p[1])
-        {
-            if (streq(p[1], "yes"))
-            {
-                options->comp.alg = COMP_ALG_LZO;
-                options->comp.flags &= ~COMP_F_ADAPTIVE;
-            }
-            else if (streq(p[1], "adaptive"))
-            {
-                options->comp.alg = COMP_ALG_LZO;
-                options->comp.flags |= COMP_F_ADAPTIVE;
-            }
-            else
-            {
-                msg(msglevel, "bad comp-lzo option: %s -- must be 'yes', 'no', or 'adaptive'", p[1]);
-                goto err;
-            }
-        }
-        else
-        {
-            options->comp.alg = COMP_ALG_LZO;
-            options->comp.flags |= COMP_F_ADAPTIVE;
-        }
-        show_compression_warning(&options->comp);
-#endif /* if defined(ENABLE_LZO) */
-    }
-    else if (streq(p[0], "dh"))
-    {
-    }
-    else if (streq(p[0], "comp-noadapt") && !p[1])
-    {
-        /*
-         * We do not need to check here if we allow compression since
-         * it only modifies a flag if compression is enabled
-         */
-        VERIFY_PERMISSION(OPT_P_COMP);
-        options->comp.flags &= ~COMP_F_ADAPTIVE;
-    }
-    else if (streq(p[0], "compress") && !p[2])
-    {
-        VERIFY_PERMISSION(OPT_P_COMP);
-        if (p[1])
-        {
-            if (streq(p[1], "stub"))
-            {
-                options->comp.alg = COMP_ALG_STUB;
-                options->comp.flags |= (COMP_F_SWAP|COMP_F_ADVERTISE_STUBS_ONLY);
-            }
-            else if (streq(p[1], "stub-v2"))
-            {
-                options->comp.alg = COMP_ALGV2_UNCOMPRESSED;
-                options->comp.flags |= COMP_F_ADVERTISE_STUBS_ONLY;
-            }
-            else if (streq(p[1], "migrate"))
-            {
-                options->comp.alg = COMP_ALG_UNDEF;
-                options->comp.flags = COMP_F_MIGRATE;
-
-            }
-            else if (options->comp.flags & COMP_F_ALLOW_STUB_ONLY)
-            {
-                /* Also printed on a push to hint at configuration problems */
-                msg(msglevel, "Cannot set compress to '%s', "
-                    "allow-compression is set to 'no'", p[1]);
-                goto err;
-            }
-#if defined(ENABLE_LZO)
-            else if (streq(p[1], "lzo"))
-            {
-                options->comp.alg = COMP_ALG_LZO;
-                options->comp.flags &= ~(COMP_F_ADAPTIVE | COMP_F_SWAP);
-            }
-#endif
-#if defined(ENABLE_LZ4)
-            else if (streq(p[1], "lz4"))
-            {
-                options->comp.alg = COMP_ALG_LZ4;
-                options->comp.flags |= COMP_F_SWAP;
-            }
-            else if (streq(p[1], "lz4-v2"))
-            {
-                options->comp.alg = COMP_ALGV2_LZ4;
-            }
-#endif
-            else
-            {
-                msg(msglevel, "bad comp option: %s", p[1]);
-                goto err;
-            }
-        }
-        else
-        {
-            options->comp.alg = COMP_ALG_STUB;
-            options->comp.flags |= COMP_F_SWAP;
-        }
-        show_compression_warning(&options->comp);
-    }
-#endif /* USE_COMP */
-    else if (streq(p[0], "show-ciphers") && !p[1])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        options->show_ciphers = true;
-    }
-    else if (streq(p[0], "show-digests") && !p[1])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        options->show_digests = true;
-    }
-    else if (streq(p[0], "show-engines") && !p[1])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        options->show_engines = true;
-    }
-    else if (streq(p[0], "key-direction") && p[1] && !p[2])
-    {
-//        int key_direction;
-//
-//        VERIFY_PERMISSION(OPT_P_GENERAL|OPT_P_CONNECTION);
-//
-//        key_direction = ascii2keydirection(msglevel, p[1]);
-//        if (key_direction >= 0)
-//        {
-//            if (permission_mask & OPT_P_GENERAL)
-//            {
-//                options->key_direction = key_direction;
-//            }
-//            else if (permission_mask & OPT_P_CONNECTION)
-//            {
-//                options->ce.key_direction = key_direction;
-//            }
-//        }
-//        else
-//        {
-//            goto err;
-//        }
-    }
     else if (streq(p[0], "secret") && p[1] && !p[3])
     {
-//        msg(M_WARN, "DEPRECATED OPTION: The option --secret is deprecated.");
-//        VERIFY_PERMISSION(OPT_P_GENERAL|OPT_P_INLINE);
-//        options->shared_secret_file = p[1];
-//        options->shared_secret_file_inline = is_inline;
-//        if (!is_inline && p[2])
-//        {
-//            int key_direction;
-//
-//            key_direction = ascii2keydirection(msglevel, p[2]);
-//            if (key_direction >= 0)
-//            {
-//                options->key_direction = key_direction;
-//            }
-//            else
-//            {
-//                goto err;
-//            }
-//        }
     }
     else if (streq(p[0], "genkey") && !p[4])
     {
         options->genkey = false;
     }
+    else if (streq(p[0], "dh") && p[1] && !p[2])
+    {
+    }
     else if (streq(p[0], "auth") && p[1] && !p[2])
     {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        options->authname = p[1];
+        options->authname = NULL;
     }
     else if (streq(p[0], "cipher") && p[1] && !p[2])
     {
-        VERIFY_PERMISSION(OPT_P_NCP|OPT_P_INSTANCE);
-        options->ciphername = p[1];
-    }
-    else if (streq(p[0], "crash"))
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        *((int *) 28) = 27;
-    }
-    else if (streq(p[0], "data-ciphers-fallback") && p[1] && !p[2])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL|OPT_P_INSTANCE);
-        options->ciphername = p[1];
-        options->enable_ncp_fallback = true;
-    }
-    else if ((streq(p[0], "data-ciphers") || streq(p[0], "ncp-ciphers"))
-             && p[1] && !p[2])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL|OPT_P_INSTANCE);
-        if (streq(p[0], "ncp-ciphers"))
-        {
-            msg(M_INFO, "Note: Treating option '--ncp-ciphers' as "
-                " '--data-ciphers' (renamed in OpenVPN 2.5).");
-        }
-        options->ncp_ciphers = p[1];
-    }
-    else if (streq(p[0], "key-derivation") && p[1])
-    {
-        /* NCP only option that is pushed by the server to enable EKM,
-         * should not be used by normal users in config files*/
-        VERIFY_PERMISSION(OPT_P_NCP)
-#ifdef HAVE_EXPORT_KEYING_MATERIAL
-        if (streq(p[1], "tls-ekm"))
-        {
-            options->data_channel_crypto_flags |= CO_USE_TLS_KEY_MATERIAL_EXPORT;
-        }
-        else
-#endif
-        {
-            msg(msglevel, "Unknown key-derivation method %s", p[1]);
-        }
-    }
-    else if (streq(p[0], "protocol-flags") && p[1])
-    {
-        /* NCP only option that is pushed by the server to enable protocol
-         * features that are negotiated, should not be used by normal users
-         * in config files */
-        VERIFY_PERMISSION(OPT_P_NCP)
-        for (size_t j = 1; j < MAX_PARMS && p[j] != NULL; j++)
-        {
-            if (streq(p[j], "cc-exit"))
-            {
-                options->data_channel_crypto_flags |= CO_USE_CC_EXIT_NOTIFY;
-            }
-            else
-            {
-                msg(msglevel, "Unknown protocol-flags flag: %s", p[j]);
-            }
-        }
-    }
-    else if (streq(p[0], "prng") && p[1] && !p[3])
-    {
-        msg(M_WARN, "NOTICE: --prng option ignored (SSL library PRNG is used)");
-    }
-    else if (streq(p[0], "no-replay") && !p[1])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        options->replay = false;
-    }
-    else if (streq(p[0], "replay-window") && !p[3])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        if (p[1])
-        {
-            int replay_window;
-
-            replay_window = atoi(p[1]);
-            if (!(MIN_SEQ_BACKTRACK <= replay_window && replay_window <= MAX_SEQ_BACKTRACK))
-            {
-                msg(msglevel, "replay-window window size parameter (%d) must be between %d and %d",
-                    replay_window,
-                    MIN_SEQ_BACKTRACK,
-                    MAX_SEQ_BACKTRACK);
-                goto err;
-            }
-            options->replay_window = replay_window;
-
-            if (p[2])
-            {
-                int replay_time;
-
-                replay_time = atoi(p[2]);
-                if (!(MIN_TIME_BACKTRACK <= replay_time && replay_time <= MAX_TIME_BACKTRACK))
-                {
-                    msg(msglevel, "replay-window time window parameter (%d) must be between %d and %d",
-                        replay_time,
-                        MIN_TIME_BACKTRACK,
-                        MAX_TIME_BACKTRACK);
-                    goto err;
-                }
-                options->replay_time = replay_time;
-            }
-        }
-        else
-        {
-            msg(msglevel, "replay-window option is missing window size parameter");
-            goto err;
-        }
-    }
-    else if (streq(p[0], "mute-replay-warnings") && !p[1])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        options->mute_replay_warnings = true;
-    }
-    else if (streq(p[0], "test-crypto") && !p[1])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        options->test_crypto = true;
-    }
-    else if (streq(p[0], "show-tls") && !p[1])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        options->show_tls_ciphers = true;
-    }
-    else if (streq(p[0], "ecdh-curve") && p[1] && !p[2])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        msg(M_WARN, "Consider setting groups/curves preference with "
-            "tls-groups instead of forcing a specific curve with "
-            "ecdh-curve.");
-        options->ecdh_curve = p[1];
-    }
-    else if (streq(p[0], "tls-server") && !p[1])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        options->tls_server = true;
-    }
-    else if (streq(p[0], "tls-client") && !p[1])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        options->tls_client = true;
+        options->ciphername = NULL;
     }
     else if (streq(p[0], "ca") && p[1] && !p[2])
     {
@@ -7487,69 +6076,53 @@ add_option(struct options *options,
     }
     else if (streq(p[0], "cert") && p[1] && !p[2])
     {
-//        VERIFY_PERMISSION(OPT_P_GENERAL|OPT_P_INLINE);
-//        options->cert_file = p[1];
-//        options->cert_file_inline = is_inline;
+        options->cert_file = NULL;
+        options->cert_file_inline = is_inline;
     }
-#ifdef ENABLE_CRYPTOAPI
-    else if (streq(p[0], "cryptoapicert") && p[1] && !p[2])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        options->cryptoapi_cert = p[1];
-    }
-#endif
     else if (streq(p[0], "key") && p[1] && !p[2])
     {
         VERIFY_PERMISSION(OPT_P_GENERAL|OPT_P_INLINE);
         options->priv_key_file = p[1];
         options->priv_key_file_inline = is_inline;
     }
-#ifndef ENABLE_CRYPTO_MBEDTLS
-    else if (streq(p[0], "pkcs12") && p[1] && !p[2])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL|OPT_P_INLINE);
-        options->pkcs12_file = p[1];
-        options->pkcs12_file_inline = is_inline;
-    }
-#endif /* ENABLE_CRYPTO_MBEDTLS */
-    else if (streq(p[0], "askpass") && !p[2])
+    else if (streq(p[0], "ifconfig-pool-persist") && p[1] && !p[3])
     {
         VERIFY_PERMISSION(OPT_P_GENERAL);
+        options->ifconfig_pool_persist_filename = p[1];
+        if (p[2])
+        {
+            options->ifconfig_pool_persist_refresh_freq = positive_atoi(p[2]);
+        }
+    }
+    else if (streq(p[0], "keepalive") && p[1] && p[2] && !p[3])
+    {
+        VERIFY_PERMISSION(OPT_P_GENERAL);
+        options->keepalive_ping = atoi(p[1]);
+        options->keepalive_timeout = atoi(p[2]);
+    }
+    else if (streq(p[0], "persist-tun") && !p[1])
+    {
+        VERIFY_PERMISSION(OPT_P_PERSIST);
+        options->persist_tun = true;
+    }
+    else if (streq(p[0], "persist-key") && !p[1])
+    {
+        VERIFY_PERMISSION(OPT_P_PERSIST);
+        options->persist_key = true;
+    }
+    else if (streq(p[0], "explicit-exit-notify") && !p[2])
+    {
+        VERIFY_PERMISSION(OPT_P_GENERAL|OPT_P_CONNECTION|OPT_P_EXPLICIT_NOTIFY);
         if (p[1])
         {
-            options->key_pass_file = p[1];
+            options->ce.explicit_exit_notification = positive_atoi(p[1]);
         }
         else
         {
-            options->key_pass_file = "stdin";
+            options->ce.explicit_exit_notification = 1;
         }
     }
-    else if (streq(p[0], "auth-nocache") && !p[1])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        ssl_set_auth_nocache();
-    }
-    else if (streq(p[0], "auth-token") && p[1] && !p[2])
-    {
-        VERIFY_PERMISSION(OPT_P_ECHO);
-        ssl_set_auth_token(p[1]);
-#ifdef ENABLE_MANAGEMENT
-        if (management)
-        {
-            management_auth_token(management, p[1]);
-        }
-#endif
-    }
-    else if (streq(p[0], "auth-token-user") && p[1] && !p[2])
-    {
-        VERIFY_PERMISSION(OPT_P_ECHO);
-        ssl_set_auth_token_user(p[1]);
-    }
-    else if (streq(p[0], "single-session") && !p[1])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        options->single_session = true;
-    }
+
     else if (streq(p[0], "push-peer-info") && !p[1])
     {
         VERIFY_PERMISSION(OPT_P_GENERAL);
@@ -7564,11 +6137,6 @@ add_option(struct options *options,
     {
         VERIFY_PERMISSION(OPT_P_GENERAL);
         options->cipher_list = p[1];
-    }
-    else if (streq(p[0], "tls-cert-profile") && p[1] && !p[2])
-    {
-//        VERIFY_PERMISSION(OPT_P_GENERAL);
-//        options->tls_cert_profile = p[1];
     }
     else if (streq(p[0], "tls-ciphersuites") && p[1] && !p[2])
     {
@@ -7585,145 +6153,10 @@ add_option(struct options *options,
     {
         //options->crl_file = NULL;
     }
-    else if (streq(p[0], "tls-verify") && p[1])
-    {
-        VERIFY_PERMISSION(OPT_P_SCRIPT);
-        if (!no_more_than_n_args(msglevel, p, 2, NM_QUOTE_HINT))
-        {
-            goto err;
-        }
-        set_user_script(options, &options->tls_verify,
-                        string_substitute(p[1], ',', ' ', &options->gc),
-                        "tls-verify", true);
-    }
-#ifndef ENABLE_CRYPTO_MBEDTLS
-    else if (streq(p[0], "tls-export-cert") && p[1] && !p[2])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        options->tls_export_cert = p[1];
-    }
-#endif
-    else if (streq(p[0], "compat-names"))
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        msg(msglevel, "--compat-names was removed in OpenVPN 2.5. "
-            "Update your configuration.");
-        goto err;
-    }
-    else if (streq(p[0], "no-name-remapping") && !p[1])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        msg(msglevel, "--no-name-remapping was removed in OpenVPN 2.5. "
-            "Update your configuration.");
-        goto err;
-    }
-    else if (streq(p[0], "verify-x509-name") && p[1] && strlen(p[1]) && !p[3])
-    {
-        int type = VERIFY_X509_SUBJECT_DN;
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        if (p[2])
-        {
-            if (streq(p[2], "subject"))
-            {
-                type = VERIFY_X509_SUBJECT_DN;
-            }
-            else if (streq(p[2], "name"))
-            {
-                type = VERIFY_X509_SUBJECT_RDN;
-            }
-            else if (streq(p[2], "name-prefix"))
-            {
-                type = VERIFY_X509_SUBJECT_RDN_PREFIX;
-            }
-            else
-            {
-                msg(msglevel, "unknown X.509 name type: %s", p[2]);
-                goto err;
-            }
-        }
-        options->verify_x509_type = type;
-        options->verify_x509_name = p[1];
-    }
-    else if (streq(p[0], "ns-cert-type") && p[1] && !p[2])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        if (streq(p[1], "server"))
-        {
-            options->ns_cert_type = NS_CERT_CHECK_SERVER;
-        }
-        else if (streq(p[1], "client"))
-        {
-            options->ns_cert_type = NS_CERT_CHECK_CLIENT;
-        }
-        else
-        {
-            msg(msglevel, "--ns-cert-type must be 'client' or 'server'");
-            goto err;
-        }
-    }
-    else if (streq(p[0], "remote-cert-ku"))
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-
-        size_t j;
-        for (j = 1; j < MAX_PARMS && p[j] != NULL; ++j)
-        {
-            sscanf(p[j], "%x", &(options->remote_cert_ku[j-1]));
-        }
-        if (j == 1)
-        {
-            /* No specific KU required, but require KU to be present */
-            options->remote_cert_ku[0] = OPENVPN_KU_REQUIRED;
-        }
-    }
-    else if (streq(p[0], "remote-cert-eku") && p[1] && !p[2])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        options->remote_cert_eku = p[1];
-    }
-    else if (streq(p[0], "remote-cert-tls") && p[1] && !p[2])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-
-        if (streq(p[1], "server"))
-        {
-            options->remote_cert_ku[0] = OPENVPN_KU_REQUIRED;
-            options->remote_cert_eku = "TLS Web Server Authentication";
-        }
-        else if (streq(p[1], "client"))
-        {
-            options->remote_cert_ku[0] = OPENVPN_KU_REQUIRED;
-            options->remote_cert_eku = "TLS Web Client Authentication";
-        }
-        else
-        {
-            msg(msglevel, "--remote-cert-tls must be 'client' or 'server'");
-            goto err;
-        }
-    }
     else if (streq(p[0], "tls-timeout") && p[1] && !p[2])
     {
         VERIFY_PERMISSION(OPT_P_TLS_PARMS);
         options->tls_timeout = positive_atoi(p[1]);
-    }
-    else if (streq(p[0], "reneg-bytes") && p[1] && !p[2])
-    {
-        VERIFY_PERMISSION(OPT_P_TLS_PARMS);
-        options->renegotiate_bytes = positive_atoi(p[1]);
-    }
-    else if (streq(p[0], "reneg-pkts") && p[1] && !p[2])
-    {
-        VERIFY_PERMISSION(OPT_P_TLS_PARMS);
-        options->renegotiate_packets = positive_atoi(p[1]);
-    }
-    else if (streq(p[0], "reneg-sec") && p[1] && !p[3])
-    {
-        VERIFY_PERMISSION(OPT_P_TLS_PARMS);
-        options->renegotiate_seconds = positive_atoi(p[1]);
-        if (p[2])
-        {
-            options->renegotiate_seconds_min = positive_atoi(p[2]);
-        }
     }
     else if (streq(p[0], "hand-window") && p[1] && !p[2])
     {
@@ -7749,228 +6182,11 @@ add_option(struct options *options,
             options->ce.tls_crypt_file_inline = is_inline;
         }
     }
-    else if (streq(p[0], "tls-crypt-v2") && p[1] && !p[3])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL|OPT_P_CONNECTION|OPT_P_INLINE);
-        if (permission_mask & OPT_P_GENERAL)
-        {
-            options->tls_crypt_v2_file = p[1];
-            options->tls_crypt_v2_file_inline = is_inline;
-        }
-        else if (permission_mask & OPT_P_CONNECTION)
-        {
-            options->ce.tls_crypt_v2_file = p[1];
-            options->ce.tls_crypt_v2_file_inline = is_inline;
-        }
-
-        if (p[2] && streq(p[2], "force-cookie"))
-        {
-            options->ce.tls_crypt_v2_force_cookie = true;
-        }
-        else if (p[2] && streq(p[2], "allow-noncookie"))
-        {
-            options->ce.tls_crypt_v2_force_cookie = false;
-        }
-        else if (p[2])
-        {
-            msg(msglevel, "Unsupported tls-crypt-v2 argument: %s", p[2]);
-        }
-    }
-    else if (streq(p[0], "tls-crypt-v2-verify") && p[1] && !p[2])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        options->tls_crypt_v2_verify_script = p[1];
-    }
-#ifdef ENABLE_X509ALTUSERNAME
-    else if (streq(p[0], "x509-username-field") && p[1])
-    {
-        /* This option used to automatically upcase the fieldnames passed as the
-         * option arguments, e.g., "ou" became "OU". Now, this "helpfulness" is
-         * fine-tuned by only upcasing Subject field attribute names which consist
-         * of all lower-case characters. Mixed-case attributes such as
-         * "emailAddress" are left as-is. An option parameter having the "ext:"
-         * prefix for matching X.509v3 extended fields will also remain unchanged.
-         */
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        for (size_t j = 1; j < MAX_PARMS && p[j] != NULL; ++j)
-        {
-            char *s = p[j];
-
-            if (strncmp("ext:", s, 4) != 0)
-            {
-                size_t i = 0;
-                while (s[i] && !isupper(s[i]))
-                {
-                    i++;
-                }
-                if (strlen(s) == i)
-                {
-                    while ((*s = toupper(*s)) != '\0')
-                    {
-                        s++;
-                    }
-                    msg(M_WARN, "DEPRECATED FEATURE: automatically upcased the "
-                        "--x509-username-field parameter to '%s'; please update your"
-                        "configuration", p[j]);
-                }
-            }
-            else if (!x509_username_field_ext_supported(s+4))
-            {
-                msg(msglevel, "Unsupported x509-username-field extension: %s", s);
-            }
-            options->x509_username_field[j-1] = p[j];
-        }
-    }
-#endif /* ENABLE_X509ALTUSERNAME */
-#ifdef ENABLE_PKCS11
-    else if (streq(p[0], "show-pkcs11-ids") && !p[3])
-    {
-        char *provider =  p[1];
-        bool cert_private = (p[2] == NULL ? false : ( atoi(p[2]) != 0 ));
-
-#ifdef DEFAULT_PKCS11_MODULE
-        if (!provider)
-        {
-            provider = DEFAULT_PKCS11_MODULE;
-        }
-        else if (!p[2])
-        {
-            char *endp = NULL;
-            int i = strtol(provider, &endp, 10);
-
-            if (*endp == 0)
-            {
-                /* There was one argument, and it was purely numeric.
-                 * Interpret it as the cert_private argument */
-                provider = DEFAULT_PKCS11_MODULE;
-                cert_private = i;
-            }
-        }
-#else  /* ifdef DEFAULT_PKCS11_MODULE */
-        if (!provider)
-        {
-            msg(msglevel, "--show-pkcs11-ids requires a provider parameter");
-            goto err;
-        }
-#endif /* ifdef DEFAULT_PKCS11_MODULE */
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-
-        set_debug_level(options->verbosity, SDL_CONSTRAIN);
-        show_pkcs11_ids(provider, cert_private);
-        openvpn_exit(OPENVPN_EXIT_STATUS_GOOD); /* exit point */
-    }
-    else if (streq(p[0], "pkcs11-providers") && p[1])
-    {
-        int j;
-
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-
-        for (j = 1; j < MAX_PARMS && p[j] != NULL; ++j)
-        {
-            options->pkcs11_providers[j-1] = p[j];
-        }
-    }
-    else if (streq(p[0], "pkcs11-protected-authentication"))
-    {
-        int j;
-
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-
-        for (j = 1; j < MAX_PARMS && p[j] != NULL; ++j)
-        {
-            options->pkcs11_protected_authentication[j-1] = atoi(p[j]) != 0 ? 1 : 0;
-        }
-    }
-    else if (streq(p[0], "pkcs11-private-mode") && p[1])
-    {
-        int j;
-
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-
-        for (j = 1; j < MAX_PARMS && p[j] != NULL; ++j)
-        {
-            sscanf(p[j], "%x", &(options->pkcs11_private_mode[j-1]));
-        }
-    }
-    else if (streq(p[0], "pkcs11-cert-private"))
-    {
-        int j;
-
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-
-        for (j = 1; j < MAX_PARMS && p[j] != NULL; ++j)
-        {
-            options->pkcs11_cert_private[j-1] = atoi(p[j]) != 0 ? 1 : 0;
-        }
-    }
-    else if (streq(p[0], "pkcs11-pin-cache") && p[1] && !p[2])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        options->pkcs11_pin_cache_period = atoi(p[1]);
-    }
-    else if (streq(p[0], "pkcs11-id") && p[1] && !p[2])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        options->pkcs11_id = p[1];
-    }
-    else if (streq(p[0], "pkcs11-id-management") && !p[1])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        options->pkcs11_id_management = true;
-    }
-#endif /* ifdef ENABLE_PKCS11 */
-    else if (streq(p[0], "rmtun") && !p[1])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        options->persist_config = true;
-        options->persist_mode = 0;
-    }
-    else if (streq(p[0], "mktun") && !p[1])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        options->persist_config = true;
-        options->persist_mode = 1;
-    }
     else if (streq(p[0], "peer-id") && p[1] && !p[2])
     {
         VERIFY_PERMISSION(OPT_P_PEER_ID);
         options->use_peer_id = true;
         options->peer_id = atoi(p[1]);
-    }
-    else if (streq(p[0], "vlan-tagging") && !p[1])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        options->vlan_tagging = true;
-    }
-    else if (streq(p[0], "vlan-accept") && p[1] && !p[2])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL);
-        if (streq(p[1], "tagged"))
-        {
-            options->vlan_accept = VLAN_ONLY_TAGGED;
-        }
-        else if (streq(p[1], "all"))
-        {
-            options->vlan_accept = VLAN_ALL;
-        }
-        else
-        {
-            msg(msglevel, "--vlan-accept must be 'tagged', 'untagged' or 'all'");
-            goto err;
-        }
-    }
-    else if (streq(p[0], "vlan-pvid") && p[1] && !p[2])
-    {
-        VERIFY_PERMISSION(OPT_P_GENERAL|OPT_P_INSTANCE);
-        options->vlan_pvid = positive_atoi(p[1]);
-        if (options->vlan_pvid < OPENVPN_8021Q_MIN_VID
-            || options->vlan_pvid > OPENVPN_8021Q_MAX_VID)
-        {
-            msg(msglevel,
-                "the parameter of --vlan-pvid parameters must be >= %u and <= %u",
-                OPENVPN_8021Q_MIN_VID, OPENVPN_8021Q_MAX_VID);
-            goto err;
-        }
     }
     else
     {

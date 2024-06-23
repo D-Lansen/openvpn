@@ -37,7 +37,6 @@
 #include "socket.h"
 #include "manage.h"
 #include "proxy.h"
-#include "comp.h"
 #include "pushlist.h"
 #include "clinat.h"
 #include "crypto_backend.h"
@@ -547,11 +546,6 @@ struct options
     bool mute_replay_warnings;
     int replay_window;
     int replay_time;
-    const char *packet_id_file;
-    bool test_crypto;
-#ifdef ENABLE_PREDICTION_RESISTANCE
-    bool use_prediction_resistance;
-#endif
 
     /* TLS (control channel) parms */
     bool tls_server;

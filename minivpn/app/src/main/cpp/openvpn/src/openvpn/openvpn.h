@@ -30,7 +30,6 @@
 #include "crypto.h"
 #include "ssl.h"
 #include "packet_id.h"
-#include "comp.h"
 #include "tun.h"
 #include "interval.h"
 #include "status.h"
