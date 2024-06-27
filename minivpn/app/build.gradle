@@ -32,14 +32,10 @@ android {
         viewBinding true
     }
 
-    def useClionLibs = true
+    def useClionLibs = false
 
     if (useClionLibs){
         //use jniLibs
-        packagingOptions{
-            pickFirst 'lib/arm64-v8a/libopenvpn.so'
-            pickFirst 'lib/arm64-v8a/libvpn.so'
-        }
     }else{
         //use cmake and set jniLibs not enable
         externalNativeBuild {

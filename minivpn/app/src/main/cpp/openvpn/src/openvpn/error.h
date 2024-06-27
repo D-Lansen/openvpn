@@ -144,15 +144,17 @@ extern int x_msg_line_num;
 /** Check muting filter */
 bool dont_mute(unsigned int flags);
 
+
+
 /* Macro to ensure (and teach static analysis tools) we exit on fatal errors */
 #define EXIT_FATAL(flags) do { if ((flags) & M_FATAL) {_exit(1);}} while (false)
-// if (flags & M_FATAL) openvpn_exit(OPENVPN_EXIT_STATUS_ERROR);
-//#define msg(flags, ...) {fprintf(stdout, __VA_ARGS__);}
-//#ifdef ENABLE_DEBUG
-//#define dmsg(flags, ...)
-//#else
-//#define dmsg(flags, ...)
-//#endif
+
+
+#ifdef TARGET_ANDROID
+#include <android/log.h>
+#define ANDROID_LOG_TAG "ndklog"
+#endif
+
 #define msg(flags, ...) do { if (msg_test(flags)) {x_msg((flags), __VA_ARGS__);} EXIT_FATAL(flags); } while (false)
 #ifdef ENABLE_DEBUG
 #define dmsg(flags, ...) do { if (msg_test(flags)) {x_msg((flags), __VA_ARGS__);} EXIT_FATAL(flags); } while (false)

@@ -1,7 +1,6 @@
 package world.daochen.minivpn;
 
 import android.content.Context;
-import android.os.Build;
 import android.util.Log;
 
 import java.io.BufferedReader;
@@ -14,25 +13,34 @@ import java.util.Vector;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
 
-public class OpenVPNThread extends Thread {
-    private static final String TAG = "OpenVPNThread";
+public class BinaryThread extends Thread {
+    private static final String TAG = "BinaryThread";
     private static final String DUMP_PATH_STRING = "Dump path: ";
 
-    private final OpenVPNService mService;
+    private final Context mContext;
     private Process mProcess;
     private String mDumpPath;
     private OutputStream mOutputStream;
     private final FutureTask<OutputStream> mStreamFuture;
-    private boolean mNoProcessExitStatus = false;
+    private final String mBinaryName;
 
-    public OpenVPNThread(OpenVPNService service) {
-        this.mService = service;
+    private Handler handler;
+
+    public interface Handler {
+        void onFinally();
+    }
+
+    public void setHandler(Handler handler) {
+        this.handler = handler;
+    }
+
+    public BinaryThread(Context context,String binaryName, Handler handler) {
+        this.mContext = context;
+        this.handler = handler;
+        this.mBinaryName = binaryName;
         mStreamFuture = new FutureTask<>(() -> mOutputStream);
     }
 
-    public void setReplaceConnection() {
-        this.mNoProcessExitStatus = true;
-    }
 
     @Override
     public void run() {
@@ -57,18 +65,14 @@ public class OpenVPNThread extends Thread {
                 Log.e(TAG, "Crashed unexpectedly. Please consider using the send Minidump option in the main menu");
             }
             Log.i(TAG, "No process running.");
-            if (!mNoProcessExitStatus){
-                mService.openvpnStopped();
+            if (handler!=null){
+                handler.onFinally();
             }
         }
     }
 
-    private String getBinaryName(Context context) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            return new File(context.getApplicationInfo().nativeLibraryDir, Native.getOvpnexe()).getPath();
-        }
-        //todo
-        throw new RuntimeException("Cannot find any executable for this device's ABIs");
+    private String getBinaryName(Context context, String binaryName) {
+        return new File(context.getApplicationInfo().nativeLibraryDir, binaryName).getPath();
     }
 
     private String getLibraryPath(String binaryName, ProcessBuilder pb, Context context) {
@@ -87,12 +91,12 @@ public class OpenVPNThread extends Thread {
         return lbPath;
     }
 
-    private String getTmpDir() {
+    private String getTmpDir(Context context) {
         String tmpDir;
         try {
-            tmpDir = mService.getCacheDir().getCanonicalPath();
+            tmpDir = context.getCacheDir().getCanonicalPath();
         } catch (IOException e) {
-            e.printStackTrace();
+            Log.e(TAG, "IOException:" + e.getMessage());
             tmpDir = "/tmp";
         }
         return tmpDir;
@@ -100,14 +104,14 @@ public class OpenVPNThread extends Thread {
 
     public void startOpenVPNThreadArgs() {
         Vector<String> args = new Vector<>();
-        String binaryName = getBinaryName(mService);
+        String binaryName = getBinaryName(mContext, mBinaryName);
         args.add(binaryName);
         args.add("--config");
         args.add("stdin");
 
         ProcessBuilder pb = new ProcessBuilder(args);
-        String lbPath = getLibraryPath(binaryName, pb, mService);
-        String tmpDir = getTmpDir();
+        String lbPath = getLibraryPath(binaryName, pb, mContext);
+        String tmpDir = getTmpDir(mContext);
         //  android:extractNativeLibs="true"
         pb.environment().put("LD_LIBRARY_PATH", lbPath);
         pb.environment().put("TMPDIR", tmpDir);
@@ -122,8 +126,6 @@ public class OpenVPNThread extends Thread {
 
             mOutputStream = out;
             mStreamFuture.run();
-
-            Log.i(TAG, "startOpenVPNThread");
 
             while (true) {
                 String line = br.readLine();

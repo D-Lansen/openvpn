@@ -21,6 +21,7 @@ import android.text.TextUtils;
 import android.util.Log;
 
 
+import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
 
 import java.io.BufferedReader;
@@ -40,7 +41,7 @@ public class OpenVPNService extends VpnService {
     private static final String VPNSERVICE_TUN = "vpnservice-tun";
     private static final String ORBOT_PACKAGE_NAME = "org.torproject.android";
     private final Object mProcessLock = new Object();
-    private OpenVPNThread mProcessThread = null;
+    private BinaryThread mProcessThread = null;
     private DeviceStateReceiver mDeviceStateReceiver;
     private OpenVpnManagementThread mManagement = null;
     private final Vector<String> mDnsList = new Vector<>();
@@ -58,7 +59,7 @@ public class OpenVPNService extends VpnService {
 
     public class Stub extends Binder {
         @Override
-        protected boolean onTransact(int code, Parcel data, Parcel reply, int flags) throws RemoteException {
+        protected boolean onTransact(int code, @NonNull Parcel data, Parcel reply, int flags) throws RemoteException {
             switch (code) {
                 case 0x001: {
                     data.enforceInterface("startVpn");
@@ -594,7 +595,12 @@ public class OpenVPNService extends VpnService {
         new Thread(mManagement).start();
         Log.i(TAG, "started Socket Thread");
         synchronized (mProcessLock) {
-            mProcessThread = new OpenVPNThread(this);
+            mProcessThread = new BinaryThread(this, Native.getName(), new BinaryThread.Handler() {
+                @Override
+                public void onFinally() {
+                    openvpnStopped();
+                }
+            });
             mProcessThread.start();
         }
 
@@ -629,7 +635,7 @@ public class OpenVPNService extends VpnService {
     public void forceStopOpenVpnProcess() {
         synchronized (mProcessLock) {
             if (mProcessThread != null) {
-                mProcessThread.setReplaceConnection();
+                mProcessThread.setHandler(null);
                 mProcessThread.interrupt();
                 try {
                     Thread.sleep(1000);

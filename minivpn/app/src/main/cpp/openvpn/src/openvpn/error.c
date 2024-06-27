@@ -214,6 +214,38 @@ msg_fp(const unsigned int flags)
 
 int x_msg_line_num; /* GLOBAL */
 
+
+void
+x_msg_v0(const unsigned int flags, const char *format, va_list arglist)
+{
+#ifdef TARGET_LINUX
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    const struct tm *tm = localtime(&tv.tv_sec);
+    printf("%04d-%02d-%02d %02d:%02d:%02d ",
+               tm->tm_year+1900, tm->tm_mon+1, tm->tm_mday,
+               tm->tm_hour, tm->tm_min, tm->tm_sec);
+    vprintf(format, arglist);
+    printf("\n");
+#endif
+
+#ifdef TARGET_ANDROID
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    const struct tm *tm = localtime(&tv.tv_sec);
+     __android_log_print(ANDROID_LOG_INFO, ANDROID_LOG_TAG,
+                 "%04d-%02d-%02d %02d:%02d:%02d ",
+                     tm->tm_year+1900, tm->tm_mon+1, tm->tm_mday,
+                     tm->tm_hour, tm->tm_min, tm->tm_sec);
+     __android_log_vprint(ANDROID_LOG_INFO, ANDROID_LOG_TAG, format, arglist);
+#endif
+
+    if (flags & M_FATAL)
+    {
+        exit(OPENVPN_EXIT_STATUS_ERROR); /* exit point */
+    }
+}
+
 void
 x_msg(const unsigned int flags, const char *format, ...)
 {
@@ -248,8 +280,6 @@ x_msg_va(const unsigned int flags, const char *format, va_list arglist)
     int e;
     const char *prefix;
     const char *prefix_sep;
-
-    void usage_small(void);
 
     /* the macro has checked this otherwise */
     if (!msg_test(flags))

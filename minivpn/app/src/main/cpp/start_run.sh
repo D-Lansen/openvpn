@@ -8,7 +8,9 @@ if [ ! -e "$server_dir" ]; then
 fi
 cd "${server_dir}"
 
-openvpn_dir="${base_dir}/cmake-build-linux/openvpn"
-if [ -e "$openvpn_dir" ]; then
-  sudo "$openvpn_dir" --config server.conf
+openvpn_dir="${base_dir}/cmake-build-linux"
+
+openvpn_path="${server_dir}/openvpn"
+if [ -e "$openvpn_path" ]; then
+  sudo "$openvpn_path" --config server.conf
 fi

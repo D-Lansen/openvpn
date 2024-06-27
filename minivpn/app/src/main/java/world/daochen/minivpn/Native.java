@@ -2,7 +2,7 @@ package world.daochen.minivpn;
 
 public class Native {
     private static final String OVPNEXE = "ovpnexec";
-    public static String getOvpnexe(){
+    public static String getName(){
         return "lib"+OVPNEXE+".so";
     }
 
